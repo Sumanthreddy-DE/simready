@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict
+from dataclasses import asdict, is_dataclass
 from typing import Any
 
 
@@ -17,7 +17,12 @@ def determine_status(errors: list[dict[str, Any]], findings: list[dict[str, Any]
 
 
 def build_report(filepath: str, validation_result: Any, geometry_summary: Any | None, findings: list[dict[str, Any]]) -> dict[str, Any]:
-    geometry = asdict(geometry_summary) if geometry_summary is not None else None
+    if geometry_summary is None:
+        geometry = None
+    elif is_dataclass(geometry_summary):
+        geometry = asdict(geometry_summary)
+    else:
+        geometry = dict(vars(geometry_summary))
     return {
         "input_file": filepath,
         "status": determine_status(validation_result.errors, findings),
