@@ -2,29 +2,61 @@
 
 CLI-first simulation-readiness checker for STEP CAD files.
 
-## Phase 1A goal
-Build the thinnest credible MVP loop:
+## What Phase 1 does now
+SimReady can:
 - validate STEP input
-- extract basic geometry summary
-- run a few essential checks
-- emit a stable JSON report through CLI
+- parse basic geometry summary
+- run simulation-readiness heuristics
+- auto-heal conservatively with OCC ShapeFix
+- split multi-body files and report per body
+- emit stable JSON through the CLI
+- optionally export a healed STEP file
 
-## Planned command
+## Current CLI
 
 ```bash
 python -m simready.cli analyze part.step
+python -m simready.cli analyze part.step --output report.json
+python -m simready.cli analyze part.step --export-healed part_healed.step
 ```
 
-## Current Phase 1A scope
-- validator
-- parser
-- report builder
-- pipeline orchestrator
-- CLI
-- focused tests
+## Current checks and heuristics
+- invalid or unreadable STEP input
+- null shape / global validation failure
+- degenerate geometry
+- non-manifold edges
+- open boundaries
+- short edges
+- thin walls
+- small features
+- small holes / cylindrical features
+- duplicate body heuristic
+- duplicate face heuristic
+- orientation nuance for non-solid face geometry
 
-## Deferred
+## Current output shape
+Top-level JSON includes:
+- `input_file`
+- `status`
+- `summary`
+- `validation`
+- `geometry`
+- `findings`
+- `bodies`
+- `heal`
+- optional `healed_export`
+
+## Deliberately not in Phase 1
 - UI
 - ML integration
-- full 11-check suite
-- advanced healing and mesh recommendations
+- full production-grade geometry intelligence
+- solver-specific mesh recommendations
+
+## Environment
+A working local micromamba-based env was used during development.
+
+Typical run pattern:
+
+```bash
+~/bin/micromamba run -n simready python -m simready.cli analyze tests/data/smoke_box.step
+```
