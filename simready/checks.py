@@ -56,6 +56,7 @@ SMALL_FEATURE_RATIO = 0.02
 SMALL_FEATURE_EDGE_RATIO = 0.2
 SMALL_CYLINDER_RADIUS_RATIO = 0.03
 DUPLICATE_BODY_BBOX_EPS = 1e-5
+DUPLICATE_FACE_BBOX_EPS = 1e-5
 DEGENERATE_EDGE_TOLERANCE = 1e-7
 
 
@@ -113,7 +114,7 @@ def _cylindrical_radii(shape: Any) -> list[float]:
 
 
 def _body_bbox_signatures(shape: Any) -> list[tuple[float, float, float, float, float, float]]:
-    if TopExp_Explorer is None or brepgprop is None or GProp_GProps is None:
+    if TopExp_Explorer is None:
         return []
 
     try:
@@ -129,6 +130,28 @@ def _body_bbox_signatures(shape: Any) -> list[tuple[float, float, float, float, 
         solid = explorer.Current()
         box = Bnd_Box()
         brepbndlib.Add(solid, box)
+        bounds = box.Get()
+        signatures.append(tuple(round(v, 5) for v in bounds))
+        explorer.Next()
+    return signatures
+
+
+def _face_bbox_signatures(shape: Any) -> list[tuple[float, float, float, float, float, float]]:
+    if TopExp_Explorer is None or TopAbs_FACE is None:
+        return []
+
+    try:
+        from OCC.Core.Bnd import Bnd_Box
+        from OCC.Core.BRepBndLib import brepbndlib
+    except ImportError:  # pragma: no cover
+        return []
+
+    signatures: list[tuple[float, float, float, float, float, float]] = []
+    explorer = TopExp_Explorer(shape, TopAbs_FACE)
+    while explorer.More():
+        face = explorer.Current()
+        box = Bnd_Box()
+        brepbndlib.Add(face, box)
         bounds = box.Get()
         signatures.append(tuple(round(v, 5) for v in bounds))
         explorer.Next()
@@ -419,6 +442,29 @@ def check_duplicate_body_heuristic(shape: Any, geometry_summary: Any) -> list[di
     ]
 
 
+def check_duplicate_face_heuristic(shape: Any, geometry_summary: Any) -> list[dict[str, Any]]:
+    if geometry_summary.face_count <= 1:
+        return []
+
+    signatures = _face_bbox_signatures(shape)
+    if len(signatures) <= 1:
+        return []
+
+    duplicates = len(signatures) - len(set(signatures))
+    if duplicates <= 0:
+        return []
+
+    severity = "Major" if geometry_summary.solid_count <= 0 else "Minor"
+    return [
+        {
+            "check": "DuplicateFaceHeuristic",
+            "severity": severity,
+            "detail": f"Detected {duplicates} duplicate face-level bounding-box signatures.",
+            "suggestion": "Inspect for coincident or overlapping faces before meshing.",
+        }
+    ]
+
+
 def check_orientation_nuance(shape: Any, geometry_summary: Any) -> list[dict[str, Any]]:
     if geometry_summary.solid_count > 0:
         return []
@@ -458,6 +504,7 @@ def run_essential_checks(shape: Any, geometry_summary: Any) -> list[dict[str, An
     findings.extend(check_small_features(shape, geometry_summary))
     findings.extend(check_small_fillets(shape, geometry_summary))
     findings.extend(check_duplicate_body_heuristic(shape, geometry_summary))
+    findings.extend(check_duplicate_face_heuristic(shape, geometry_summary))
     findings.extend(check_orientation_nuance(shape, geometry_summary))
 
     if geometry_summary.solid_count > 1:

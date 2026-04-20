@@ -71,6 +71,14 @@ def test_duplicate_body_fixture_flags_duplicate_body_heuristic():
     assert "DuplicateBodyHeuristic" in check_names
 
 
+def test_duplicate_face_fixture_flags_duplicate_face_heuristic():
+    validation = validate_step_file("tests/data/duplicate_face_compound.step")
+    geometry = parse_geometry(validation.shape)
+    findings = run_essential_checks(validation.shape, geometry)
+    check_names = {finding["check"] for finding in findings}
+    assert "DuplicateFaceHeuristic" in check_names
+
+
 def test_summarize_findings_counts_by_severity():
     summary = summarize_findings(
         [

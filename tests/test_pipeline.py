@@ -67,3 +67,9 @@ def test_analyze_duplicate_body_file():
     report = analyze_file("tests/data/duplicate_body.step")
     checks = {finding["check"] for finding in report["findings"]}
     assert "DuplicateBodyHeuristic" in checks
+
+
+def test_analyze_duplicate_face_file():
+    report = analyze_file("tests/data/duplicate_face_compound.step")
+    checks = {finding["check"] for finding in report["findings"]}
+    assert "DuplicateFaceHeuristic" in checks
