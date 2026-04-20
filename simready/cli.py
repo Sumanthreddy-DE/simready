@@ -17,9 +17,10 @@ def cli() -> None:
 @cli.command()
 @click.argument("input_file", type=click.Path(exists=False))
 @click.option("--output", "output_path", type=click.Path(), default=None)
-def analyze(input_file: str, output_path: str | None) -> None:
+@click.option("--export-healed", "export_healed_path", type=click.Path(), default=None)
+def analyze(input_file: str, output_path: str | None, export_healed_path: str | None) -> None:
     """Analyze a STEP file and emit JSON output."""
-    report = analyze_file(input_file)
+    report = analyze_file(input_file, export_healed_path=export_healed_path)
     payload = json.dumps(report, indent=2)
     if output_path:
         with open(output_path, "w", encoding="utf-8") as handle:

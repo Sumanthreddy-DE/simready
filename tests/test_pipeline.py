@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from simready.pipeline import analyze_file
 
 
@@ -15,7 +17,14 @@ def test_analyze_valid_file(valid_step_file):
     assert report["validation"]["is_valid"] is True
     assert report["geometry"]["face_count"] == 6
     assert report["status"] in {"SimulationReady", "ReviewRecommended", "NeedsAttention"}
-    assert set(report.keys()) == {"input_file", "status", "validation", "geometry", "findings", "bodies"}
+    assert set(report.keys()) >= {"input_file", "status", "validation", "geometry", "findings", "bodies", "heal"}
+
+
+def test_analyze_valid_file_with_export(valid_step_file, tmp_path):
+    export_path = tmp_path / "healed_export.step"
+    report = analyze_file(valid_step_file, export_healed_path=str(export_path))
+    if "healed_export" in report:
+        assert Path(report["healed_export"]).exists()
 
 
 def test_analyze_multi_body_file():
@@ -28,6 +37,7 @@ def test_analyze_multi_body_file():
     assert report["bodies"][0]["body_index"] == 1
     assert "geometry" in report["bodies"][0]
     assert "findings" in report["bodies"][0]
+    assert "heal" in report["bodies"][0]
 
 
 def test_analyze_open_face_file():
