@@ -1,6 +1,8 @@
-import pytest
-
-from simready.checks import check_short_edges, run_essential_checks
+from simready.checks import (
+    check_short_edges,
+    run_essential_checks,
+    summarize_findings,
+)
 from simready.parser import parse_geometry
 from simready.validator import validate_step_file
 
@@ -35,3 +37,32 @@ def test_short_edge_check_on_fake_summary():
 
     findings = check_short_edges(FakeShape(), FakeSummary())
     assert findings == []
+
+
+def test_thin_plate_flags_thin_walls():
+    validation = validate_step_file("tests/data/thin_plate.step")
+    geometry = parse_geometry(validation.shape)
+    findings = run_essential_checks(validation.shape, geometry)
+    check_names = {finding["check"] for finding in findings}
+    assert "ThinWalls" in check_names
+
+
+def test_small_feature_fixture_currently_parses_cleanly():
+    validation = validate_step_file("tests/data/small_feature_hole.step")
+    geometry = parse_geometry(validation.shape)
+    findings = run_essential_checks(validation.shape, geometry)
+    assert isinstance(findings, list)
+
+
+def test_summarize_findings_counts_by_severity():
+    summary = summarize_findings(
+        [
+            {"check": "A", "severity": "Major"},
+            {"check": "B", "severity": "Minor"},
+            {"check": "C", "severity": "Minor"},
+        ]
+    )
+    assert summary["total"] == 3
+    assert summary["by_severity"]["Major"] == 1
+    assert summary["by_severity"]["Minor"] == 2
+    assert summary["major_checks"] == ["A"]

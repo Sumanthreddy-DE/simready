@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import asdict, is_dataclass
 from typing import Any
 
+from simready.checks import summarize_findings
+
 
 def determine_status(errors: list[dict[str, Any]], findings: list[dict[str, Any]]) -> str:
     if any(error.get("severity") == "Critical" for error in errors):
@@ -29,9 +31,11 @@ def build_report(
         geometry = asdict(geometry_summary)
     else:
         geometry = dict(vars(geometry_summary))
+    status = determine_status(validation_result.errors, findings)
     return {
         "input_file": filepath,
-        "status": determine_status(validation_result.errors, findings),
+        "status": status,
+        "summary": summarize_findings(findings),
         "validation": {
             "is_valid": validation_result.is_valid,
             "errors": validation_result.errors,

@@ -16,8 +16,9 @@ def test_analyze_valid_file(valid_step_file):
     report = analyze_file(valid_step_file)
     assert report["validation"]["is_valid"] is True
     assert report["geometry"]["face_count"] == 6
+    assert report["summary"]["total"] >= 0
     assert report["status"] in {"SimulationReady", "ReviewRecommended", "NeedsAttention"}
-    assert set(report.keys()) >= {"input_file", "status", "validation", "geometry", "findings", "bodies", "heal"}
+    assert set(report.keys()) >= {"input_file", "status", "summary", "validation", "geometry", "findings", "bodies", "heal"}
 
 
 def test_analyze_valid_file_with_export(valid_step_file, tmp_path):
@@ -38,6 +39,7 @@ def test_analyze_multi_body_file():
     assert "geometry" in report["bodies"][0]
     assert "findings" in report["bodies"][0]
     assert "heal" in report["bodies"][0]
+    assert "summary" in report["bodies"][0]
 
 
 def test_analyze_open_face_file():
@@ -46,3 +48,15 @@ def test_analyze_open_face_file():
     checks = {finding["check"] for finding in report["findings"]}
     assert "OpenBoundaries" in checks
     assert report["status"] in {"NeedsAttention", "ReviewRecommended"}
+
+
+def test_analyze_thin_plate_file():
+    report = analyze_file("tests/data/thin_plate.step")
+    checks = {finding["check"] for finding in report["findings"]}
+    assert "ThinWalls" in checks
+
+
+def test_analyze_small_feature_file_runs_cleanly():
+    report = analyze_file("tests/data/small_feature_hole.step")
+    assert report["validation"]["is_valid"] is True
+    assert isinstance(report["findings"], list)

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from simready.checks import run_essential_checks
+from simready.checks import run_essential_checks, summarize_findings
 from simready.healer import heal_shape
 from simready.parser import parse_geometry
 from simready.report import build_report
@@ -16,9 +16,11 @@ def _body_report(shape: Any, index: int) -> dict[str, Any]:
     heal_result = heal_shape(shape)
     geometry_summary = parse_geometry(heal_result.healed_shape)
     findings = run_essential_checks(heal_result.healed_shape, geometry_summary)
+    status = "NeedsAttention" if any(f.get("severity") == "Major" for f in findings) else ("ReviewRecommended" if findings else "SimulationReady")
     return {
         "body_index": index,
-        "status": "NeedsAttention" if any(f.get("severity") == "Major" for f in findings) else ("ReviewRecommended" if findings else "SimulationReady"),
+        "status": status,
+        "summary": summarize_findings(findings),
         "heal": heal_result.summary,
         "geometry": {
             "face_count": geometry_summary.face_count,

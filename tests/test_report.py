@@ -24,8 +24,9 @@ def test_build_report_shape():
     report = build_report("part.step", validation, geometry, [], bodies=[])
     assert report["input_file"] == "part.step"
     assert report["status"] == "SimulationReady"
+    assert report["summary"]["total"] == 0
     assert report["geometry"]["face_count"] == 6
     assert report["validation"] == {"is_valid": True, "errors": []}
     assert report["findings"] == []
     assert report["bodies"] == []
-    assert set(report.keys()) == {"input_file", "status", "validation", "geometry", "findings", "bodies"}
+    assert set(report.keys()) == {"input_file", "status", "summary", "validation", "geometry", "findings", "bodies"}
