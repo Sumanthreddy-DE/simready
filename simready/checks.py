@@ -115,8 +115,18 @@ def check_non_manifold_edges(shape: Any) -> list[dict[str, Any]]:
     ]
 
 
-def check_open_boundaries(shape: Any) -> list[dict[str, Any]]:
+def check_open_boundaries(shape: Any, geometry_summary: Any | None = None) -> list[dict[str, Any]]:
     findings: list[dict[str, Any]] = []
+
+    if geometry_summary is not None and geometry_summary.solid_count <= 0 and geometry_summary.face_count > 0:
+        findings.append(
+            {
+                "check": "OpenBoundaries",
+                "severity": "Major",
+                "detail": "Geometry contains faces but no closed solid volume.",
+                "suggestion": "Close the shell or export a watertight solid before simulation.",
+            }
+        )
 
     if BRep_Tool is None or TopExp is None or TopTools_IndexedDataMapOfShapeListOfShape is None or TopAbs_EDGE is None or TopAbs_FACE is None:
         return findings
@@ -222,7 +232,7 @@ def run_essential_checks(shape: Any, geometry_summary: Any) -> list[dict[str, An
     findings: list[dict[str, Any]] = []
     findings.extend(check_degenerate_geometry(shape, geometry_summary))
     findings.extend(check_non_manifold_edges(shape))
-    findings.extend(check_open_boundaries(shape))
+    findings.extend(check_open_boundaries(shape, geometry_summary))
     findings.extend(check_short_edges(shape, geometry_summary))
 
     if geometry_summary.solid_count > 1:

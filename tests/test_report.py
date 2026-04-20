@@ -8,6 +8,16 @@ def test_determine_status_invalid_input():
     assert status == "InvalidInput"
 
 
+def test_determine_status_major_finding():
+    status = determine_status([], [{"severity": "Major"}])
+    assert status == "NeedsAttention"
+
+
+def test_determine_status_minor_finding():
+    status = determine_status([], [{"severity": "Minor"}])
+    assert status == "ReviewRecommended"
+
+
 def test_build_report_shape():
     validation = SimpleNamespace(is_valid=True, errors=[])
     geometry = SimpleNamespace(face_count=6, edge_count=12, solid_count=1, bounding_box=None)
@@ -15,3 +25,6 @@ def test_build_report_shape():
     assert report["input_file"] == "part.step"
     assert report["status"] == "SimulationReady"
     assert report["geometry"]["face_count"] == 6
+    assert report["validation"] == {"is_valid": True, "errors": []}
+    assert report["findings"] == []
+    assert set(report.keys()) == {"input_file", "status", "validation", "geometry", "findings"}
