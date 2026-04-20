@@ -16,7 +16,13 @@ def determine_status(errors: list[dict[str, Any]], findings: list[dict[str, Any]
     return "SimulationReady"
 
 
-def build_report(filepath: str, validation_result: Any, geometry_summary: Any | None, findings: list[dict[str, Any]]) -> dict[str, Any]:
+def build_report(
+    filepath: str,
+    validation_result: Any,
+    geometry_summary: Any | None,
+    findings: list[dict[str, Any]],
+    bodies: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     if geometry_summary is None:
         geometry = None
     elif is_dataclass(geometry_summary):
@@ -32,4 +38,5 @@ def build_report(filepath: str, validation_result: Any, geometry_summary: Any | 
         },
         "geometry": geometry,
         "findings": findings,
+        "bodies": bodies or [],
     }

@@ -21,10 +21,11 @@ def test_determine_status_minor_finding():
 def test_build_report_shape():
     validation = SimpleNamespace(is_valid=True, errors=[])
     geometry = SimpleNamespace(face_count=6, edge_count=12, solid_count=1, bounding_box=None)
-    report = build_report("part.step", validation, geometry, [])
+    report = build_report("part.step", validation, geometry, [], bodies=[])
     assert report["input_file"] == "part.step"
     assert report["status"] == "SimulationReady"
     assert report["geometry"]["face_count"] == 6
     assert report["validation"] == {"is_valid": True, "errors": []}
     assert report["findings"] == []
-    assert set(report.keys()) == {"input_file", "status", "validation", "geometry", "findings"}
+    assert report["bodies"] == []
+    assert set(report.keys()) == {"input_file", "status", "validation", "geometry", "findings", "bodies"}

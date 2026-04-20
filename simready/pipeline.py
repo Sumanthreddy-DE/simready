@@ -2,17 +2,42 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from simready.checks import run_essential_checks
 from simready.parser import parse_geometry
 from simready.report import build_report
+from simready.splitter import split_bodies
 from simready.validator import validate_step_file
+
+
+def _body_report(shape: Any, index: int) -> dict[str, Any]:
+    geometry_summary = parse_geometry(shape)
+    findings = run_essential_checks(shape, geometry_summary)
+    return {
+        "body_index": index,
+        "status": "NeedsAttention" if any(f.get("severity") == "Major" for f in findings) else ("ReviewRecommended" if findings else "SimulationReady"),
+        "geometry": {
+            "face_count": geometry_summary.face_count,
+            "edge_count": geometry_summary.edge_count,
+            "solid_count": geometry_summary.solid_count,
+            "bounding_box": geometry_summary.bounding_box,
+        },
+        "findings": findings,
+    }
 
 
 def analyze_file(filepath: str) -> dict[str, Any]:
     validation_result = validate_step_file(filepath)
     if not validation_result.is_valid:
-        return build_report(filepath, validation_result, None, [])
+        return build_report(filepath, validation_result, None, [], bodies=[])
 
     geometry_summary = parse_geometry(validation_result.shape)
     findings = run_essential_checks(validation_result.shape, geometry_summary)
-    return build_report(filepath, validation_result, geometry_summary, findings)
+
+    split = split_bodies(validation_result.shape)
+    body_reports: list[dict[str, Any]] = []
+    if split.body_count > 1:
+        body_reports = [_body_report(body_shape, idx + 1) for idx, body_shape in enumerate(split.bodies)]
+
+    return build_report(filepath, validation_result, geometry_summary, findings, bodies=body_reports)
