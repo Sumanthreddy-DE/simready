@@ -55,6 +55,22 @@ def test_small_feature_fixture_flags_small_geometry():
     assert "SmallFilletsOrHoles" in check_names or "SmallFeatures" in check_names
 
 
+def test_open_face_flags_orientation_nuance():
+    validation = validate_step_file("tests/data/open_face.step")
+    geometry = parse_geometry(validation.shape)
+    findings = run_essential_checks(validation.shape, geometry)
+    check_names = {finding["check"] for finding in findings}
+    assert "OrientationNuance" in check_names
+
+
+def test_duplicate_body_fixture_flags_duplicate_body_heuristic():
+    validation = validate_step_file("tests/data/duplicate_body.step")
+    geometry = parse_geometry(validation.shape)
+    findings = run_essential_checks(validation.shape, geometry)
+    check_names = {finding["check"] for finding in findings}
+    assert "DuplicateBodyHeuristic" in check_names
+
+
 def test_summarize_findings_counts_by_severity():
     summary = summarize_findings(
         [

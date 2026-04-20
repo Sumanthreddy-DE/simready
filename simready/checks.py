@@ -55,6 +55,7 @@ THIN_WALL_RATIO = 0.03
 SMALL_FEATURE_RATIO = 0.02
 SMALL_FEATURE_EDGE_RATIO = 0.2
 SMALL_CYLINDER_RADIUS_RATIO = 0.03
+DUPLICATE_BODY_BBOX_EPS = 1e-5
 DEGENERATE_EDGE_TOLERANCE = 1e-7
 
 
@@ -109,6 +110,29 @@ def _cylindrical_radii(shape: Any) -> list[float]:
             pass
         explorer.Next()
     return radii
+
+
+def _body_bbox_signatures(shape: Any) -> list[tuple[float, float, float, float, float, float]]:
+    if TopExp_Explorer is None or brepgprop is None or GProp_GProps is None:
+        return []
+
+    try:
+        from OCC.Core.Bnd import Bnd_Box
+        from OCC.Core.BRepBndLib import brepbndlib
+        from OCC.Core.TopAbs import TopAbs_SOLID
+    except ImportError:  # pragma: no cover
+        return []
+
+    signatures: list[tuple[float, float, float, float, float, float]] = []
+    explorer = TopExp_Explorer(shape, TopAbs_SOLID)
+    while explorer.More():
+        solid = explorer.Current()
+        box = Bnd_Box()
+        brepbndlib.Add(solid, box)
+        bounds = box.Get()
+        signatures.append(tuple(round(v, 5) for v in bounds))
+        explorer.Next()
+    return signatures
 
 
 def check_degenerate_geometry(shape: Any, geometry_summary: Any) -> list[dict[str, Any]]:
@@ -373,6 +397,44 @@ def check_small_fillets(shape: Any, geometry_summary: Any) -> list[dict[str, Any
     ]
 
 
+def check_duplicate_body_heuristic(shape: Any, geometry_summary: Any) -> list[dict[str, Any]]:
+    if geometry_summary.solid_count <= 1:
+        return []
+
+    signatures = _body_bbox_signatures(shape)
+    if len(signatures) <= 1:
+        return []
+
+    duplicates = len(signatures) - len(set(signatures))
+    if duplicates <= 0:
+        return []
+
+    return [
+        {
+            "check": "DuplicateBodyHeuristic",
+            "severity": "Major",
+            "detail": f"Detected {duplicates} body-level duplicate bounding-box signatures.",
+            "suggestion": "Inspect for overlapping or duplicate solids before simulation.",
+        }
+    ]
+
+
+def check_orientation_nuance(shape: Any, geometry_summary: Any) -> list[dict[str, Any]]:
+    if geometry_summary.solid_count > 0:
+        return []
+    if geometry_summary.face_count <= 0:
+        return []
+
+    return [
+        {
+            "check": "OrientationNuance",
+            "severity": "Minor",
+            "detail": "Face-based geometry without a closed solid may contain orientation inconsistencies.",
+            "suggestion": "Inspect shell orientation and face normals before meshing.",
+        }
+    ]
+
+
 def summarize_findings(findings: list[dict[str, Any]]) -> dict[str, Any]:
     severity_counts = {"Critical": 0, "Major": 0, "Minor": 0, "Info": 0}
     for finding in findings:
@@ -395,6 +457,8 @@ def run_essential_checks(shape: Any, geometry_summary: Any) -> list[dict[str, An
     findings.extend(check_thin_walls(geometry_summary))
     findings.extend(check_small_features(shape, geometry_summary))
     findings.extend(check_small_fillets(shape, geometry_summary))
+    findings.extend(check_duplicate_body_heuristic(shape, geometry_summary))
+    findings.extend(check_orientation_nuance(shape, geometry_summary))
 
     if geometry_summary.solid_count > 1:
         findings.append(

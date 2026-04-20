@@ -47,6 +47,7 @@ def test_analyze_open_face_file():
     assert report["validation"]["is_valid"] is True
     checks = {finding["check"] for finding in report["findings"]}
     assert "OpenBoundaries" in checks
+    assert "OrientationNuance" in checks
     assert report["status"] in {"NeedsAttention", "ReviewRecommended"}
 
 
@@ -60,3 +61,9 @@ def test_analyze_small_feature_file():
     report = analyze_file("tests/data/small_feature_hole.step")
     checks = {finding["check"] for finding in report["findings"]}
     assert "SmallFilletsOrHoles" in checks or "SmallFeatures" in checks
+
+
+def test_analyze_duplicate_body_file():
+    report = analyze_file("tests/data/duplicate_body.step")
+    checks = {finding["check"] for finding in report["findings"]}
+    assert "DuplicateBodyHeuristic" in checks
