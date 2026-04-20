@@ -56,7 +56,7 @@ def test_analyze_thin_plate_file():
     assert "ThinWalls" in checks
 
 
-def test_analyze_small_feature_file_runs_cleanly():
+def test_analyze_small_feature_file():
     report = analyze_file("tests/data/small_feature_hole.step")
-    assert report["validation"]["is_valid"] is True
-    assert isinstance(report["findings"], list)
+    checks = {finding["check"] for finding in report["findings"]}
+    assert "SmallFilletsOrHoles" in checks or "SmallFeatures" in checks

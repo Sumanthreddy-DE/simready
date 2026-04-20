@@ -6,26 +6,46 @@ from typing import Any
 
 try:
     from OCC.Core.BRep import BRep_Tool
+except ImportError:  # pragma: no cover
+    BRep_Tool = None
+
+try:
     from OCC.Core.BRepAdaptor import BRepAdaptor_Curve, BRepAdaptor_Surface
-    from OCC.Core.GeomAbs import GeomAbs_Cylinder
+except ImportError:  # pragma: no cover
+    BRepAdaptor_Curve = None
+    BRepAdaptor_Surface = None
+
+try:
     from OCC.Core.ShapeAnalysis import ShapeAnalysis_Shell
+except ImportError:  # pragma: no cover
+    ShapeAnalysis_Shell = None
+
+try:
     from OCC.Core.TopAbs import TopAbs_EDGE, TopAbs_FACE
-    from OCC.Core.TopExp import TopExp, TopExp_Explorer
+except ImportError:  # pragma: no cover
+    TopAbs_EDGE = None
+    TopAbs_FACE = None
+
+try:
+    from OCC.Core.TopExp import topexp, TopExp_Explorer
+except ImportError:  # pragma: no cover
+    topexp = None
+    TopExp_Explorer = None
+
+try:
     from OCC.Core.TopTools import TopTools_IndexedDataMapOfShapeListOfShape
+except ImportError:  # pragma: no cover
+    TopTools_IndexedDataMapOfShapeListOfShape = None
+
+try:
     from OCC.Core.TopoDS import topods
+except ImportError:  # pragma: no cover
+    topods = None
+
+try:
     from OCC.Core.BRepGProp import brepgprop
     from OCC.Core.GProp import GProp_GProps
 except ImportError:  # pragma: no cover
-    BRep_Tool = None
-    BRepAdaptor_Curve = None
-    BRepAdaptor_Surface = None
-    GeomAbs_Cylinder = None
-    ShapeAnalysis_Shell = None
-    TopAbs_EDGE = TopAbs_FACE = None
-    TopExp = None
-    TopExp_Explorer = None
-    TopTools_IndexedDataMapOfShapeListOfShape = None
-    topods = None
     brepgprop = None
     GProp_GProps = None
 
@@ -34,7 +54,7 @@ SHORT_EDGE_RATIO = 0.005
 THIN_WALL_RATIO = 0.03
 SMALL_FEATURE_RATIO = 0.02
 SMALL_FEATURE_EDGE_RATIO = 0.2
-SMALL_FILLET_RADIUS_RATIO = 0.03
+SMALL_CYLINDER_RADIUS_RATIO = 0.03
 DEGENERATE_EDGE_TOLERANCE = 1e-7
 
 
@@ -63,14 +83,6 @@ def _short_edge_threshold(bounding_box: dict[str, float] | None) -> float:
     return max_dim * SHORT_EDGE_RATIO if max_dim > 0 else 0.0
 
 
-def _surface_area(shape: Any) -> float:
-    if brepgprop is None or GProp_GProps is None:
-        return 0.0
-    props = GProp_GProps()
-    brepgprop.SurfaceProperties(shape, props)
-    return props.Mass()
-
-
 def _edge_length(edge: Any) -> float:
     if BRepAdaptor_Curve is None:
         return 0.0
@@ -79,6 +91,24 @@ def _edge_length(edge: Any) -> float:
         return abs(curve.LastParameter() - curve.FirstParameter())
     except Exception:
         return 0.0
+
+
+def _cylindrical_radii(shape: Any) -> list[float]:
+    if TopExp_Explorer is None or TopAbs_FACE is None or BRepAdaptor_Surface is None:
+        return []
+
+    radii: list[float] = []
+    explorer = TopExp_Explorer(shape, TopAbs_FACE)
+    while explorer.More():
+        face = explorer.Current()
+        try:
+            surface = BRepAdaptor_Surface(face, True)
+            cylinder = surface.Cylinder()
+            radii.append(cylinder.Radius())
+        except Exception:
+            pass
+        explorer.Next()
+    return radii
 
 
 def check_degenerate_geometry(shape: Any, geometry_summary: Any) -> list[dict[str, Any]]:
@@ -119,15 +149,15 @@ def check_degenerate_geometry(shape: Any, geometry_summary: Any) -> list[dict[st
 
 
 def check_non_manifold_edges(shape: Any) -> list[dict[str, Any]]:
-    if TopExp is None or TopTools_IndexedDataMapOfShapeListOfShape is None or TopAbs_EDGE is None or TopAbs_FACE is None:
+    if topexp is None or TopTools_IndexedDataMapOfShapeListOfShape is None or TopAbs_EDGE is None or TopAbs_FACE is None:
         return []
 
     edge_face_map = TopTools_IndexedDataMapOfShapeListOfShape()
-    TopExp.MapShapesAndAncestors(shape, TopAbs_EDGE, TopAbs_FACE, edge_face_map)
+    topexp.MapShapesAndAncestors(shape, TopAbs_EDGE, TopAbs_FACE, edge_face_map)
 
     bad_edges = 0
-    for index in range(1, edge_face_map.Extent() + 1):
-        if edge_face_map.FindFromIndex(index).Extent() > 2:
+    for index in range(1, edge_face_map.Size() + 1):
+        if edge_face_map.FindFromIndex(index).Size() > 2:
             bad_edges += 1
 
     if not bad_edges:
@@ -156,17 +186,17 @@ def check_open_boundaries(shape: Any, geometry_summary: Any | None = None) -> li
             }
         )
 
-    if BRep_Tool is None or TopExp is None or TopTools_IndexedDataMapOfShapeListOfShape is None or TopAbs_EDGE is None or TopAbs_FACE is None:
+    if BRep_Tool is None or topexp is None or TopTools_IndexedDataMapOfShapeListOfShape is None or TopAbs_EDGE is None or TopAbs_FACE is None:
         return findings
 
     edge_face_map = TopTools_IndexedDataMapOfShapeListOfShape()
-    TopExp.MapShapesAndAncestors(shape, TopAbs_EDGE, TopAbs_FACE, edge_face_map)
+    topexp.MapShapesAndAncestors(shape, TopAbs_EDGE, TopAbs_FACE, edge_face_map)
 
     open_edges = 0
     degenerate_edges = 0
-    for index in range(1, edge_face_map.Extent() + 1):
+    for index in range(1, edge_face_map.Size() + 1):
         edge = edge_face_map.FindKey(index)
-        attached_faces = edge_face_map.FindFromIndex(index).Extent()
+        attached_faces = edge_face_map.FindFromIndex(index).Size()
         if attached_faces == 1:
             open_edges += 1
         try:
@@ -230,7 +260,10 @@ def check_short_edges(shape: Any, geometry_summary: Any) -> list[dict[str, Any]]
         return []
 
     short_edges = 0
-    explorer = TopExp_Explorer(shape, TopAbs_EDGE)
+    try:
+        explorer = TopExp_Explorer(shape, TopAbs_EDGE)
+    except Exception:
+        return []
     while explorer.More():
         edge = topods.Edge(explorer.Current()) if topods is not None else explorer.Current()
         length = _edge_length(edge)
@@ -321,36 +354,20 @@ def check_small_features(shape: Any, geometry_summary: Any) -> list[dict[str, An
 
 
 def check_small_fillets(shape: Any, geometry_summary: Any) -> list[dict[str, Any]]:
-    if TopExp_Explorer is None or TopAbs_FACE is None or BRepAdaptor_Surface is None:
-        return []
-
     max_dim = _max_dim(geometry_summary.bounding_box)
     if max_dim <= 0:
         return []
-    radius_threshold = max_dim * SMALL_FILLET_RADIUS_RATIO
 
-    small_cylinders = 0
-    explorer = TopExp_Explorer(shape, TopAbs_FACE)
-    while explorer.More():
-        face = topods.Face(explorer.Current()) if topods is not None else explorer.Current()
-        try:
-            surface = BRepAdaptor_Surface(face, True)
-            cylinder = surface.Cylinder()
-            radius = cylinder.Radius()
-            if radius <= radius_threshold:
-                small_cylinders += 1
-        except Exception:
-            pass
-        explorer.Next()
-
-    if not small_cylinders:
+    radius_threshold = max_dim * SMALL_CYLINDER_RADIUS_RATIO
+    radii = [radius for radius in _cylindrical_radii(shape) if radius <= radius_threshold]
+    if not radii:
         return []
 
     return [
         {
             "check": "SmallFilletsOrHoles",
             "severity": "Minor",
-            "detail": f"Detected {small_cylinders} cylindrical faces with radius below {radius_threshold:.6g}.",
+            "detail": f"Detected {len(radii)} cylindrical faces with radius below {radius_threshold:.6g}.",
             "suggestion": "Inspect small fillets or holes that may need defeaturing or local refinement.",
         }
     ]

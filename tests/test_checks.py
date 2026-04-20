@@ -47,11 +47,12 @@ def test_thin_plate_flags_thin_walls():
     assert "ThinWalls" in check_names
 
 
-def test_small_feature_fixture_currently_parses_cleanly():
+def test_small_feature_fixture_flags_small_geometry():
     validation = validate_step_file("tests/data/small_feature_hole.step")
     geometry = parse_geometry(validation.shape)
     findings = run_essential_checks(validation.shape, geometry)
-    assert isinstance(findings, list)
+    check_names = {finding["check"] for finding in findings}
+    assert "SmallFilletsOrHoles" in check_names or "SmallFeatures" in check_names
 
 
 def test_summarize_findings_counts_by_severity():
