@@ -134,7 +134,11 @@ SimReady/
     download_fusion360.py
     train.py
     evaluate.py
+  ui/
+    app.py
+    viz.py
   tests/
+  report_schema.json
   environment.yml
   requirements.txt
 ```
@@ -143,7 +147,7 @@ SimReady/
 
 - Full BRepNet model wiring is still scaffold-level, not final production inference.
 - Real-world validation set coverage is still pending.
-- UI work (Streamlit + PyVista) is still pending.
+- UI work now has a Streamlit scaffold in `ui/app.py`, but 3D OCC/PyVista face rendering is still pending.
 - Actual pytest execution still depends on a populated project environment with pythonocc installed.
 
 ## License

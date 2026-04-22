@@ -9,4 +9,5 @@ dependencies:
   - rich
   - jinja2
   - pytorch
+  - streamlit
   - pip

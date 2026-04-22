@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SimReady Report",
+  "type": "object",
+  "required": ["input_file", "status", "summary", "validation", "findings", "bodies"],
+  "properties": {
+    "input_file": {"type": "string"},
+    "status": {"type": "string"},
+    "summary": {"type": "object"},
+    "validation": {"type": "object"},
+    "geometry": {"type": ["object", "null"]},
+    "findings": {"type": "array"},
+    "bodies": {"type": "array"},
+    "heal": {"type": "object"},
+    "elapsed_seconds": {"type": "number"},
+    "per_face_scores": {"type": "object"},
+    "combined_per_face_scores": {"type": "object"},
+    "score": {"type": "object"},
+    "ml": {"type": "object"},
+    "graph": {"type": "object"}
+  },
+  "additionalProperties": true
+}
