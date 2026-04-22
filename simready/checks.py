@@ -1,7 +1,8 @@
-"""Geometry checks for SimReady Phase 1."""
+"""Geometry checks for SimReady with Phase 2 per-face scoring groundwork."""
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from typing import Any
 
 from simready.occ_utils import build_edge_face_map, edge_length
@@ -50,9 +51,33 @@ THIN_WALL_RATIO = 0.03
 SMALL_FEATURE_RATIO = 0.02
 SMALL_FEATURE_EDGE_RATIO = 0.2
 SMALL_CYLINDER_RADIUS_RATIO = 0.03
-DUPLICATE_BODY_BBOX_EPS = 1e-5
-DUPLICATE_FACE_BBOX_EPS = 1e-5
 DEGENERATE_EDGE_TOLERANCE = 1e-7
+
+
+@dataclass
+class CheckResult:
+    per_face: dict[int, float] = field(default_factory=dict)
+    findings: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass
+class FaceRecord:
+    index: int
+    face: Any
+
+
+def _result(findings: list[dict[str, Any]] | None = None, per_face: dict[int, float] | None = None) -> CheckResult:
+    return CheckResult(per_face=per_face or {}, findings=findings or [])
+
+
+def _merge_check_results(results: list[CheckResult]) -> CheckResult:
+    merged_findings: list[dict[str, Any]] = []
+    merged_per_face: dict[int, float] = {}
+    for result in results:
+        merged_findings.extend(result.findings)
+        for face_index, score in result.per_face.items():
+            merged_per_face[face_index] = max(merged_per_face.get(face_index, 0.0), float(score))
+    return CheckResult(per_face=merged_per_face, findings=merged_findings)
 
 
 def _bbox_dims(bounding_box: dict[str, float] | None) -> tuple[float, float, float]:
@@ -80,70 +105,76 @@ def _short_edge_threshold(bounding_box: dict[str, float] | None) -> float:
     return max_dim * SHORT_EDGE_RATIO if max_dim > 0 else 0.0
 
 
-def _cylindrical_radii(shape: Any) -> list[float]:
-    if TopExp_Explorer is None or TopAbs_FACE is None or BRepAdaptor_Surface is None:
-        return []
-
-    radii: list[float] = []
-    explorer = TopExp_Explorer(shape, TopAbs_FACE)
-    while explorer.More():
-        face = explorer.Current()
-        try:
-            surface = BRepAdaptor_Surface(face, True)
-            cylinder = surface.Cylinder()
-            radii.append(cylinder.Radius())
-        except Exception:
-            pass
-        explorer.Next()
-    return radii
-
-
-def _body_bbox_signatures(shape: Any) -> list[tuple[float, float, float, float, float, float]]:
-    if TopExp_Explorer is None:
-        return []
-
-    try:
-        from OCC.Core.Bnd import Bnd_Box
-        from OCC.Core.BRepBndLib import brepbndlib
-        from OCC.Core.TopAbs import TopAbs_SOLID
-    except ImportError:  # pragma: no cover
-        return []
-
-    signatures: list[tuple[float, float, float, float, float, float]] = []
-    explorer = TopExp_Explorer(shape, TopAbs_SOLID)
-    while explorer.More():
-        solid = explorer.Current()
-        box = Bnd_Box()
-        brepbndlib.Add(solid, box)
-        bounds = box.Get()
-        signatures.append(tuple(round(v, 5) for v in bounds))
-        explorer.Next()
-    return signatures
-
-
-def _face_bbox_signatures(shape: Any) -> list[tuple[float, float, float, float, float, float]]:
+def _iter_faces(shape: Any) -> list[FaceRecord]:
     if TopExp_Explorer is None or TopAbs_FACE is None:
         return []
-
     try:
-        from OCC.Core.Bnd import Bnd_Box
-        from OCC.Core.BRepBndLib import brepbndlib
-    except ImportError:  # pragma: no cover
+        explorer = TopExp_Explorer(shape, TopAbs_FACE)
+    except Exception:
         return []
-
-    signatures: list[tuple[float, float, float, float, float, float]] = []
-    explorer = TopExp_Explorer(shape, TopAbs_FACE)
+    faces: list[FaceRecord] = []
+    index = 1
     while explorer.More():
-        face = explorer.Current()
-        box = Bnd_Box()
-        brepbndlib.Add(face, box)
-        bounds = box.Get()
-        signatures.append(tuple(round(v, 5) for v in bounds))
+        face = topods.Face(explorer.Current()) if topods is not None else explorer.Current()
+        faces.append(FaceRecord(index=index, face=face))
+        index += 1
         explorer.Next()
-    return signatures
+    return faces
 
 
-def check_degenerate_geometry(shape: Any, geometry_summary: Any) -> list[dict[str, Any]]:
+def _iter_edges(shape: Any) -> list[Any]:
+    if TopExp_Explorer is None or TopAbs_EDGE is None:
+        return []
+    try:
+        explorer = TopExp_Explorer(shape, TopAbs_EDGE)
+    except Exception:
+        return []
+    edges: list[Any] = []
+    while explorer.More():
+        edges.append(topods.Edge(explorer.Current()) if topods is not None else explorer.Current())
+        explorer.Next()
+    return edges
+
+
+def _edge_to_face_indices(shape: Any) -> dict[int, list[int]]:
+    edge_face_map = build_edge_face_map(shape)
+    if edge_face_map is None:
+        return {}
+
+    faces = _iter_faces(shape)
+    face_lookup: dict[int, Any] = {record.index: record.face for record in faces}
+    reverse_lookup = {id(face): index for index, face in face_lookup.items()}
+    mapping: dict[int, list[int]] = {}
+    for edge_idx in range(1, edge_face_map.Size() + 1):
+        attached: list[int] = []
+        face_list = edge_face_map.FindFromIndex(edge_idx)
+        for pos in range(1, face_list.Size() + 1):
+            try:
+                face = face_list.Value(pos)
+                face_index = reverse_lookup.get(id(face))
+                if face_index is not None:
+                    attached.append(face_index)
+            except Exception:
+                continue
+        mapping[edge_idx] = attached
+    return mapping
+
+
+def _cylindrical_face_radii(shape: Any) -> dict[int, float]:
+    if BRepAdaptor_Surface is None:
+        return {}
+    result: dict[int, float] = {}
+    for record in _iter_faces(shape):
+        try:
+            surface = BRepAdaptor_Surface(record.face, True)
+            cylinder = surface.Cylinder()
+            result[record.index] = cylinder.Radius()
+        except Exception:
+            continue
+    return result
+
+
+def check_degenerate_geometry(shape: Any, geometry_summary: Any) -> CheckResult:
     findings: list[dict[str, Any]] = []
 
     if geometry_summary.face_count <= 0 or geometry_summary.edge_count <= 0:
@@ -156,16 +187,10 @@ def check_degenerate_geometry(shape: Any, geometry_summary: Any) -> list[dict[st
             }
         )
 
-    if TopExp_Explorer is None or TopAbs_EDGE is None:
-        return findings
-
     zero_length_edges = 0
-    explorer = TopExp_Explorer(shape, TopAbs_EDGE)
-    while explorer.More():
-        edge = topods.Edge(explorer.Current()) if topods is not None else explorer.Current()
+    for edge in _iter_edges(shape):
         if abs(edge_length(edge)) <= DEGENERATE_EDGE_TOLERANCE:
             zero_length_edges += 1
-        explorer.Next()
 
     if zero_length_edges:
         findings.append(
@@ -177,34 +202,43 @@ def check_degenerate_geometry(shape: Any, geometry_summary: Any) -> list[dict[st
             }
         )
 
-    return findings
+    return _result(findings=findings)
 
 
-def check_non_manifold_edges(shape: Any) -> list[dict[str, Any]]:
+def check_non_manifold_edges(shape: Any) -> CheckResult:
     edge_face_map = build_edge_face_map(shape)
     if edge_face_map is None:
-        return []
+        return _result()
 
     bad_edges = 0
+    per_face: dict[int, float] = {}
+    attached_faces = _edge_to_face_indices(shape)
     for index in range(1, edge_face_map.Size() + 1):
-        if edge_face_map.FindFromIndex(index).Size() > 2:
+        face_count = edge_face_map.FindFromIndex(index).Size()
+        if face_count > 2:
             bad_edges += 1
+            for face_index in attached_faces.get(index, []):
+                per_face[face_index] = max(per_face.get(face_index, 0.0), 1.0)
 
     if not bad_edges:
-        return []
+        return _result()
 
-    return [
-        {
-            "check": "NonManifoldEdges",
-            "severity": "Major",
-            "detail": f"Detected {bad_edges} non-manifold edges shared by more than two faces.",
-            "suggestion": "Repair or simplify the topology before simulation.",
-        }
-    ]
+    return _result(
+        findings=[
+            {
+                "check": "NonManifoldEdges",
+                "severity": "Major",
+                "detail": f"Detected {bad_edges} non-manifold edges shared by more than two faces.",
+                "suggestion": "Repair or simplify the topology before simulation.",
+            }
+        ],
+        per_face=per_face,
+    )
 
 
-def check_open_boundaries(shape: Any, geometry_summary: Any | None = None) -> list[dict[str, Any]]:
+def check_open_boundaries(shape: Any, geometry_summary: Any | None = None) -> CheckResult:
     findings: list[dict[str, Any]] = []
+    per_face: dict[int, float] = {}
 
     if geometry_summary is not None and geometry_summary.solid_count <= 0 and geometry_summary.face_count > 0:
         findings.append(
@@ -215,24 +249,31 @@ def check_open_boundaries(shape: Any, geometry_summary: Any | None = None) -> li
                 "suggestion": "Close the shell or export a watertight solid before simulation.",
             }
         )
+        for record in _iter_faces(shape):
+            per_face[record.index] = max(per_face.get(record.index, 0.0), 0.8)
 
     if BRep_Tool is None:
-        return findings
+        return _result(findings=findings, per_face=per_face)
 
     edge_face_map = build_edge_face_map(shape)
     if edge_face_map is None:
-        return findings
+        return _result(findings=findings, per_face=per_face)
 
+    attached_faces = _edge_to_face_indices(shape)
     open_edges = 0
     degenerate_edges = 0
     for index in range(1, edge_face_map.Size() + 1):
         edge = edge_face_map.FindKey(index)
-        attached_faces = edge_face_map.FindFromIndex(index).Size()
-        if attached_faces == 1:
+        face_count = edge_face_map.FindFromIndex(index).Size()
+        if face_count == 1:
             open_edges += 1
+            for face_index in attached_faces.get(index, []):
+                per_face[face_index] = max(per_face.get(face_index, 0.0), 1.0)
         try:
             if BRep_Tool.Degenerated(edge):
                 degenerate_edges += 1
+                for face_index in attached_faces.get(index, []):
+                    per_face[face_index] = max(per_face.get(face_index, 0.0), 0.9)
         except Exception:
             pass
 
@@ -276,193 +317,251 @@ def check_open_boundaries(shape: Any, geometry_summary: Any | None = None) -> li
                         "suggestion": "Inspect face connectivity and shell closure.",
                     }
                 )
+                for record in _iter_faces(shape):
+                    per_face[record.index] = max(per_face.get(record.index, 0.0), 0.7)
         except Exception:
             pass
 
-    return findings
+    return _result(findings=findings, per_face=per_face)
 
 
-def check_short_edges(shape: Any, geometry_summary: Any) -> list[dict[str, Any]]:
-    if TopExp_Explorer is None or TopAbs_EDGE is None:
-        return []
-
+def check_short_edges(shape: Any, geometry_summary: Any) -> CheckResult:
     threshold = _short_edge_threshold(geometry_summary.bounding_box)
     if threshold <= 0:
-        return []
+        return _result()
 
     short_edges = 0
-    try:
-        explorer = TopExp_Explorer(shape, TopAbs_EDGE)
-    except Exception:
-        return []
-    while explorer.More():
-        edge = topods.Edge(explorer.Current()) if topods is not None else explorer.Current()
+    per_face: dict[int, float] = {}
+    edge_face_map = build_edge_face_map(shape)
+    attached_faces = _edge_to_face_indices(shape) if edge_face_map is not None else {}
+
+    for edge_index, edge in enumerate(_iter_edges(shape), start=1):
         length = edge_length(edge)
         if DEGENERATE_EDGE_TOLERANCE < length < threshold:
             short_edges += 1
-        explorer.Next()
+            severity_score = min(1.0, max(0.1, 1.0 - (length / threshold)))
+            for face_index in attached_faces.get(edge_index, []):
+                per_face[face_index] = max(per_face.get(face_index, 0.0), severity_score)
 
     if not short_edges:
-        return []
+        return _result()
 
     severity = "Major" if short_edges >= 8 else "Minor"
-    return [
-        {
-            "check": "ShortEdges",
-            "severity": severity,
-            "detail": f"Detected {short_edges} edges shorter than {threshold:.6g} model units.",
-            "suggestion": "Merge or simplify tiny edges that may degrade mesh quality.",
-        }
-    ]
+    return _result(
+        findings=[
+            {
+                "check": "ShortEdges",
+                "severity": severity,
+                "detail": f"Detected {short_edges} edges shorter than {threshold:.6g} model units.",
+                "suggestion": "Merge or simplify tiny edges that may degrade mesh quality.",
+            }
+        ],
+        per_face=per_face,
+    )
 
 
-def check_thin_walls(geometry_summary: Any) -> list[dict[str, Any]]:
+def check_thin_walls(geometry_summary: Any) -> CheckResult:
     max_dim = _max_dim(geometry_summary.bounding_box)
     min_dim = _min_nonzero_dim(geometry_summary.bounding_box)
     if max_dim <= 0 or min_dim <= 0:
-        return []
+        return _result()
 
-    if (min_dim / max_dim) >= THIN_WALL_RATIO:
-        return []
+    ratio = min_dim / max_dim
+    if ratio >= THIN_WALL_RATIO:
+        return _result()
 
-    return [
-        {
-            "check": "ThinWalls",
-            "severity": "Major",
-            "detail": f"Minimum model thickness ratio is approximately {min_dim / max_dim:.4f}.",
-            "suggestion": "Inspect thin regions and confirm they are meshable for the intended solver.",
-        }
-    ]
+    score = min(1.0, max(0.1, 1.0 - (ratio / THIN_WALL_RATIO)))
+    return _result(
+        findings=[
+            {
+                "check": "ThinWalls",
+                "severity": "Major",
+                "detail": f"Minimum model thickness ratio is approximately {ratio:.4f}.",
+                "suggestion": "Inspect thin regions and confirm they are meshable for the intended solver.",
+            }
+        ],
+        per_face={0: score},
+    )
 
 
-def check_small_features(shape: Any, geometry_summary: Any) -> list[dict[str, Any]]:
-    if TopExp_Explorer is None or brepgprop is None or GProp_GProps is None:
-        return []
+def check_small_features(shape: Any, geometry_summary: Any) -> CheckResult:
+    if brepgprop is None or GProp_GProps is None:
+        return _result()
 
     max_dim = _max_dim(geometry_summary.bounding_box)
     if max_dim <= 0:
-        return []
+        return _result()
 
     face_threshold = (max_dim ** 2) * SMALL_FEATURE_RATIO
     edge_threshold = max_dim * SMALL_FEATURE_EDGE_RATIO
     small_faces = 0
     small_edges = 0
+    per_face: dict[int, float] = {}
 
-    if TopAbs_FACE is not None:
-        explorer = TopExp_Explorer(shape, TopAbs_FACE)
-        while explorer.More():
-            face = topods.Face(explorer.Current()) if topods is not None else explorer.Current()
-            props = GProp_GProps()
-            try:
-                brepgprop.SurfaceProperties(face, props)
-                area = props.Mass()
-            except Exception:
-                area = 0.0
-            if 0 < area < face_threshold:
-                small_faces += 1
-            explorer.Next()
+    for record in _iter_faces(shape):
+        props = GProp_GProps()
+        try:
+            brepgprop.SurfaceProperties(record.face, props)
+            area = props.Mass()
+        except Exception:
+            area = 0.0
+        if 0 < area < face_threshold:
+            small_faces += 1
+            per_face[record.index] = max(per_face.get(record.index, 0.0), min(1.0, max(0.1, 1.0 - (area / face_threshold))))
 
-    if TopAbs_EDGE is not None:
-        edge_explorer = TopExp_Explorer(shape, TopAbs_EDGE)
-        while edge_explorer.More():
-            edge = topods.Edge(edge_explorer.Current()) if topods is not None else edge_explorer.Current()
-            length = edge_length(edge)
-            if DEGENERATE_EDGE_TOLERANCE < length < edge_threshold:
-                small_edges += 1
-            edge_explorer.Next()
+    edge_face_map = build_edge_face_map(shape)
+    attached_faces = _edge_to_face_indices(shape) if edge_face_map is not None else {}
+    for edge_index, edge in enumerate(_iter_edges(shape), start=1):
+        length = edge_length(edge)
+        if DEGENERATE_EDGE_TOLERANCE < length < edge_threshold:
+            small_edges += 1
+            edge_score = min(1.0, max(0.1, 1.0 - (length / edge_threshold)))
+            for face_index in attached_faces.get(edge_index, []):
+                per_face[face_index] = max(per_face.get(face_index, 0.0), edge_score)
 
     if not small_faces and not small_edges:
-        return []
+        return _result()
 
-    return [
-        {
-            "check": "SmallFeatures",
-            "severity": "Minor",
-            "detail": f"Detected {small_faces} small faces and {small_edges} short local edges relative to part scale.",
-            "suggestion": "Inspect tiny local features that may force unnecessary mesh refinement.",
-        }
-    ]
+    return _result(
+        findings=[
+            {
+                "check": "SmallFeatures",
+                "severity": "Minor",
+                "detail": f"Detected {small_faces} small faces and {small_edges} short local edges relative to part scale.",
+                "suggestion": "Inspect tiny local features that may force unnecessary mesh refinement.",
+            }
+        ],
+        per_face=per_face,
+    )
 
 
-def check_small_fillets(shape: Any, geometry_summary: Any) -> list[dict[str, Any]]:
+def check_small_fillets(shape: Any, geometry_summary: Any) -> CheckResult:
     max_dim = _max_dim(geometry_summary.bounding_box)
     if max_dim <= 0:
-        return []
+        return _result()
 
     radius_threshold = max_dim * SMALL_CYLINDER_RADIUS_RATIO
-    radii = [radius for radius in _cylindrical_radii(shape) if radius <= radius_threshold]
-    if not radii:
-        return []
+    radii = _cylindrical_face_radii(shape)
+    per_face: dict[int, float] = {}
+    flagged = 0
+    for face_index, radius in radii.items():
+        if radius <= radius_threshold:
+            flagged += 1
+            per_face[face_index] = min(1.0, max(0.1, 1.0 - (radius / radius_threshold if radius_threshold else 0.0)))
 
-    return [
-        {
-            "check": "SmallFilletsOrHoles",
-            "severity": "Minor",
-            "detail": f"Detected {len(radii)} cylindrical faces with radius below {radius_threshold:.6g}.",
-            "suggestion": "Inspect small fillets or holes that may need defeaturing or local refinement.",
-        }
-    ]
+    if not flagged:
+        return _result()
+
+    return _result(
+        findings=[
+            {
+                "check": "SmallFilletsOrHoles",
+                "severity": "Minor",
+                "detail": f"Detected {flagged} cylindrical faces with radius below {radius_threshold:.6g}.",
+                "suggestion": "Inspect small fillets or holes that may need defeaturing or local refinement.",
+            }
+        ],
+        per_face=per_face,
+    )
 
 
-def check_duplicate_body_heuristic(shape: Any, geometry_summary: Any) -> list[dict[str, Any]]:
+def check_duplicate_body_heuristic(shape: Any, geometry_summary: Any) -> CheckResult:
     if geometry_summary.solid_count <= 1:
-        return []
+        return _result()
 
-    signatures = _body_bbox_signatures(shape)
-    if len(signatures) <= 1:
-        return []
+    try:
+        from OCC.Core.Bnd import Bnd_Box
+        from OCC.Core.BRepBndLib import brepbndlib
+        from OCC.Core.TopAbs import TopAbs_SOLID
+    except ImportError:  # pragma: no cover
+        return _result()
+
+    if TopExp_Explorer is None:
+        return _result()
+
+    signatures: list[tuple[float, float, float, float, float, float]] = []
+    explorer = TopExp_Explorer(shape, TopAbs_SOLID)
+    while explorer.More():
+        solid = explorer.Current()
+        box = Bnd_Box()
+        brepbndlib.Add(solid, box)
+        signatures.append(tuple(round(v, 5) for v in box.Get()))
+        explorer.Next()
 
     duplicates = len(signatures) - len(set(signatures))
     if duplicates <= 0:
-        return []
+        return _result()
 
-    return [
-        {
-            "check": "DuplicateBodyHeuristic",
-            "severity": "Major",
-            "detail": f"Detected {duplicates} body-level duplicate bounding-box signatures.",
-            "suggestion": "Inspect for overlapping or duplicate solids before simulation.",
-        }
-    ]
+    return _result(
+        findings=[
+            {
+                "check": "DuplicateBodyHeuristic",
+                "severity": "Major",
+                "detail": f"Detected {duplicates} body-level duplicate bounding-box signatures.",
+                "suggestion": "Inspect for overlapping or duplicate solids before simulation.",
+            }
+        ],
+        per_face={0: min(1.0, 0.5 + duplicates * 0.25)},
+    )
 
 
-def check_duplicate_face_heuristic(shape: Any, geometry_summary: Any) -> list[dict[str, Any]]:
+def check_duplicate_face_heuristic(shape: Any, geometry_summary: Any) -> CheckResult:
     if geometry_summary.face_count <= 1:
-        return []
+        return _result()
 
-    signatures = _face_bbox_signatures(shape)
-    if len(signatures) <= 1:
-        return []
+    signatures: dict[tuple[float, float, float, float, float, float], list[int]] = {}
+    try:
+        from OCC.Core.Bnd import Bnd_Box
+        from OCC.Core.BRepBndLib import brepbndlib
+    except ImportError:  # pragma: no cover
+        return _result()
 
-    duplicates = len(signatures) - len(set(signatures))
+    for record in _iter_faces(shape):
+        box = Bnd_Box()
+        brepbndlib.Add(record.face, box)
+        signature = tuple(round(v, 5) for v in box.Get())
+        signatures.setdefault(signature, []).append(record.index)
+
+    duplicates = sum(len(indices) - 1 for indices in signatures.values() if len(indices) > 1)
     if duplicates <= 0:
-        return []
+        return _result()
+
+    per_face: dict[int, float] = {}
+    for indices in signatures.values():
+        if len(indices) > 1:
+            for face_index in indices:
+                per_face[face_index] = max(per_face.get(face_index, 0.0), 0.8)
 
     severity = "Major" if geometry_summary.solid_count <= 0 else "Minor"
-    return [
-        {
-            "check": "DuplicateFaceHeuristic",
-            "severity": severity,
-            "detail": f"Detected {duplicates} duplicate face-level bounding-box signatures.",
-            "suggestion": "Inspect for coincident or overlapping faces before meshing.",
-        }
-    ]
+    return _result(
+        findings=[
+            {
+                "check": "DuplicateFaceHeuristic",
+                "severity": severity,
+                "detail": f"Detected {duplicates} duplicate face-level bounding-box signatures.",
+                "suggestion": "Inspect for coincident or overlapping faces before meshing.",
+            }
+        ],
+        per_face=per_face,
+    )
 
 
-def check_orientation_nuance(shape: Any, geometry_summary: Any) -> list[dict[str, Any]]:
-    if geometry_summary.solid_count > 0:
-        return []
-    if geometry_summary.face_count <= 0:
-        return []
+def check_orientation_nuance(shape: Any, geometry_summary: Any) -> CheckResult:
+    if geometry_summary.solid_count > 0 or geometry_summary.face_count <= 0:
+        return _result()
 
-    return [
-        {
-            "check": "OrientationNuance",
-            "severity": "Minor",
-            "detail": "Face-based geometry without a closed solid may contain orientation inconsistencies.",
-            "suggestion": "Inspect shell orientation and face normals before meshing.",
-        }
-    ]
+    per_face = {record.index: 0.4 for record in _iter_faces(shape)}
+    return _result(
+        findings=[
+            {
+                "check": "OrientationNuance",
+                "severity": "Minor",
+                "detail": "Face-based geometry without a closed solid may contain orientation inconsistencies.",
+                "suggestion": "Inspect shell orientation and face normals before meshing.",
+            }
+        ],
+        per_face=per_face,
+    )
 
 
 def summarize_findings(findings: list[dict[str, Any]]) -> dict[str, Any]:
@@ -478,21 +577,23 @@ def summarize_findings(findings: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def run_essential_checks(shape: Any, geometry_summary: Any) -> list[dict[str, Any]]:
-    findings: list[dict[str, Any]] = []
-    findings.extend(check_degenerate_geometry(shape, geometry_summary))
-    findings.extend(check_non_manifold_edges(shape))
-    findings.extend(check_open_boundaries(shape, geometry_summary))
-    findings.extend(check_short_edges(shape, geometry_summary))
-    findings.extend(check_thin_walls(geometry_summary))
-    findings.extend(check_small_features(shape, geometry_summary))
-    findings.extend(check_small_fillets(shape, geometry_summary))
-    findings.extend(check_duplicate_body_heuristic(shape, geometry_summary))
-    findings.extend(check_duplicate_face_heuristic(shape, geometry_summary))
-    findings.extend(check_orientation_nuance(shape, geometry_summary))
+def run_essential_checks_detailed(shape: Any, geometry_summary: Any) -> CheckResult:
+    results = [
+        check_degenerate_geometry(shape, geometry_summary),
+        check_non_manifold_edges(shape),
+        check_open_boundaries(shape, geometry_summary),
+        check_short_edges(shape, geometry_summary),
+        check_thin_walls(geometry_summary),
+        check_small_features(shape, geometry_summary),
+        check_small_fillets(shape, geometry_summary),
+        check_duplicate_body_heuristic(shape, geometry_summary),
+        check_duplicate_face_heuristic(shape, geometry_summary),
+        check_orientation_nuance(shape, geometry_summary),
+    ]
+    merged = _merge_check_results(results)
 
     if geometry_summary.solid_count > 1:
-        findings.append(
+        merged.findings.append(
             {
                 "check": "MultiBodyDetected",
                 "severity": "Info",
@@ -501,4 +602,8 @@ def run_essential_checks(shape: Any, geometry_summary: Any) -> list[dict[str, An
             }
         )
 
-    return findings
+    return merged
+
+
+def run_essential_checks(shape: Any, geometry_summary: Any) -> list[dict[str, Any]]:
+    return run_essential_checks_detailed(shape, geometry_summary).findings

@@ -1,6 +1,8 @@
 from simready.checks import (
+    CheckResult,
     check_short_edges,
     run_essential_checks,
+    run_essential_checks_detailed,
     summarize_findings,
 )
 from simready.parser import parse_geometry
@@ -35,8 +37,10 @@ def test_short_edge_check_on_fake_summary():
             "zmax": 1.0,
         }
 
-    findings = check_short_edges(FakeShape(), FakeSummary())
-    assert findings == []
+    result = check_short_edges(FakeShape(), FakeSummary())
+    assert isinstance(result, CheckResult)
+    assert result.findings == []
+    assert result.per_face == {}
 
 
 def test_thin_plate_flags_thin_walls():
@@ -77,6 +81,15 @@ def test_duplicate_face_fixture_flags_duplicate_face_heuristic():
     findings = run_essential_checks(validation.shape, geometry)
     check_names = {finding["check"] for finding in findings}
     assert "DuplicateFaceHeuristic" in check_names
+
+
+def test_run_essential_checks_detailed_returns_per_face_scores(valid_step_file):
+    validation = validate_step_file(valid_step_file)
+    geometry = parse_geometry(validation.shape)
+    result = run_essential_checks_detailed(validation.shape, geometry)
+    assert isinstance(result, CheckResult)
+    assert isinstance(result.findings, list)
+    assert isinstance(result.per_face, dict)
 
 
 def test_summarize_findings_counts_by_severity():

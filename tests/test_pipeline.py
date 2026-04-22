@@ -18,7 +18,7 @@ def test_analyze_valid_file(valid_step_file):
     assert report["geometry"]["face_count"] == 6
     assert report["summary"]["total"] >= 0
     assert report["status"] in {"SimulationReady", "ReviewRecommended", "NeedsAttention"}
-    assert set(report.keys()) >= {"input_file", "status", "summary", "validation", "geometry", "findings", "bodies", "heal", "elapsed_seconds"}
+    assert set(report.keys()) >= {"input_file", "status", "summary", "validation", "geometry", "findings", "bodies", "heal", "elapsed_seconds", "per_face_scores"}
 
 
 def test_analyze_valid_file_with_export(valid_step_file, tmp_path):
@@ -41,6 +41,7 @@ def test_analyze_multi_body_file():
     assert "heal" in report["bodies"][0]
     assert "summary" in report["bodies"][0]
     assert report["bodies"][0]["heal"]["attempted"] is False
+    assert "per_face_scores" in report["bodies"][0]
 
 
 def test_analyze_open_face_file():

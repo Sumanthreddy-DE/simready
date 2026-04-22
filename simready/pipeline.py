@@ -6,7 +6,7 @@ import time
 from types import SimpleNamespace
 from typing import Any
 
-from simready.checks import run_essential_checks, summarize_findings
+from simready.checks import run_essential_checks_detailed, summarize_findings
 from simready.healer import heal_shape
 from simready.parser import parse_geometry
 from simready.report import build_report
@@ -16,7 +16,8 @@ from simready.validator import validate_brep, validate_file_load
 
 def _body_report(shape: Any, index: int, heal_summary: dict[str, Any] | None = None) -> dict[str, Any]:
     geometry_summary = parse_geometry(shape)
-    findings = run_essential_checks(shape, geometry_summary)
+    check_result = run_essential_checks_detailed(shape, geometry_summary)
+    findings = check_result.findings
     status = "NeedsAttention" if any(f.get("severity") == "Major" for f in findings) else ("ReviewRecommended" if findings else "SimulationReady")
     return {
         "body_index": index,
@@ -36,6 +37,7 @@ def _body_report(shape: Any, index: int, heal_summary: dict[str, Any] | None = N
             "bounding_box": geometry_summary.bounding_box,
         },
         "findings": findings,
+        "per_face_scores": check_result.per_face,
     }
 
 
@@ -82,7 +84,8 @@ def analyze_file(filepath: str, export_healed_path: str | None = None) -> dict[s
         final_validation = validate_brep(working_shape)
 
     geometry_summary = parse_geometry(working_shape)
-    findings = run_essential_checks(working_shape, geometry_summary)
+    check_result = run_essential_checks_detailed(working_shape, geometry_summary)
+    findings = check_result.findings
 
     split = split_bodies(working_shape)
     body_reports: list[dict[str, Any]] = []
@@ -110,6 +113,7 @@ def analyze_file(filepath: str, export_healed_path: str | None = None) -> dict[s
         bodies=body_reports,
         elapsed_seconds=time.perf_counter() - started,
     )
+    report["per_face_scores"] = check_result.per_face
     if heal_result is not None:
         report["heal"] = heal_result.summary
         if not initial_validation.is_valid:
