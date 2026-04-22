@@ -4,15 +4,16 @@ from __future__ import annotations
 
 from typing import Any
 
+from simready.occ_utils import build_edge_face_map, edge_length
+
 try:
     from OCC.Core.BRep import BRep_Tool
 except ImportError:  # pragma: no cover
     BRep_Tool = None
 
 try:
-    from OCC.Core.BRepAdaptor import BRepAdaptor_Curve, BRepAdaptor_Surface
+    from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
 except ImportError:  # pragma: no cover
-    BRepAdaptor_Curve = None
     BRepAdaptor_Surface = None
 
 try:
@@ -27,15 +28,9 @@ except ImportError:  # pragma: no cover
     TopAbs_FACE = None
 
 try:
-    from OCC.Core.TopExp import topexp, TopExp_Explorer
+    from OCC.Core.TopExp import TopExp_Explorer
 except ImportError:  # pragma: no cover
-    topexp = None
     TopExp_Explorer = None
-
-try:
-    from OCC.Core.TopTools import TopTools_IndexedDataMapOfShapeListOfShape
-except ImportError:  # pragma: no cover
-    TopTools_IndexedDataMapOfShapeListOfShape = None
 
 try:
     from OCC.Core.TopoDS import topods
@@ -83,16 +78,6 @@ def _min_nonzero_dim(bounding_box: dict[str, float] | None) -> float:
 def _short_edge_threshold(bounding_box: dict[str, float] | None) -> float:
     max_dim = _max_dim(bounding_box)
     return max_dim * SHORT_EDGE_RATIO if max_dim > 0 else 0.0
-
-
-def _edge_length(edge: Any) -> float:
-    if BRepAdaptor_Curve is None:
-        return 0.0
-    try:
-        curve = BRepAdaptor_Curve(edge)
-        return abs(curve.LastParameter() - curve.FirstParameter())
-    except Exception:
-        return 0.0
 
 
 def _cylindrical_radii(shape: Any) -> list[float]:
@@ -171,14 +156,14 @@ def check_degenerate_geometry(shape: Any, geometry_summary: Any) -> list[dict[st
             }
         )
 
-    if BRepAdaptor_Curve is None or TopExp_Explorer is None or TopAbs_EDGE is None:
+    if TopExp_Explorer is None or TopAbs_EDGE is None:
         return findings
 
     zero_length_edges = 0
     explorer = TopExp_Explorer(shape, TopAbs_EDGE)
     while explorer.More():
         edge = topods.Edge(explorer.Current()) if topods is not None else explorer.Current()
-        if abs(_edge_length(edge)) <= DEGENERATE_EDGE_TOLERANCE:
+        if abs(edge_length(edge)) <= DEGENERATE_EDGE_TOLERANCE:
             zero_length_edges += 1
         explorer.Next()
 
@@ -196,11 +181,9 @@ def check_degenerate_geometry(shape: Any, geometry_summary: Any) -> list[dict[st
 
 
 def check_non_manifold_edges(shape: Any) -> list[dict[str, Any]]:
-    if topexp is None or TopTools_IndexedDataMapOfShapeListOfShape is None or TopAbs_EDGE is None or TopAbs_FACE is None:
+    edge_face_map = build_edge_face_map(shape)
+    if edge_face_map is None:
         return []
-
-    edge_face_map = TopTools_IndexedDataMapOfShapeListOfShape()
-    topexp.MapShapesAndAncestors(shape, TopAbs_EDGE, TopAbs_FACE, edge_face_map)
 
     bad_edges = 0
     for index in range(1, edge_face_map.Size() + 1):
@@ -233,11 +216,12 @@ def check_open_boundaries(shape: Any, geometry_summary: Any | None = None) -> li
             }
         )
 
-    if BRep_Tool is None or topexp is None or TopTools_IndexedDataMapOfShapeListOfShape is None or TopAbs_EDGE is None or TopAbs_FACE is None:
+    if BRep_Tool is None:
         return findings
 
-    edge_face_map = TopTools_IndexedDataMapOfShapeListOfShape()
-    topexp.MapShapesAndAncestors(shape, TopAbs_EDGE, TopAbs_FACE, edge_face_map)
+    edge_face_map = build_edge_face_map(shape)
+    if edge_face_map is None:
+        return findings
 
     open_edges = 0
     degenerate_edges = 0
@@ -313,7 +297,7 @@ def check_short_edges(shape: Any, geometry_summary: Any) -> list[dict[str, Any]]
         return []
     while explorer.More():
         edge = topods.Edge(explorer.Current()) if topods is not None else explorer.Current()
-        length = _edge_length(edge)
+        length = edge_length(edge)
         if DEGENERATE_EDGE_TOLERANCE < length < threshold:
             short_edges += 1
         explorer.Next()
@@ -382,7 +366,7 @@ def check_small_features(shape: Any, geometry_summary: Any) -> list[dict[str, An
         edge_explorer = TopExp_Explorer(shape, TopAbs_EDGE)
         while edge_explorer.More():
             edge = topods.Edge(edge_explorer.Current()) if topods is not None else edge_explorer.Current()
-            length = _edge_length(edge)
+            length = edge_length(edge)
             if DEGENERATE_EDGE_TOLERANCE < length < edge_threshold:
                 small_edges += 1
             edge_explorer.Next()

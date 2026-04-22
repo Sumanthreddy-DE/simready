@@ -23,7 +23,14 @@ class ValidationResult:
     errors: list[dict[str, str]] = field(default_factory=list)
 
 
-def validate_step_file(filepath: str) -> ValidationResult:
+@dataclass
+class FileLoadResult:
+    is_valid: bool
+    shape: Any | None = None
+    errors: list[dict[str, str]] = field(default_factory=list)
+
+
+def validate_file_load(filepath: str) -> FileLoadResult:
     errors: list[dict[str, str]] = []
 
     if not Path(filepath).is_file():
@@ -35,7 +42,7 @@ def validate_step_file(filepath: str) -> ValidationResult:
                 "suggestion": "Check the file path and try again.",
             }
         )
-        return ValidationResult(is_valid=False, shape=None, errors=errors)
+        return FileLoadResult(is_valid=False, shape=None, errors=errors)
 
     if STEPControl_Reader is None:
         errors.append(
@@ -46,7 +53,7 @@ def validate_step_file(filepath: str) -> ValidationResult:
                 "suggestion": "Install the project environment before running SimReady.",
             }
         )
-        return ValidationResult(is_valid=False, shape=None, errors=errors)
+        return FileLoadResult(is_valid=False, shape=None, errors=errors)
 
     reader = STEPControl_Reader()
     status = reader.ReadFile(filepath)
@@ -59,7 +66,7 @@ def validate_step_file(filepath: str) -> ValidationResult:
                 "suggestion": "Repair or re-export the STEP file.",
             }
         )
-        return ValidationResult(is_valid=False, shape=None, errors=errors)
+        return FileLoadResult(is_valid=False, shape=None, errors=errors)
 
     reader.TransferRoots()
     shape = reader.OneShape()
@@ -73,19 +80,50 @@ def validate_step_file(filepath: str) -> ValidationResult:
                 "suggestion": "Re-export the geometry from CAD and try again.",
             }
         )
+        return FileLoadResult(is_valid=False, shape=None, errors=errors)
+
+    return FileLoadResult(is_valid=True, shape=shape, errors=errors)
+
+
+def validate_brep(shape: Any) -> ValidationResult:
+    errors: list[dict[str, str]] = []
+
+    if shape is None:
+        errors.append(
+            {
+                "check": "NullShape",
+                "severity": "Critical",
+                "detail": "No shape was provided for OCC geometry validation.",
+                "suggestion": "Check the STEP import flow before analysis.",
+            }
+        )
         return ValidationResult(is_valid=False, shape=None, errors=errors)
 
-    if BRepCheck_Analyzer is not None:
+    if BRepCheck_Analyzer is None:
+        return ValidationResult(is_valid=True, shape=shape, errors=errors)
+
+    try:
         analyzer = BRepCheck_Analyzer(shape)
-        if not analyzer.IsValid():
-            errors.append(
-                {
-                    "check": "BRepCheckFailure",
-                    "severity": "Critical",
-                    "detail": "Global OCC geometry validation failed.",
-                    "suggestion": "Repair the geometry before simulation use.",
-                }
-            )
-            return ValidationResult(is_valid=False, shape=shape, errors=errors)
+        is_valid = analyzer.IsValid()
+    except Exception:
+        is_valid = False
+
+    if not is_valid:
+        errors.append(
+            {
+                "check": "BRepCheckFailure",
+                "severity": "Critical",
+                "detail": "Global OCC geometry validation failed.",
+                "suggestion": "Repair the geometry before simulation use.",
+            }
+        )
+        return ValidationResult(is_valid=False, shape=shape, errors=errors)
 
     return ValidationResult(is_valid=True, shape=shape, errors=errors)
+
+
+def validate_step_file(filepath: str) -> ValidationResult:
+    load_result = validate_file_load(filepath)
+    if not load_result.is_valid:
+        return ValidationResult(is_valid=False, shape=None, errors=load_result.errors)
+    return validate_brep(load_result.shape)

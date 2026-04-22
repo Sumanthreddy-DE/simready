@@ -30,3 +30,9 @@ def test_build_report_shape():
     assert report["findings"] == []
     assert report["bodies"] == []
     assert set(report.keys()) == {"input_file", "status", "summary", "validation", "geometry", "findings", "bodies"}
+
+
+def test_build_report_includes_elapsed_seconds_when_present():
+    validation = SimpleNamespace(is_valid=True, errors=[])
+    report = build_report("part.step", validation, None, [], bodies=[], elapsed_seconds=1.25)
+    assert report["elapsed_seconds"] == 1.25

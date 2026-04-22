@@ -24,6 +24,7 @@ def build_report(
     geometry_summary: Any | None,
     findings: list[dict[str, Any]],
     bodies: list[dict[str, Any]] | None = None,
+    elapsed_seconds: float | None = None,
 ) -> dict[str, Any]:
     if geometry_summary is None:
         geometry = None
@@ -32,7 +33,7 @@ def build_report(
     else:
         geometry = dict(vars(geometry_summary))
     status = determine_status(validation_result.errors, findings)
-    return {
+    report = {
         "input_file": filepath,
         "status": status,
         "summary": summarize_findings(findings),
@@ -44,3 +45,6 @@ def build_report(
         "findings": findings,
         "bodies": bodies or [],
     }
+    if elapsed_seconds is not None:
+        report["elapsed_seconds"] = elapsed_seconds
+    return report
