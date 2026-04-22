@@ -6,4 +6,7 @@ dependencies:
   - pythonocc-core
   - click
   - pytest
+  - rich
+  - jinja2
+  - pytorch
   - pip

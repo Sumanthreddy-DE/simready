@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>SimReady Report</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #0f172a;
+      --panel: #111827;
+      --muted: #94a3b8;
+      --text: #e5e7eb;
+      --green: #22c55e;
+      --yellow: #eab308;
+      --orange: #f97316;
+      --red: #ef4444;
+      --blue: #38bdf8;
+      --border: #334155;
+    }
+    body {
+      font-family: Inter, Arial, sans-serif;
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    .hero, .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 18px;
+    }
+    .score-badge {
+      display: inline-block;
+      padding: 10px 16px;
+      border-radius: 999px;
+      font-weight: 700;
+      background: var(--blue);
+      color: #082f49;
+    }
+    .meta { color: var(--muted); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      text-align: left;
+      padding: 10px 8px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    .sev-Critical, .sev-Major { color: var(--red); font-weight: 700; }
+    .sev-Minor { color: var(--yellow); font-weight: 700; }
+    .sev-Info { color: var(--blue); font-weight: 700; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+    }
+    .stat {
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+    }
+    details {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      margin-top: 12px;
+    }
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: rgba(255,255,255,0.03);
+      padding: 14px;
+      border-radius: 12px;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <h1>SimReady Analysis</h1>
+      <p class="meta">{{ report.input_file }}</p>
+      <p><span class="score-badge">{{ score.overall|default('n/a')|round(1) }}/100</span> {{ report.status }}</p>
+      <p class="meta">Analysis powered by rule-based geometry checks + BRepNet learned complexity scoring on B-Rep topology.</p>
+    </section>
+
+    <section class="panel">
+      <h2>Geometry Summary</h2>
+      <div class="grid">
+        <div class="stat"><strong>Faces</strong><br />{{ report.geometry.face_count if report.geometry else 'n/a' }}</div>
+        <div class="stat"><strong>Edges</strong><br />{{ report.geometry.edge_count if report.geometry else 'n/a' }}</div>
+        <div class="stat"><strong>Solids</strong><br />{{ report.geometry.solid_count if report.geometry else 'n/a' }}</div>
+        <div class="stat"><strong>Elapsed</strong><br />{{ report.elapsed_seconds|default('n/a') }}</div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Findings</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Severity</th>
+            <th>Check</th>
+            <th>Detail</th>
+            <th>Suggestion</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for finding in report.findings %}
+          <tr>
+            <td class="sev-{{ finding.severity }}">{{ finding.severity }}</td>
+            <td>{{ finding.check }}</td>
+            <td>{{ finding.detail }}</td>
+            <td>{{ finding.suggestion }}</td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="4">No findings 🎉</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+
+    <section class="panel">
+      <h2>How this score was computed</h2>
+      <details>
+        <summary>Show scoring details</summary>
+        <div class="grid">
+          <div class="stat"><strong>Score label</strong><br />{{ score.label|default(report.status) }}</div>
+          <div class="stat"><strong>Combined face mean</strong><br />{{ score.combined_face_mean|default('n/a') }}</div>
+          <div class="stat"><strong>ML penalty applied</strong><br />{{ score.ml_penalty_applied|default(false) }}</div>
+          <div class="stat"><strong>ML penalty points</strong><br />{{ score.ml_penalty_points|default(0) }}</div>
+        </div>
+        <p class="meta">ML source: {{ ml.score_source|default('n/a') }}{% if ml.weights_path %} | weights: {{ ml.weights_path }}{% endif %}</p>
+      </details>
+    </section>
+
+    <section class="panel">
+      <h2>Raw JSON</h2>
+      <details>
+        <summary>Expand raw report</summary>
+        <pre>{{ report_json }}</pre>
+      </details>
+    </section>
+  </div>
+</body>
+</html>

@@ -8,6 +8,9 @@ from typing import Any
 
 from simready.checks import run_essential_checks_detailed, summarize_findings
 from simready.healer import heal_shape
+from simready.ml.brepnet import run_brepnet_inference
+from simready.ml.combiner import score_label, score_report
+from simready.ml.graph_extractor import extract_brep_graph
 from simready.parser import parse_geometry
 from simready.report import build_report
 from simready.splitter import split_bodies
@@ -18,7 +21,10 @@ def _body_report(shape: Any, index: int, heal_summary: dict[str, Any] | None = N
     geometry_summary = parse_geometry(shape)
     check_result = run_essential_checks_detailed(shape, geometry_summary)
     findings = check_result.findings
-    status = "NeedsAttention" if any(f.get("severity") == "Major" for f in findings) else ("ReviewRecommended" if findings else "SimulationReady")
+    graph = extract_brep_graph(shape)
+    ml_result = run_brepnet_inference(graph)
+    fusion = score_report(findings, check_result.per_face, ml_result.per_face_scores, ml_available=ml_result.weights_loaded)
+    status = score_label(fusion.overall_score)
     return {
         "body_index": index,
         "status": status,
@@ -38,6 +44,30 @@ def _body_report(shape: Any, index: int, heal_summary: dict[str, Any] | None = N
         },
         "findings": findings,
         "per_face_scores": check_result.per_face,
+        "ml": {
+            "available": ml_result.available,
+            "weights_loaded": ml_result.weights_loaded,
+            "weights_path": ml_result.weights_path,
+            "model_name": ml_result.model_name,
+            "score_source": ml_result.score_source,
+            "aggregate_score": ml_result.aggregate_score,
+            "notes": ml_result.notes,
+        },
+        "graph": {
+            "face_count": graph.metadata.get("face_count", 0),
+            "edge_count": graph.metadata.get("edge_count", 0),
+            "coedge_count": graph.metadata.get("coedge_count", 0),
+            "adjacency_count": graph.metadata.get("adjacency_count", 0),
+            "extractor": graph.metadata.get("extractor"),
+        },
+        "score": {
+            "overall": fusion.overall_score,
+            "label": status,
+            "body_combined_mean": fusion.body_score,
+            "ml_penalty_applied": fusion.ml_penalty_applied,
+            "ml_penalty_points": fusion.ml_penalty_points,
+        },
+        "combined_per_face_scores": fusion.combined_per_face,
     }
 
 
@@ -86,6 +116,9 @@ def analyze_file(filepath: str, export_healed_path: str | None = None) -> dict[s
     geometry_summary = parse_geometry(working_shape)
     check_result = run_essential_checks_detailed(working_shape, geometry_summary)
     findings = check_result.findings
+    graph = extract_brep_graph(working_shape)
+    ml_result = run_brepnet_inference(graph)
+    fusion = score_report(findings, check_result.per_face, ml_result.per_face_scores, ml_available=ml_result.weights_loaded)
 
     split = split_bodies(working_shape)
     body_reports: list[dict[str, Any]] = []
@@ -113,7 +146,33 @@ def analyze_file(filepath: str, export_healed_path: str | None = None) -> dict[s
         bodies=body_reports,
         elapsed_seconds=time.perf_counter() - started,
     )
+    report["status"] = score_label(fusion.overall_score)
     report["per_face_scores"] = check_result.per_face
+    report["combined_per_face_scores"] = fusion.combined_per_face
+    report["score"] = {
+        "overall": fusion.overall_score,
+        "label": score_label(fusion.overall_score),
+        "rule_face_mean": fusion.breakdown.get("rule_face_count", 0),
+        "combined_face_mean": fusion.body_score,
+        "ml_penalty_applied": fusion.ml_penalty_applied,
+        "ml_penalty_points": fusion.ml_penalty_points,
+    }
+    report["ml"] = {
+        "available": ml_result.available,
+        "weights_loaded": ml_result.weights_loaded,
+        "weights_path": ml_result.weights_path,
+        "model_name": ml_result.model_name,
+        "score_source": ml_result.score_source,
+        "aggregate_score": ml_result.aggregate_score,
+        "notes": ml_result.notes,
+    }
+    report["graph"] = {
+        "face_count": graph.metadata.get("face_count", 0),
+        "edge_count": graph.metadata.get("edge_count", 0),
+        "coedge_count": graph.metadata.get("coedge_count", 0),
+        "adjacency_count": graph.metadata.get("adjacency_count", 0),
+        "extractor": graph.metadata.get("extractor"),
+    }
     if heal_result is not None:
         report["heal"] = heal_result.summary
         if not initial_validation.is_valid:

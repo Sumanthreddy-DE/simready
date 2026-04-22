@@ -2,10 +2,18 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import asdict, is_dataclass
 from typing import Any
 
 from simready.checks import summarize_findings
+
+try:
+    from rich.console import Console
+    from rich.table import Table
+except ImportError:  # pragma: no cover
+    Console = None
+    Table = None
 
 
 def determine_status(errors: list[dict[str, Any]], findings: list[dict[str, Any]]) -> str:
@@ -48,3 +56,40 @@ def build_report(
     if elapsed_seconds is not None:
         report["elapsed_seconds"] = elapsed_seconds
     return report
+
+
+def render_terminal_report(report: dict[str, Any], verbose: bool = False) -> str:
+    if Console is None or Table is None:
+        return json.dumps(report, indent=2)
+
+    console = Console(record=True, width=120)
+    score = report.get("score", {})
+    console.print(f"[bold]SimReady Analysis:[/bold] {report.get('input_file', '')}")
+    console.print(f"Score: [bold]{score.get('overall', 'n/a')}[/bold]/100  {report.get('status', '')}")
+
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("Category")
+    table.add_column("Value")
+    table.add_row("Validation", "PASS" if report.get("validation", {}).get("is_valid") else "FAIL")
+    geometry = report.get("geometry") or {}
+    table.add_row("Faces", str(geometry.get("face_count", "n/a")))
+    table.add_row("Edges", str(geometry.get("edge_count", "n/a")))
+    table.add_row("Solids", str(geometry.get("solid_count", "n/a")))
+    table.add_row("Elapsed", str(report.get("elapsed_seconds", "n/a")))
+    console.print(table)
+
+    findings = report.get("findings", [])
+    if findings:
+        console.print("[bold]Top issues:[/bold]")
+        for finding in findings[:8]:
+            console.print(f"[{finding.get('severity', 'Info')}] {finding.get('check')}: {finding.get('detail')}")
+            console.print(f"  -> {finding.get('suggestion')}")
+    else:
+        console.print("No findings. Clean geometry.")
+
+    if verbose and report.get("combined_per_face_scores"):
+        console.print("[bold]Per-face combined scores:[/bold]")
+        for face_index, value in sorted(report["combined_per_face_scores"].items()):
+            console.print(f"  Face {face_index}: {value:.3f}")
+
+    return console.export_text()

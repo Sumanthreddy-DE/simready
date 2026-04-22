@@ -8,6 +8,21 @@ from typing import Any
 from simready.occ_utils import build_edge_face_map, edge_length
 
 try:
+    from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Common
+except ImportError:  # pragma: no cover
+    BRepAlgoAPI_Common = None
+
+try:
+    from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_Copy
+except ImportError:  # pragma: no cover
+    BRepBuilderAPI_Copy = None
+
+try:
+    from OCC.Core.BRepExtrema import BRepExtrema_DistShapeShape
+except ImportError:  # pragma: no cover
+    BRepExtrema_DistShapeShape = None
+
+try:
     from OCC.Core.BRep import BRep_Tool
 except ImportError:  # pragma: no cover
     BRep_Tool = None
@@ -564,6 +579,104 @@ def check_orientation_nuance(shape: Any, geometry_summary: Any) -> CheckResult:
     )
 
 
+def check_sharp_edges(shape: Any, threshold_degrees: float = 15.0) -> CheckResult:
+    if BRepAdaptor_Surface is None:
+        return _result()
+
+    findings: list[dict[str, Any]] = []
+    per_face: dict[int, float] = {}
+    faces = {record.index: record.face for record in _iter_faces(shape)}
+    attached_faces = _edge_to_face_indices(shape)
+    sharp_edges = 0
+
+    for edge_index, face_indices in attached_faces.items():
+        if len(face_indices) != 2:
+            continue
+        try:
+            normal_a = _face_normal_for_check(faces[face_indices[0]])
+            normal_b = _face_normal_for_check(faces[face_indices[1]])
+            angle = _angle_between_normals(normal_a, normal_b)
+        except Exception:
+            continue
+        if angle is None:
+            continue
+        if angle < threshold_degrees:
+            sharp_edges += 1
+            severity_score = min(1.0, max(0.3, 1.0 - (angle / threshold_degrees)))
+            for face_index in face_indices:
+                per_face[face_index] = max(per_face.get(face_index, 0.0), severity_score)
+
+    if sharp_edges:
+        findings.append(
+            {
+                "check": "SharpEdges",
+                "severity": "Minor",
+                "detail": f"Detected {sharp_edges} adjacent edge pairs with dihedral angle below {threshold_degrees:.1f} degrees.",
+                "suggestion": "Inspect sharp transitions and confirm they are intentional for meshing and stress concentration.",
+            }
+        )
+
+    return _result(findings=findings, per_face=per_face)
+
+
+def _face_normal_for_check(face: Any) -> tuple[float, float, float] | None:
+    try:
+        from OCC.Core.BRepTools import breptools_UVBounds
+        from OCC.Core.GeomLProp import GeomLProp_SLProps
+    except ImportError:  # pragma: no cover
+        return None
+
+    surface = BRepAdaptor_Surface(face, True)
+    umin, umax, vmin, vmax = breptools_UVBounds(face)
+    props = GeomLProp_SLProps(surface.Surface().Surface(), (umin + umax) / 2.0, (vmin + vmax) / 2.0, 1, 1e-6)
+    if not props.IsNormalDefined():
+        return None
+    normal = props.Normal()
+    return (float(normal.X()), float(normal.Y()), float(normal.Z()))
+
+
+def _angle_between_normals(a: tuple[float, float, float] | None, b: tuple[float, float, float] | None) -> float | None:
+    if a is None or b is None:
+        return None
+    import math
+
+    dot = sum(x * y for x, y in zip(a, b))
+    norm_a = math.sqrt(sum(x * x for x in a))
+    norm_b = math.sqrt(sum(y * y for y in b))
+    if norm_a == 0.0 or norm_b == 0.0:
+        return None
+    cosine = max(-1.0, min(1.0, dot / (norm_a * norm_b)))
+    return math.degrees(math.acos(cosine))
+
+
+def check_self_intersection(shape: Any) -> CheckResult:
+    if BRepBuilderAPI_Copy is None or BRepAlgoAPI_Common is None:
+        return _result()
+
+    try:
+        copier = BRepBuilderAPI_Copy(shape)
+        copier.Perform(shape)
+        copied = copier.Shape()
+        common = BRepAlgoAPI_Common(shape, copied)
+        common.Build()
+        if common.IsDone() and not common.Shape().IsNull():
+            return _result(
+                findings=[
+                    {
+                        "check": "SelfIntersection",
+                        "severity": "Major",
+                        "detail": "Boolean self-overlap check returned intersecting geometry.",
+                        "suggestion": "Inspect for self-intersecting or duplicated overlapping topology before meshing.",
+                    }
+                ],
+                per_face={record.index: 0.9 for record in _iter_faces(shape)},
+            )
+    except Exception:
+        return _result()
+
+    return _result()
+
+
 def summarize_findings(findings: list[dict[str, Any]]) -> dict[str, Any]:
     severity_counts = {"Critical": 0, "Major": 0, "Minor": 0, "Info": 0}
     for finding in findings:
@@ -589,6 +702,8 @@ def run_essential_checks_detailed(shape: Any, geometry_summary: Any) -> CheckRes
         check_duplicate_body_heuristic(shape, geometry_summary),
         check_duplicate_face_heuristic(shape, geometry_summary),
         check_orientation_nuance(shape, geometry_summary),
+        check_sharp_edges(shape),
+        check_self_intersection(shape),
     ]
     merged = _merge_check_results(results)
 
