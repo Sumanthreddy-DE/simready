@@ -3,13 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from math import sqrt
+from math import acos, sqrt
 from typing import Any
-
-try:
-    from OCC.Core.BRep import BRep_Tool
-except ImportError:  # pragma: no cover
-    BRep_Tool = None
 
 try:
     from OCC.Core.BRepAdaptor import BRepAdaptor_Curve, BRepAdaptor_Surface
@@ -60,7 +55,7 @@ try:
 except ImportError:  # pragma: no cover
     GeomAbs_BSplineSurface = GeomAbs_Cone = GeomAbs_Cylinder = GeomAbs_Plane = GeomAbs_Sphere = GeomAbs_Torus = None
 
-from simready.occ_utils import build_edge_face_map, count_topology, edge_length
+from simready.occ_utils import count_topology, edge_length
 
 
 SURFACE_TYPE_MAP = {
@@ -157,7 +152,8 @@ def _surface_type_name(face: Any) -> str:
 
 
 def _surface_type_vector(name: str) -> list[float]:
-    return [1.0 if key == name else 0.0 for key in SURFACE_TYPE_ONE_HOT]
+    canonical = name if name in SURFACE_TYPE_ONE_HOT else "other"
+    return [1.0 if key == canonical else 0.0 for key in SURFACE_TYPE_ONE_HOT]
 
 
 def _face_area(face: Any) -> float:
@@ -242,23 +238,59 @@ def _coedge_orientation_value(oriented_edge: Any) -> int:
     return 0
 
 
-def _convexity_from_normals(a: tuple[float, float, float], b: tuple[float, float, float]) -> tuple[str, float | None]:
+def _convexity_from_normals(a: tuple[float, float, float], b: tuple[float, float, float]) -> tuple[str, float | None, float | None]:
     norm_a = _vector_norm(a)
     norm_b = _vector_norm(b)
     if norm_a == 0.0 or norm_b == 0.0:
-        return ("unknown", None)
+        return ("unknown", None, None)
     cos_theta = max(-1.0, min(1.0, _vector_dot(a, b) / (norm_a * norm_b)))
+    angle_radians = acos(cos_theta)
+    angle_degrees = angle_radians * 180.0 / 3.141592653589793
     if cos_theta > 0.98:
-        return ("smooth", 0.0)
+        return ("smooth", angle_degrees, cos_theta)
     if cos_theta >= 0.0:
-        return ("convex", cos_theta)
-    return ("concave", cos_theta)
+        return ("convex", angle_degrees, cos_theta)
+    return ("concave", angle_degrees, cos_theta)
+
+
+def _safe_topology_explorer(shape: Any):
+    if TopologyExplorer is None:
+        return None
+    try:
+        return TopologyExplorer(shape, ignore_orientation=False)
+    except TypeError:
+        try:
+            return TopologyExplorer(shape)
+        except Exception:
+            return None
+    except Exception:
+        return None
+
+
+def _attached_faces_by_edge(edges: list[EdgeEntry], faces: list[FaceEntry], shape: Any) -> dict[int, list[int]]:
+    explorer = _safe_topology_explorer(shape)
+    if explorer is None:
+        return {}
+
+    face_hash_to_index = {entry.hash_code: entry.index for entry in faces}
+    attached: dict[int, list[int]] = {}
+    for edge_entry in edges:
+        face_indices: list[int] = []
+        try:
+            linked_faces = explorer.faces_from_edge(edge_entry.edge)
+        except Exception:
+            linked_faces = []
+        for face in linked_faces:
+            face_index = face_hash_to_index.get(_shape_hash(face))
+            if face_index is not None and face_index not in face_indices:
+                face_indices.append(face_index)
+        attached[edge_entry.hash_code] = face_indices
+    return attached
 
 
 def extract_brep_graph(shape: Any) -> GraphData:
     faces = _iter_faces(shape)
     edges = _iter_edges(shape)
-    face_hash_to_index = {entry.hash_code: entry.index for entry in faces}
     edge_hash_to_index = {entry.hash_code: entry.index for entry in edges}
 
     graph = GraphData(metadata=count_topology(shape))
@@ -280,38 +312,26 @@ def extract_brep_graph(shape: Any) -> GraphData:
                 "area": area,
                 "centroid": centroid,
                 "normal": normal,
+                "mean_curvature": 0.0,
                 "uv_bounds": uv,
             }
         )
 
-    edge_face_map = build_edge_face_map(shape)
-    attached_faces_by_edge_hash: dict[int, list[int]] = {}
-    if TopologyExplorer is not None:
-        try:
-            top_exp = TopologyExplorer(shape, ignore_orientation=True)
-            for edge_entry in edges:
-                attached_indices: list[int] = []
-                for face in top_exp.faces_from_edge(edge_entry.edge):
-                    face_index = face_hash_to_index.get(_shape_hash(face))
-                    if face_index is not None:
-                        attached_indices.append(face_index)
-                attached_faces_by_edge_hash[edge_entry.hash_code] = attached_indices
-        except Exception:
-            attached_faces_by_edge_hash = {}
-    elif edge_face_map is not None:
-        for map_index in range(1, edge_face_map.Size() + 1):
-            edge = edge_face_map.FindKey(map_index)
-            edge_hash = _shape_hash(edge)
-            if edge_hash is not None and edge_hash not in attached_faces_by_edge_hash:
-                attached_faces_by_edge_hash[edge_hash] = []
+    attached_faces_by_edge_hash = _attached_faces_by_edge(edges, faces, shape)
+    adjacency_set: set[tuple[int, int]] = set()
 
     for edge_entry in edges:
         attached = attached_faces_by_edge_hash.get(edge_entry.hash_code, [])
         convexity = "unknown"
+        dihedral_angle = None
         dihedral_signal = None
         if len(attached) >= 2:
-            convexity, dihedral_signal = _convexity_from_normals(face_normals.get(attached[0], (0.0, 0.0, 0.0)), face_normals.get(attached[1], (0.0, 0.0, 0.0)))
-            graph.adjacency.append((attached[0], attached[1]))
+            face_a, face_b = attached[0], attached[1]
+            convexity, dihedral_angle, dihedral_signal = _convexity_from_normals(
+                face_normals.get(face_a, (0.0, 0.0, 0.0)),
+                face_normals.get(face_b, (0.0, 0.0, 0.0)),
+            )
+            adjacency_set.add(tuple(sorted((face_a, face_b))))
         graph.edge_features.append(
             {
                 "edge_index": edge_entry.index,
@@ -319,9 +339,12 @@ def extract_brep_graph(shape: Any) -> GraphData:
                 "midpoint_curvature": _edge_midpoint_curvature(edge_entry.edge),
                 "connected_faces": attached,
                 "convexity": convexity,
-                "dihedral_angle": dihedral_signal,
+                "dihedral_angle": dihedral_angle,
+                "dihedral_signal": dihedral_signal,
             }
         )
+
+    graph.adjacency = sorted(adjacency_set)
 
     coedge_index = 0
     if TopExp_Explorer is not None and TopAbs_FACE is not None and TopAbs_WIRE is not None and WireExplorer is not None:
@@ -369,6 +392,7 @@ def extract_brep_graph(shape: Any) -> GraphData:
             "face_feature_count": len(graph.node_features),
             "edge_feature_count": len(graph.edge_features),
             "coedge_count": len(graph.coedge_features),
+            "adjacency_count": len(graph.adjacency),
         }
     )
     return graph
