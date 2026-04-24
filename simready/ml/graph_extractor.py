@@ -19,10 +19,6 @@ except ImportError:  # pragma: no cover
     brepgprop = None
     GProp_GProps = None
 
-try:
-    from OCC.Core.BRepTools import breptools_UVBounds
-except ImportError:  # pragma: no cover
-    breptools_UVBounds = None
 
 try:
     from OCC.Core.GeomLProp import GeomLProp_SLProps
@@ -55,7 +51,12 @@ try:
 except ImportError:  # pragma: no cover
     GeomAbs_BSplineSurface = GeomAbs_Cone = GeomAbs_Cylinder = GeomAbs_Plane = GeomAbs_Sphere = GeomAbs_Torus = None
 
-from simready.occ_utils import count_topology, edge_length
+try:
+    from OCC.Core.TopTools import TopTools_IndexedMapOfShape
+except ImportError:  # pragma: no cover
+    TopTools_IndexedMapOfShape = None
+
+from simready.occ_utils import build_edge_face_map, count_topology, edge_length, uv_bounds
 
 
 SURFACE_TYPE_MAP = {
@@ -124,20 +125,31 @@ def _iter_faces(shape: Any) -> list[FaceEntry]:
 
 
 def _iter_edges(shape: Any) -> list[EdgeEntry]:
+    explorer = _safe_topology_explorer(shape)
+    if explorer is not None:
+        edges: list[EdgeEntry] = []
+        for index, edge in enumerate(explorer.edges()):
+            edges.append(EdgeEntry(index=index, edge=edge, hash_code=_shape_hash(edge) or index))
+        return edges
+
     if TopExp_Explorer is None or TopAbs_EDGE is None:
         return []
     try:
-        explorer = TopExp_Explorer(shape, TopAbs_EDGE)
+        exp = TopExp_Explorer(shape, TopAbs_EDGE)
     except Exception:
         return []
 
-    edges: list[EdgeEntry] = []
+    edges = []
+    seen: set[int] = set()
     index = 0
-    while explorer.More():
-        edge = topods.Edge(explorer.Current()) if topods is not None else explorer.Current()
-        edges.append(EdgeEntry(index=index, edge=edge, hash_code=_shape_hash(edge) or index))
-        index += 1
-        explorer.Next()
+    while exp.More():
+        edge = topods.Edge(exp.Current()) if topods is not None else exp.Current()
+        h = _shape_hash(edge) or index
+        if h not in seen:
+            seen.add(h)
+            edges.append(EdgeEntry(index=index, edge=edge, hash_code=h))
+            index += 1
+        exp.Next()
     return edges
 
 
@@ -179,13 +191,6 @@ def _face_centroid(face: Any) -> tuple[float, float, float]:
         return (0.0, 0.0, 0.0)
 
 
-def _uv_bounds(face: Any) -> tuple[float, float, float, float]:
-    if breptools_UVBounds is None:
-        return (0.0, 0.0, 0.0, 0.0)
-    try:
-        return tuple(float(v) for v in breptools_UVBounds(face))
-    except Exception:
-        return (0.0, 0.0, 0.0, 0.0)
 
 
 def _face_normal(face: Any) -> tuple[float, float, float]:
@@ -193,7 +198,7 @@ def _face_normal(face: Any) -> tuple[float, float, float]:
         return (0.0, 0.0, 0.0)
     try:
         surface = BRepAdaptor_Surface(face, True)
-        umin, umax, vmin, vmax = _uv_bounds(face)
+        umin, umax, vmin, vmax = uv_bounds(face)
         u = (umin + umax) / 2.0
         v = (vmin + vmax) / 2.0
         props = GeomLProp_SLProps(surface.Surface().Surface(), u, v, 1, 1e-6)
@@ -254,36 +259,103 @@ def _convexity_from_normals(a: tuple[float, float, float], b: tuple[float, float
 
 
 def _safe_topology_explorer(shape: Any):
+    """Return a TopologyExplorer with ignore_orientation=True for unique edges."""
     if TopologyExplorer is None:
         return None
     try:
-        return TopologyExplorer(shape, ignore_orientation=False)
-    except TypeError:
-        try:
-            return TopologyExplorer(shape)
-        except Exception:
-            return None
+        return TopologyExplorer(shape, ignore_orientation=True)
     except Exception:
         return None
 
 
-def _attached_faces_by_edge(edges: list[EdgeEntry], faces: list[FaceEntry], shape: Any) -> dict[int, list[int]]:
+def _build_shape_index_map(entries: list[FaceEntry] | list[EdgeEntry]) -> Any | None:
+    """Build a TopTools_IndexedMapOfShape for O(1) lookups by IsSame semantics."""
+    if TopTools_IndexedMapOfShape is None:
+        return None
+    shape_map = TopTools_IndexedMapOfShape()
+    for entry in entries:
+        shape_map.Add(entry.face if hasattr(entry, "face") else entry.edge)
+    return shape_map
+
+
+def _shape_map_find_index(shape: Any, shape_map: Any, entries: list) -> int | None:
+    """O(1) lookup: find the entry index for a shape using the prebuilt map."""
+    if shape_map is None:
+        return _linear_find_index(shape, entries)
+    try:
+        idx = shape_map.FindIndex(shape)
+        if idx > 0:
+            return idx - 1  # OCC maps are 1-based, entries are 0-based
+    except Exception:
+        pass
+    return None
+
+
+def _linear_find_index(shape: Any, entries: list) -> int | None:
+    """Fallback linear scan using IsSame()."""
+    for entry in entries:
+        try:
+            s = entry.face if hasattr(entry, "face") else entry.edge
+            if s.IsSame(shape):
+                return entry.index
+        except Exception:
+            pass
+    return None
+
+
+def _attached_faces_by_edge_via_topology_explorer(
+    edges: list[EdgeEntry], faces: list[FaceEntry], shape: Any, face_map: Any | None
+) -> dict[int, list[int]]:
+    """Fallback: use TopologyExplorer.faces_from_edge() when build_edge_face_map is unavailable."""
     explorer = _safe_topology_explorer(shape)
     if explorer is None:
         return {}
 
-    face_hash_to_index = {entry.hash_code: entry.index for entry in faces}
     attached: dict[int, list[int]] = {}
     for edge_entry in edges:
         face_indices: list[int] = []
         try:
-            linked_faces = explorer.faces_from_edge(edge_entry.edge)
+            for face in explorer.faces_from_edge(edge_entry.edge):
+                face_index = _shape_map_find_index(face, face_map, faces)
+                if face_index is not None and face_index not in face_indices:
+                    face_indices.append(face_index)
         except Exception:
-            linked_faces = []
-        for face in linked_faces:
-            face_index = face_hash_to_index.get(_shape_hash(face))
-            if face_index is not None and face_index not in face_indices:
-                face_indices.append(face_index)
+            pass
+        attached[edge_entry.hash_code] = face_indices
+    return attached
+
+
+def _attached_faces_by_edge(
+    edges: list[EdgeEntry], faces: list[FaceEntry], shape: Any, face_map: Any | None = None
+) -> dict[int, list[int]]:
+    edge_face_map = build_edge_face_map(shape)
+    if edge_face_map is None:
+        return _attached_faces_by_edge_via_topology_explorer(edges, faces, shape, face_map)
+
+    try:
+        from OCC.Core.TopTools import TopTools_ListIteratorOfListOfShape
+    except ImportError:  # pragma: no cover
+        return _attached_faces_by_edge_via_topology_explorer(edges, faces, shape, face_map)
+
+    attached: dict[int, list[int]] = {}
+
+    for edge_entry in edges:
+        face_indices: list[int] = []
+        try:
+            idx = edge_face_map.FindIndex(edge_entry.edge)
+            if idx == 0:
+                attached[edge_entry.hash_code] = []
+                continue
+            face_list = edge_face_map.FindFromIndex(idx)
+            it = TopTools_ListIteratorOfListOfShape(face_list)
+            while it.More():
+                face = it.Value()
+                face_index = _shape_map_find_index(face, face_map, faces)
+                if face_index is not None and face_index not in face_indices:
+                    face_indices.append(face_index)
+                it.Next()
+        except Exception:
+            pass
         attached[edge_entry.hash_code] = face_indices
     return attached
 
@@ -291,9 +363,15 @@ def _attached_faces_by_edge(edges: list[EdgeEntry], faces: list[FaceEntry], shap
 def extract_brep_graph(shape: Any) -> GraphData:
     faces = _iter_faces(shape)
     edges = _iter_edges(shape)
-    edge_hash_to_index = {entry.hash_code: entry.index for entry in edges}
 
-    graph = GraphData(metadata=count_topology(shape))
+    # Precompute O(1) shape index maps
+    face_map = _build_shape_index_map(faces)
+    edge_map = _build_shape_index_map(edges)
+
+    raw_counts = count_topology(shape)
+    graph = GraphData(metadata=raw_counts)
+    graph.metadata["oriented_edge_count"] = raw_counts["edge_count"]
+    graph.metadata["edge_count"] = len(edges)
     graph.metadata["surface_type_labels"] = SURFACE_TYPE_ONE_HOT
 
     face_normals: dict[int, tuple[float, float, float]] = {}
@@ -301,7 +379,7 @@ def extract_brep_graph(shape: Any) -> GraphData:
         surface_type = _surface_type_name(entry.face)
         area = _face_area(entry.face)
         centroid = _face_centroid(entry.face)
-        uv = _uv_bounds(entry.face)
+        uv = uv_bounds(entry.face)
         normal = _face_normal(entry.face)
         face_normals[entry.index] = normal
         graph.node_features.append(
@@ -317,7 +395,7 @@ def extract_brep_graph(shape: Any) -> GraphData:
             }
         )
 
-    attached_faces_by_edge_hash = _attached_faces_by_edge(edges, faces, shape)
+    attached_faces_by_edge_hash = _attached_faces_by_edge(edges, faces, shape, face_map)
     adjacency_set: set[tuple[int, int]] = set()
 
     for edge_entry in edges:
@@ -362,7 +440,7 @@ def extract_brep_graph(shape: Any) -> GraphData:
                 except Exception:
                     ordered_edges = []
                 for position, oriented_edge in enumerate(ordered_edges):
-                    edge_index = edge_hash_to_index.get(_shape_hash(oriented_edge))
+                    edge_index = _shape_map_find_index(oriented_edge, edge_map, edges)
                     if edge_index is None:
                         continue
                     graph.coedge_features.append(

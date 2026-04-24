@@ -76,6 +76,22 @@ def build_edge_face_map(shape: Any):
     return edge_face_map
 
 
+def uv_bounds(face: Any) -> tuple[float, float, float, float]:
+    """Return (umin, umax, vmin, vmax) for a face, with pythonocc version compat."""
+    # Try new API first (pythonocc 7.9+), fall back to deprecated free function
+    try:
+        from OCC.Core.BRepTools import breptools
+        return tuple(float(v) for v in breptools.UVBounds(face))
+    except (ImportError, AttributeError):
+        pass
+    try:
+        from OCC.Core.BRepTools import breptools_UVBounds
+        return tuple(float(v) for v in breptools_UVBounds(face))
+    except (ImportError, AttributeError):
+        pass
+    return (0.0, 0.0, 0.0, 0.0)
+
+
 def count_topology(shape: Any) -> dict[str, int]:
     return {
         "face_count": count_shapes(shape, TopAbs_FACE),

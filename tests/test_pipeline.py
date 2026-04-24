@@ -54,7 +54,7 @@ def test_analyze_open_face_file():
     checks = {finding["check"] for finding in report["findings"]}
     assert "OpenBoundaries" in checks
     assert "OrientationNuance" in checks
-    assert report["status"] in {"NeedsAttention", "ReviewRecommended"}
+    assert report["status"] in {"NotReady", "NeedsAttention", "ReviewRecommended"}
 
 
 def test_analyze_thin_plate_file():

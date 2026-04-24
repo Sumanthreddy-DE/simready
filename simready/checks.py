@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from simready.occ_utils import build_edge_face_map, edge_length
+from simready.occ_utils import build_edge_face_map, edge_length, uv_bounds
 
 try:
     from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Common
@@ -621,13 +621,12 @@ def check_sharp_edges(shape: Any, threshold_degrees: float = 15.0) -> CheckResul
 
 def _face_normal_for_check(face: Any) -> tuple[float, float, float] | None:
     try:
-        from OCC.Core.BRepTools import breptools_UVBounds
         from OCC.Core.GeomLProp import GeomLProp_SLProps
     except ImportError:  # pragma: no cover
         return None
 
     surface = BRepAdaptor_Surface(face, True)
-    umin, umax, vmin, vmax = breptools_UVBounds(face)
+    umin, umax, vmin, vmax = uv_bounds(face)
     props = GeomLProp_SLProps(surface.Surface().Surface(), (umin + umax) / 2.0, (vmin + vmax) / 2.0, 1, 1e-6)
     if not props.IsNormalDefined():
         return None
