@@ -65,6 +65,12 @@ streamlit run ui/app.py
 ```
 Upload any STEP file to see the full analysis report.
 
+A browser-driven smoke test script is also included:
+```bash
+node scripts/ui_smoke.js
+```
+It uploads `tests/data/smoke_box.step` to a running local Streamlit app and verifies key UI sections are rendered.
+
 ### Batch Analysis
 ```bash
 python scripts/demo_analysis.py
@@ -171,6 +177,22 @@ SimReady/
   environment.yml
   requirements.txt
 ```
+
+## Phase 3 Completion Status
+
+Completed:
+- Pre-Task 0 OCC hardening fixes
+- pipeline timeout and exception hardening
+- complexity tier and confidence reporting
+- Streamlit demo UI rewrite
+- HTML and terminal report polish
+- demo batch analysis script
+- GrabCAD smoke-test scaffolding
+- environment and README cleanup
+
+Pending final validation:
+- run final real-world checks on 3 manually downloaded GrabCAD STEP files
+- optional manual browser walkthrough on additional fixtures beyond the automated smoke test
 
 ## Current Caveats
 

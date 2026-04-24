@@ -8,8 +8,8 @@ from pathlib import Path
 SAMPLE_DIR = Path("tests/data/grabcad")
 EXPECTED_FILES = [
     "bracket_simple.step",
-    "bracket_medium.step",
-    "housing_complex.step",
+    "housing_moderate.step",
+    "manifold_complex.step",
 ]
 
 
@@ -23,10 +23,13 @@ def check_samples():
             print(f"  - {f}")
         print()
         print("Download instructions:")
-        print("1. Go to grabcad.com and search for 'bracket STEP'")
-        print("2. Download 3 models of varying complexity")
-        print("3. Rename to the expected filenames above")
-        print("4. Place in the tests/data/grabcad/ directory")
+        print("1. Go to grabcad.com and search for these categories:")
+        print("   - simple bracket STEP")
+        print("   - enclosure or housing STEP")
+        print("   - manifold STEP")
+        print("2. Prefer models that include STEP or STP files directly")
+        print("3. Download one file from each category and rename to the expected filenames above")
+        print("4. Place them in the tests/data/grabcad/ directory")
     else:
         print(f"All {len(EXPECTED_FILES)} sample files present.")
     return missing
