@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 import time
 from types import SimpleNamespace
 from typing import Any
@@ -9,12 +10,15 @@ from typing import Any
 from simready.checks import run_essential_checks_detailed, summarize_findings
 from simready.healer import heal_shape
 from simready.ml.brepnet import run_brepnet_inference
-from simready.ml.combiner import score_label, score_report
+from simready.ml.combiner import complexity_tier, score_label, score_report
 from simready.ml.graph_extractor import extract_brep_graph
 from simready.parser import parse_geometry
 from simready.report import build_report
 from simready.splitter import split_bodies
 from simready.validator import validate_brep, validate_file_load
+
+
+ANALYSIS_TIMEOUT_SECONDS = 120
 
 
 def _body_report(shape: Any, index: int, heal_summary: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -52,6 +56,7 @@ def _body_report(shape: Any, index: int, heal_summary: dict[str, Any] | None = N
             "score_source": ml_result.score_source,
             "aggregate_score": ml_result.aggregate_score,
             "notes": ml_result.notes,
+            "per_face_scores": ml_result.per_face_scores,
         },
         "graph": {
             "face_count": graph.metadata.get("face_count", 0),
@@ -59,21 +64,24 @@ def _body_report(shape: Any, index: int, heal_summary: dict[str, Any] | None = N
             "coedge_count": graph.metadata.get("coedge_count", 0),
             "adjacency_count": graph.metadata.get("adjacency_count", 0),
             "extractor": graph.metadata.get("extractor"),
+            "face_feature_errors": graph.metadata.get("face_feature_errors", 0),
+            "edge_feature_errors": graph.metadata.get("edge_feature_errors", 0),
         },
         "score": {
             "overall": fusion.overall_score,
             "label": status,
+            "rule_face_mean": fusion.breakdown.get("rule_face_count", 0),
             "body_combined_mean": fusion.body_score,
             "ml_penalty_applied": fusion.ml_penalty_applied,
             "ml_penalty_points": fusion.ml_penalty_points,
         },
+        "complexity": complexity_tier(geometry_summary.face_count),
         "combined_per_face_scores": fusion.combined_per_face,
     }
 
 
-def analyze_file(filepath: str, export_healed_path: str | None = None) -> dict[str, Any]:
-    started = time.perf_counter()
 
+def _analyze_file_inner(filepath: str, export_healed_path: str | None, started: float) -> dict[str, Any]:
     load_result = validate_file_load(filepath)
     if not load_result.is_valid:
         report = build_report(
@@ -165,6 +173,7 @@ def analyze_file(filepath: str, export_healed_path: str | None = None) -> dict[s
         "score_source": ml_result.score_source,
         "aggregate_score": ml_result.aggregate_score,
         "notes": ml_result.notes,
+        "per_face_scores": ml_result.per_face_scores,
     }
     report["graph"] = {
         "face_count": graph.metadata.get("face_count", 0),
@@ -172,7 +181,10 @@ def analyze_file(filepath: str, export_healed_path: str | None = None) -> dict[s
         "coedge_count": graph.metadata.get("coedge_count", 0),
         "adjacency_count": graph.metadata.get("adjacency_count", 0),
         "extractor": graph.metadata.get("extractor"),
+        "face_feature_errors": graph.metadata.get("face_feature_errors", 0),
+        "edge_feature_errors": graph.metadata.get("edge_feature_errors", 0),
     }
+    report["complexity"] = complexity_tier(geometry_summary.face_count)
     if heal_result is not None:
         report["heal"] = heal_result.summary
         if not initial_validation.is_valid:
@@ -180,4 +192,47 @@ def analyze_file(filepath: str, export_healed_path: str | None = None) -> dict[s
             report["validation"]["healed_after_validation_failure"] = final_validation.is_valid
     if heal_result and heal_result.export_path:
         report["healed_export"] = heal_result.export_path
+    return report
+
+
+
+def analyze_file(filepath: str, export_healed_path: str | None = None, timeout: int = ANALYSIS_TIMEOUT_SECONDS) -> dict[str, Any]:
+    started = time.perf_counter()
+    result_container: list[dict[str, Any]] = []
+    error_container: list[Exception] = []
+
+    def _run() -> None:
+        try:
+            result_container.append(_analyze_file_inner(filepath, export_healed_path, started))
+        except Exception as exc:  # pragma: no cover
+            error_container.append(exc)
+
+    thread = threading.Thread(target=_run, daemon=True)
+    thread.start()
+    thread.join(timeout=timeout)
+
+    if result_container:
+        return result_container[0]
+
+    elapsed = time.perf_counter() - started
+    error_msg = str(error_container[0]) if error_container else f"Analysis timed out after {timeout}s"
+    report = build_report(
+        filepath,
+        SimpleNamespace(
+            is_valid=False,
+            errors=[
+                {
+                    "check": "AnalysisTimeout" if not error_container else "AnalysisError",
+                    "severity": "Critical",
+                    "detail": error_msg,
+                    "suggestion": "Try a simpler model, increase the timeout, or inspect the geometry manually.",
+                }
+            ],
+        ),
+        None,
+        [],
+        bodies=[],
+        elapsed_seconds=elapsed,
+    )
+    report["status"] = "InvalidInput"
     return report

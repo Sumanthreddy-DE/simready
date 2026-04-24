@@ -99,3 +99,34 @@ def score_label(score: float) -> str:
     if score >= 40:
         return "NeedsAttention"
     return "NotReady"
+
+
+def complexity_tier(face_count: int) -> dict[str, Any]:
+    """Classify model complexity and score confidence."""
+    if face_count <= 50:
+        return {
+            "tier": "simple",
+            "label": "Simple Geometry",
+            "confidence": "high",
+            "note": "Score is well-calibrated for simple geometry.",
+        }
+    if face_count <= 200:
+        return {
+            "tier": "moderate",
+            "label": "Moderate Geometry",
+            "confidence": "medium",
+            "note": "Score is indicative. Manual review recommended for critical applications.",
+        }
+    if face_count <= 1000:
+        return {
+            "tier": "complex",
+            "label": "Complex Geometry",
+            "confidence": "low",
+            "note": "Score is approximate. Checks may miss issues on complex geometry. Manual review strongly recommended.",
+        }
+    return {
+        "tier": "very_complex",
+        "label": "Very Complex Geometry",
+        "confidence": "minimal",
+        "note": "Model exceeds typical calibration range. Score should be treated as a rough indicator only.",
+    }

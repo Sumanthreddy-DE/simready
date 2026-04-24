@@ -690,20 +690,37 @@ def summarize_findings(findings: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def run_essential_checks_detailed(shape: Any, geometry_summary: Any) -> CheckResult:
-    results = [
-        check_degenerate_geometry(shape, geometry_summary),
-        check_non_manifold_edges(shape),
-        check_open_boundaries(shape, geometry_summary),
-        check_short_edges(shape, geometry_summary),
-        check_thin_walls(geometry_summary),
-        check_small_features(shape, geometry_summary),
-        check_small_fillets(shape, geometry_summary),
-        check_duplicate_body_heuristic(shape, geometry_summary),
-        check_duplicate_face_heuristic(shape, geometry_summary),
-        check_orientation_nuance(shape, geometry_summary),
-        check_sharp_edges(shape),
-        check_self_intersection(shape),
+    check_calls = [
+        (check_degenerate_geometry, (shape, geometry_summary)),
+        (check_non_manifold_edges, (shape,)),
+        (check_open_boundaries, (shape, geometry_summary)),
+        (check_short_edges, (shape, geometry_summary)),
+        (check_thin_walls, (geometry_summary,)),
+        (check_small_features, (shape, geometry_summary)),
+        (check_small_fillets, (shape, geometry_summary)),
+        (check_duplicate_body_heuristic, (shape, geometry_summary)),
+        (check_duplicate_face_heuristic, (shape, geometry_summary)),
+        (check_orientation_nuance, (shape, geometry_summary)),
+        (check_sharp_edges, (shape,)),
+        (check_self_intersection, (shape,)),
     ]
+    results: list[CheckResult] = []
+    for check_fn, args in check_calls:
+        try:
+            results.append(check_fn(*args))
+        except Exception:
+            results.append(
+                _result(
+                    findings=[
+                        {
+                            "check": check_fn.__name__,
+                            "severity": "Info",
+                            "detail": "Check skipped due to internal error on this geometry.",
+                            "suggestion": "This check could not be completed. Manual review recommended.",
+                        }
+                    ]
+                )
+            )
     merged = _merge_check_results(results)
 
     if geometry_summary.solid_count > 1:

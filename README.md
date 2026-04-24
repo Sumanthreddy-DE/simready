@@ -8,7 +8,7 @@ AI-assisted simulation pre-processing tool for structural FEA. Takes a STEP file
 STEP file  -->  SimReady  -->  readiness score + findings + optional healed geometry
 ```
 
-Current Phase 2 state includes:
+Current Phase 3 state includes:
 - two-pass validation and healing flow
 - rule-based geometry checks with per-face scoring groundwork
 - custom B-Rep graph extraction for ML features
@@ -16,8 +16,9 @@ Current Phase 2 state includes:
 - rule + ML score fusion into a unified 0-100 score
 - terminal pretty-print output
 - self-contained HTML report generation
-- dataset auto-label and training scaffolding
+- Streamlit UI for demo-ready data exploration
 - multi-body handling with per-body reports
+- complexity tier and confidence hints for larger models
 
 ## Quick Start
 
@@ -49,7 +50,27 @@ python -m simready.cli analyze part.step --export-healed part_healed.step
 python -m simready.cli analyze part.step --verbose
 ```
 
-## Phase 2 Architecture
+## Demo
+
+### Terminal
+```bash
+python -m simready.cli analyze tests/data/smoke_box.step
+python -m simready.cli analyze tests/data/multi_body.step --verbose
+python -m simready.cli analyze tests/data/open_face.step --html report.html
+```
+
+### Streamlit UI
+```bash
+streamlit run ui/app.py
+```
+Upload any STEP file to see the full analysis report.
+
+### Batch Analysis
+```bash
+python scripts/demo_analysis.py
+```
+
+## Phase 3 Architecture
 
 ```
 STEP file
@@ -69,10 +90,10 @@ extract B-Rep graph
 BRepNet inference scaffold
   |
   v
-rule/ML score fusion
+rule/ML score fusion + complexity tier
   |
   v
-terminal report / JSON / HTML
+terminal report / JSON / HTML / Streamlit UI
 ```
 
 ## Report Outputs
@@ -81,6 +102,7 @@ terminal report / JSON / HTML
 Default CLI output is a readable summary with:
 - unified 0-100 readiness score
 - geometry counts
+- graph topology summary
 - top findings
 - optional per-face scores with `--verbose`
 
@@ -90,9 +112,12 @@ Use `--json` for scripting and downstream tooling.
 ### HTML
 Use `--html report.html` for a single-file shareable report.
 
+### Streamlit
+Use `streamlit run ui/app.py` for an interactive demo UI with findings tables, score breakdown, graph metadata, and download buttons.
+
 ## ML Layer Notes
 
-SimReady now includes:
+SimReady includes:
 - `simready/ml/graph_extractor.py` for custom face/edge/coedge extraction
 - `simready/ml/brepnet.py` for checkpoint-aware inference scaffolding
 - `simready/ml/combiner.py` for per-face rule/ML fusion and overall scoring
@@ -106,8 +131,10 @@ Scripts included:
 - `scripts/download_fusion360.py`
 - `scripts/train.py`
 - `scripts/evaluate.py`
+- `scripts/demo_analysis.py`
+- `scripts/download_grabcad_samples.py`
 
-These are scaffolds for the Fusion360 Gallery subset workflow and Colab-friendly fine-tuning path.
+These support fixture analysis, demo workflows, and future model fine-tuning.
 
 ## Project Structure
 
@@ -134,6 +161,8 @@ SimReady/
     download_fusion360.py
     train.py
     evaluate.py
+    demo_analysis.py
+    download_grabcad_samples.py
   ui/
     app.py
     viz.py
@@ -145,10 +174,10 @@ SimReady/
 
 ## Current Caveats
 
-- Full BRepNet model wiring is still scaffold-level, not final production inference.
-- Real-world validation set coverage is still pending.
-- UI work now has a Streamlit scaffold in `ui/app.py`, but 3D OCC/PyVista face rendering is still pending.
-- Actual pytest execution still depends on a populated project environment with pythonocc installed.
+- BRepNet model uses heuristic fallback (geometry-based scoring) — actual neural weights require fine-tuning on labeled data.
+- pythonocc-core 7.9+ required (older versions may have API incompatibilities).
+- Streamlit UI provides data visualization only — no 3D CAD rendering.
+- Test coverage is comprehensive for the analysis pipeline; real-world validation on industrial parts is ongoing.
 
 ## License
 
