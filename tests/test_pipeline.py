@@ -143,6 +143,22 @@ def test_thin_walls_spreads_per_face_across_all_faces():
     assert max(values) - min(values) < 1e-6  # uniform spread
 
 
+def test_self_intersection_skipped_when_face_count_exceeds_limit(monkeypatch):
+    """Regression: BOPAlgo_ArgumentAnalyzer on large topology can run for many
+    minutes. The check now skips with an Info finding when face_count exceeds
+    SELF_INTERSECTION_FACE_LIMIT instead of hanging the pipeline.
+    """
+    _force_heuristic(monkeypatch)
+    import simready.checks as checks_module
+
+    monkeypatch.setattr(checks_module, "SELF_INTERSECTION_FACE_LIMIT", 3)
+    report = analyze_file("tests/data/smoke_box.step")
+    checks = {finding["check"]: finding for finding in report["findings"]}
+    assert "SelfIntersectionSkipped" in checks
+    assert checks["SelfIntersectionSkipped"]["severity"] == "Info"
+    assert "SelfIntersection" not in checks  # Major variant must not fire when skipped
+
+
 def test_brepnet_inference_is_honestly_labelled_heuristic(monkeypatch):
     """Regression: TorchBRepNetAdapter claimed `weights_loaded=True` and
     `score_source="checkpoint-adapter"` while still running the heuristic.

@@ -634,32 +634,98 @@ def _angle_between_normals(a: tuple[float, float, float] | None, b: tuple[float,
     return math.degrees(math.acos(cosine))
 
 
+SELF_INTERSECTION_FACE_LIMIT = 150
+SELF_INTERSECTION_TIMEOUT_SECONDS = 30.0
+
+
 def check_self_intersection(shape: Any) -> CheckResult:
     """Detect actual self-intersecting faces using BOPAlgo_ArgumentAnalyzer.
 
     Returns no finding for clean geometry. Only fires when the analyzer
     reports faulty topology (self-interfering faces/edges).
+
+    Two safety guards keep this check from hanging the pipeline on real CAD:
+
+    - Face-count limit: skip with an Info finding when the shape has more
+      than SELF_INTERSECTION_FACE_LIMIT faces. BOPAlgo self-intersection is
+      O(N^2) on face pairs in practice and can take many minutes on parts
+      with hundreds of faces.
+    - 30 s watchdog: run BOPAlgo in a daemon thread and join with a timeout.
+      If the analyzer has not finished, emit a Skipped/timeout Info finding
+      and move on. The daemon thread dies on process exit.
     """
     if BOPAlgo_ArgumentAnalyzer is None:
         return _result()
 
     try:
-        analyzer = BOPAlgo_ArgumentAnalyzer()
-        analyzer.SetShape1(shape)
-        analyzer.SetSelfInterMode(True)
-        analyzer.SetArgumentTypeMode(False)
-        analyzer.SetSmallEdgeMode(False)
-        analyzer.SetRebuildFaceMode(False)
-        analyzer.SetTangentMode(False)
-        analyzer.SetMergeVertexMode(False)
-        analyzer.SetMergeEdgeMode(False)
-        analyzer.SetContinuityMode(False)
-        analyzer.SetCurveOnSurfaceMode(False)
-        analyzer.Perform()
+        from simready.occ_utils import count_shapes
+        face_count = count_shapes(shape, TopAbs_FACE) if TopAbs_FACE is not None else 0
     except Exception:
+        face_count = 0
+
+    if face_count > SELF_INTERSECTION_FACE_LIMIT:
+        return _result(
+            findings=[
+                {
+                    "check": "SelfIntersectionSkipped",
+                    "severity": "Info",
+                    "detail": (
+                        f"Self-intersection check skipped: face count {face_count} exceeds "
+                        f"limit {SELF_INTERSECTION_FACE_LIMIT}. BOPAlgo_ArgumentAnalyzer "
+                        f"becomes impractical on large topology."
+                    ),
+                    "suggestion": "Run BOPAlgo_ArgumentAnalyzer manually if self-intersection coverage is required for this part.",
+                }
+            ],
+        )
+
+    import threading
+
+    result_container: list[tuple[bool, bool]] = []  # (success, has_faulty)
+    error_container: list[BaseException] = []
+
+    def _run_analyzer() -> None:
+        try:
+            analyzer = BOPAlgo_ArgumentAnalyzer()
+            analyzer.SetShape1(shape)
+            analyzer.SetSelfInterMode(True)
+            analyzer.SetArgumentTypeMode(False)
+            analyzer.SetSmallEdgeMode(False)
+            analyzer.SetRebuildFaceMode(False)
+            analyzer.SetTangentMode(False)
+            analyzer.SetMergeVertexMode(False)
+            analyzer.SetMergeEdgeMode(False)
+            analyzer.SetContinuityMode(False)
+            analyzer.SetCurveOnSurfaceMode(False)
+            analyzer.Perform()
+            result_container.append((True, bool(analyzer.HasFaulty())))
+        except BaseException as exc:  # pragma: no cover - defensive
+            error_container.append(exc)
+
+    worker = threading.Thread(target=_run_analyzer, daemon=True)
+    worker.start()
+    worker.join(timeout=SELF_INTERSECTION_TIMEOUT_SECONDS)
+
+    if worker.is_alive():
+        return _result(
+            findings=[
+                {
+                    "check": "SelfIntersectionTimeout",
+                    "severity": "Info",
+                    "detail": (
+                        f"Self-intersection check timed out after "
+                        f"{SELF_INTERSECTION_TIMEOUT_SECONDS:.0f}s; analyzer thread left running as daemon."
+                    ),
+                    "suggestion": "Inspect the part manually for self-intersection or rerun with a longer budget.",
+                }
+            ],
+        )
+
+    if error_container or not result_container:
         return _result()
 
-    if not analyzer.HasFaulty():
+    _ok, has_faulty = result_container[0]
+    if not has_faulty:
         return _result()
 
     return _result(
