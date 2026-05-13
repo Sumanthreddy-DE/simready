@@ -264,6 +264,11 @@ def _safe_topology_explorer(shape: Any):
         return None
     try:
         return TopologyExplorer(shape, ignore_orientation=True)
+    except TypeError:
+        try:
+            return TopologyExplorer(shape)
+        except Exception:
+            return None
     except Exception:
         return None
 
@@ -375,12 +380,21 @@ def extract_brep_graph(shape: Any) -> GraphData:
     graph.metadata["surface_type_labels"] = SURFACE_TYPE_ONE_HOT
 
     face_normals: dict[int, tuple[float, float, float]] = {}
+    face_error_count = 0
     for entry in faces:
-        surface_type = _surface_type_name(entry.face)
-        area = _face_area(entry.face)
-        centroid = _face_centroid(entry.face)
-        uv = uv_bounds(entry.face)
-        normal = _face_normal(entry.face)
+        try:
+            surface_type = _surface_type_name(entry.face)
+            area = _face_area(entry.face)
+            centroid = _face_centroid(entry.face)
+            uv = uv_bounds(entry.face)
+            normal = _face_normal(entry.face)
+        except Exception:
+            face_error_count += 1
+            surface_type = "unknown"
+            area = 0.0
+            centroid = (0.0, 0.0, 0.0)
+            uv = (0.0, 0.0, 0.0, 0.0)
+            normal = (0.0, 0.0, 0.0)
         face_normals[entry.index] = normal
         graph.node_features.append(
             {
@@ -398,11 +412,19 @@ def extract_brep_graph(shape: Any) -> GraphData:
     attached_faces_by_edge_hash = _attached_faces_by_edge(edges, faces, shape, face_map)
     adjacency_set: set[tuple[int, int]] = set()
 
+    edge_error_count = 0
     for edge_entry in edges:
         attached = attached_faces_by_edge_hash.get(edge_entry.hash_code, [])
         convexity = "unknown"
         dihedral_angle = None
         dihedral_signal = None
+        try:
+            length = edge_length(edge_entry.edge)
+            curvature = _edge_midpoint_curvature(edge_entry.edge)
+        except Exception:
+            edge_error_count += 1
+            length = 0.0
+            curvature = 0.0
         if len(attached) >= 2:
             face_a, face_b = attached[0], attached[1]
             convexity, dihedral_angle, dihedral_signal = _convexity_from_normals(
@@ -413,8 +435,8 @@ def extract_brep_graph(shape: Any) -> GraphData:
         graph.edge_features.append(
             {
                 "edge_index": edge_entry.index,
-                "length": edge_length(edge_entry.edge),
-                "midpoint_curvature": _edge_midpoint_curvature(edge_entry.edge),
+                "length": length,
+                "midpoint_curvature": curvature,
                 "connected_faces": attached,
                 "convexity": convexity,
                 "dihedral_angle": dihedral_angle,
@@ -471,6 +493,8 @@ def extract_brep_graph(shape: Any) -> GraphData:
             "edge_feature_count": len(graph.edge_features),
             "coedge_count": len(graph.coedge_features),
             "adjacency_count": len(graph.adjacency),
+            "face_feature_errors": face_error_count,
+            "edge_feature_errors": edge_error_count,
         }
     )
     return graph

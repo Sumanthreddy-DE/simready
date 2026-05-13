@@ -40,7 +40,7 @@
       padding: 10px 16px;
       border-radius: 999px;
       font-weight: 700;
-      background: var(--blue);
+      background: {% if report.status == 'SimulationReady' %}#22c55e{% elif report.status == 'ReviewRecommended' %}#eab308{% elif report.status == 'NeedsAttention' %}#f97316{% elif report.status in ['NotReady', 'InvalidInput'] %}#ef4444{% else %}#38bdf8{% endif %};
       color: #082f49;
     }
     .meta { color: var(--muted); }
@@ -90,6 +90,10 @@
       <h1>SimReady Analysis</h1>
       <p class="meta">{{ report.input_file }}</p>
       <p><span class="score-badge">{{ score.overall|default('n/a')|round(1) }}/100</span> {{ report.status }}</p>
+      {% if report.complexity %}
+      <p>Complexity: <strong>{{ report.complexity.label }}</strong> — confidence: {{ report.complexity.confidence }}</p>
+      <p class="meta">{{ report.complexity.note }}</p>
+      {% endif %}
       <p class="meta">Analysis powered by rule-based geometry checks + BRepNet learned complexity scoring on B-Rep topology.</p>
     </section>
 
@@ -100,6 +104,16 @@
         <div class="stat"><strong>Edges</strong><br />{{ report.geometry.edge_count if report.geometry else 'n/a' }}</div>
         <div class="stat"><strong>Solids</strong><br />{{ report.geometry.solid_count if report.geometry else 'n/a' }}</div>
         <div class="stat"><strong>Elapsed</strong><br />{{ report.elapsed_seconds|default('n/a') }}</div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>B-Rep Graph</h2>
+      <div class="grid">
+        <div class="stat"><strong>Graph Faces</strong><br />{{ report.graph.face_count if report.graph else 'n/a' }}</div>
+        <div class="stat"><strong>Graph Edges</strong><br />{{ report.graph.edge_count if report.graph else 'n/a' }}</div>
+        <div class="stat"><strong>Coedges</strong><br />{{ report.graph.coedge_count if report.graph else 'n/a' }}</div>
+        <div class="stat"><strong>Adjacency</strong><br />{{ report.graph.adjacency_count if report.graph else 'n/a' }}</div>
       </div>
     </section>
 
@@ -130,6 +144,34 @@
         </tbody>
       </table>
     </section>
+
+    {% if report.bodies %}
+    <section class="panel">
+      <h2>Multi-Body Analysis</h2>
+      {% for body in report.bodies %}
+      <details>
+        <summary>Body {{ body.body_index }} — {{ body.status }} ({{ body.score.overall|default('n/a')|round(1) }}/100)</summary>
+        <div class="grid">
+          <div class="stat"><strong>Faces</strong><br />{{ body.geometry.face_count }}</div>
+          <div class="stat"><strong>Findings</strong><br />{{ body.findings|length }}</div>
+          <div class="stat"><strong>Score</strong><br />{{ body.score.overall|default('n/a')|round(1) }}</div>
+        </div>
+      </details>
+      {% endfor %}
+    </section>
+    {% endif %}
+
+    {% if report.heal %}
+    <section class="panel">
+      <h2>Healing</h2>
+      <div class="grid">
+        <div class="stat"><strong>Attempted</strong><br />{{ report.heal.attempted }}</div>
+        <div class="stat"><strong>Applied</strong><br />{{ report.heal.applied }}</div>
+        <div class="stat"><strong>Valid Before</strong><br />{{ report.heal.valid_before|default('n/a') }}</div>
+        <div class="stat"><strong>Valid After</strong><br />{{ report.heal.valid_after|default('n/a') }}</div>
+      </div>
+    </section>
+    {% endif %}
 
     <section class="panel">
       <h2>How this score was computed</h2>

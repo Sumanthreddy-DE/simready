@@ -1,4 +1,4 @@
-from simready.ml.combiner import aggregate_face_scores, fuse_scores, score_label, score_report
+from simready.ml.combiner import aggregate_face_scores, complexity_tier, fuse_scores, score_label, score_report
 
 
 def test_fuse_scores_prefers_higher_signal_but_keeps_both():
@@ -40,3 +40,25 @@ def test_score_label_ranges():
     assert score_label(75) == "ReviewRecommended"
     assert score_label(55) == "NeedsAttention"
     assert score_label(10) == "NotReady"
+
+
+def test_complexity_tier_simple():
+    result = complexity_tier(6)
+    assert result["tier"] == "simple"
+    assert result["confidence"] == "high"
+
+
+def test_complexity_tier_moderate():
+    result = complexity_tier(100)
+    assert result["tier"] == "moderate"
+
+
+def test_complexity_tier_complex():
+    result = complexity_tier(500)
+    assert result["tier"] == "complex"
+
+
+def test_complexity_tier_very_complex():
+    result = complexity_tier(1500)
+    assert result["tier"] == "very_complex"
+    assert result["confidence"] == "minimal"

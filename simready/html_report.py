@@ -45,7 +45,7 @@ def _fallback_html(report: dict[str, Any]) -> str:
   </style>
 </head>
 <body>
-  <h1>SimReady Report</h1>
+  <h1>SimReady Analysis</h1>
   <p><span class=\"badge\">{report.get('score', {}).get('overall', 'n/a')}/100</span> {report.get('status', '')}</p>
   <pre>{json.dumps(report, indent=2)}</pre>
 </body>

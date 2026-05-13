@@ -14,5 +14,8 @@ data/labels/
 data/labels_fixtures/
 weights/
 
+# Phase 3 real-world test data (download via scripts/download_grabcad_samples.py)
+tests/data/grabcad/
+
 # Local agent harness scratch
 .claude/

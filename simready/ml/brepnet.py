@@ -59,12 +59,22 @@ class BRepNetInferenceResult:
     notes: list[str] = field(default_factory=list)
 
 
-def _heuristic_face_score(node: dict[str, Any], graph: GraphData) -> float:
+def _adjacency_degree_map(graph: GraphData) -> dict[int, int]:
+    """Precompute per-face adjacency degree once. O(N) instead of O(N^2) when
+    scoring every face."""
+    degree_map: dict[int, int] = {}
+    for a, b in graph.adjacency:
+        degree_map[a] = degree_map.get(a, 0) + 1
+        degree_map[b] = degree_map.get(b, 0) + 1
+    return degree_map
+
+
+def _heuristic_face_score(node: dict[str, Any], graph: GraphData, degree_map: dict[int, int] | None = None) -> float:
     """Map raw graph features to a [0, 1] complexity proxy."""
     face_index = int(node.get("face_index", 0))
     area = float(node.get("area", 0.0) or 0.0)
     surface_type = str(node.get("surface_type", "other"))
-    adjacency_degree = sum(1 for pair in graph.adjacency if face_index in pair)
+    adjacency_degree = (degree_map or _adjacency_degree_map(graph)).get(face_index, 0)
     small_area_boost = 0.18 if area <= 1e-6 else min(0.18, 1.0 / (1.0 + area))
     surface_boost = 0.08 if surface_type not in SIMPLE_SURFACE_TYPES else 0.0
     degree_boost = min(0.22, adjacency_degree * 0.03)
@@ -129,11 +139,12 @@ def _run_heuristic(graph: GraphData) -> BRepNetInferenceResult:
             notes=["No graph nodes present; nothing to score."],
         )
 
+    degree_map = _adjacency_degree_map(graph)
     scores: dict[int, float] = {}
     embeddings: dict[int, list[float]] = {}
     for node in nodes:
         face_index = int(node.get("face_index", 0))
-        score = _heuristic_face_score(node, graph)
+        score = _heuristic_face_score(node, graph, degree_map)
         scores[face_index] = score
         embeddings[face_index] = _build_embedding(node, score)
 

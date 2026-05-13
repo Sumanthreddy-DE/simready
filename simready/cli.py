@@ -23,9 +23,10 @@ def cli() -> None:
 @click.option("--json", "emit_json", is_flag=True, default=False)
 @click.option("--html", "html_path", type=click.Path(), default=None)
 @click.option("--verbose", is_flag=True, default=False)
-def analyze(input_file: str, output_path: str | None, export_healed_path: str | None, emit_json: bool, html_path: str | None, verbose: bool) -> None:
+@click.option("--timeout", type=int, default=120, help="Analysis timeout in seconds")
+def analyze(input_file: str, output_path: str | None, export_healed_path: str | None, emit_json: bool, html_path: str | None, verbose: bool, timeout: int) -> None:
     """Analyze a STEP file and emit terminal, JSON, or HTML output."""
-    report = analyze_file(input_file, export_healed_path=export_healed_path)
+    report = analyze_file(input_file, export_healed_path=export_healed_path, timeout=timeout)
     payload = json.dumps(report, indent=2)
     if output_path:
         with open(output_path, "w", encoding="utf-8") as handle:
