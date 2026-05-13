@@ -9,7 +9,7 @@ from typing import Any
 from simready.checks import run_essential_checks_detailed, summarize_findings
 from simready.healer import heal_shape
 from simready.ml.brepnet import run_brepnet_inference
-from simready.ml.combiner import score_label, score_report
+from simready.ml.combiner import aggregate_face_scores, score_label, score_report
 from simready.ml.graph_extractor import extract_brep_graph
 from simready.parser import parse_geometry
 from simready.report import build_report
@@ -152,7 +152,8 @@ def analyze_file(filepath: str, export_healed_path: str | None = None) -> dict[s
     report["score"] = {
         "overall": fusion.overall_score,
         "label": score_label(fusion.overall_score),
-        "rule_face_mean": fusion.breakdown.get("rule_face_count", 0),
+        "rule_face_mean": aggregate_face_scores(fusion.rule_per_face),
+        "rule_face_count": fusion.breakdown.get("rule_face_count", 0),
         "combined_face_mean": fusion.body_score,
         "ml_penalty_applied": fusion.ml_penalty_applied,
         "ml_penalty_points": fusion.ml_penalty_points,

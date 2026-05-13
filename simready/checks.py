@@ -8,14 +8,9 @@ from typing import Any
 from simready.occ_utils import build_edge_face_map, edge_length, uv_bounds
 
 try:
-    from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Common
+    from OCC.Core.BOPAlgo import BOPAlgo_ArgumentAnalyzer
 except ImportError:  # pragma: no cover
-    BRepAlgoAPI_Common = None
-
-try:
-    from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_Copy
-except ImportError:  # pragma: no cover
-    BRepBuilderAPI_Copy = None
+    BOPAlgo_ArgumentAnalyzer = None
 
 try:
     from OCC.Core.BRepExtrema import BRepExtrema_DistShapeShape
@@ -121,20 +116,9 @@ def _short_edge_threshold(bounding_box: dict[str, float] | None) -> float:
 
 
 def _iter_faces(shape: Any) -> list[FaceRecord]:
-    if TopExp_Explorer is None or TopAbs_FACE is None:
-        return []
-    try:
-        explorer = TopExp_Explorer(shape, TopAbs_FACE)
-    except Exception:
-        return []
-    faces: list[FaceRecord] = []
-    index = 1
-    while explorer.More():
-        face = topods.Face(explorer.Current()) if topods is not None else explorer.Current()
-        faces.append(FaceRecord(index=index, face=face))
-        index += 1
-        explorer.Next()
-    return faces
+    """0-based face iterator. Matches simready.occ_utils.iter_faces and graph_extractor face indices."""
+    from simready.occ_utils import iter_faces as _shared_iter_faces
+    return [FaceRecord(index=index, face=face) for index, face in _shared_iter_faces(shape)]
 
 
 def _iter_edges(shape: Any) -> list[Any]:
@@ -375,7 +359,7 @@ def check_short_edges(shape: Any, geometry_summary: Any) -> CheckResult:
     )
 
 
-def check_thin_walls(geometry_summary: Any) -> CheckResult:
+def check_thin_walls(shape: Any, geometry_summary: Any) -> CheckResult:
     max_dim = _max_dim(geometry_summary.bounding_box)
     min_dim = _min_nonzero_dim(geometry_summary.bounding_box)
     if max_dim <= 0 or min_dim <= 0:
@@ -386,6 +370,9 @@ def check_thin_walls(geometry_summary: Any) -> CheckResult:
         return _result()
 
     score = min(1.0, max(0.1, 1.0 - (ratio / THIN_WALL_RATIO)))
+    # Thin-wall is a body-level condition; spread the score uniformly across
+    # all faces so fusion and visualization treat every face as affected.
+    per_face = {record.index: score for record in _iter_faces(shape)}
     return _result(
         findings=[
             {
@@ -395,7 +382,7 @@ def check_thin_walls(geometry_summary: Any) -> CheckResult:
                 "suggestion": "Inspect thin regions and confirm they are meshable for the intended solver.",
             }
         ],
-        per_face={0: score},
+        per_face=per_face,
     )
 
 
@@ -516,7 +503,6 @@ def check_duplicate_body_heuristic(shape: Any, geometry_summary: Any) -> CheckRe
                 "suggestion": "Inspect for overlapping or duplicate solids before simulation.",
             }
         ],
-        per_face={0: min(1.0, 0.5 + duplicates * 0.25)},
     )
 
 
@@ -649,31 +635,43 @@ def _angle_between_normals(a: tuple[float, float, float] | None, b: tuple[float,
 
 
 def check_self_intersection(shape: Any) -> CheckResult:
-    if BRepBuilderAPI_Copy is None or BRepAlgoAPI_Common is None:
+    """Detect actual self-intersecting faces using BOPAlgo_ArgumentAnalyzer.
+
+    Returns no finding for clean geometry. Only fires when the analyzer
+    reports faulty topology (self-interfering faces/edges).
+    """
+    if BOPAlgo_ArgumentAnalyzer is None:
         return _result()
 
     try:
-        copier = BRepBuilderAPI_Copy(shape)
-        copier.Perform(shape)
-        copied = copier.Shape()
-        common = BRepAlgoAPI_Common(shape, copied)
-        common.Build()
-        if common.IsDone() and not common.Shape().IsNull():
-            return _result(
-                findings=[
-                    {
-                        "check": "SelfIntersection",
-                        "severity": "Major",
-                        "detail": "Boolean self-overlap check returned intersecting geometry.",
-                        "suggestion": "Inspect for self-intersecting or duplicated overlapping topology before meshing.",
-                    }
-                ],
-                per_face={record.index: 0.9 for record in _iter_faces(shape)},
-            )
+        analyzer = BOPAlgo_ArgumentAnalyzer()
+        analyzer.SetShape1(shape)
+        analyzer.SetSelfInterMode(True)
+        analyzer.SetArgumentTypeMode(False)
+        analyzer.SetSmallEdgeMode(False)
+        analyzer.SetRebuildFaceMode(False)
+        analyzer.SetTangentMode(False)
+        analyzer.SetMergeVertexMode(False)
+        analyzer.SetMergeEdgeMode(False)
+        analyzer.SetContinuityMode(False)
+        analyzer.SetCurveOnSurfaceMode(False)
+        analyzer.Perform()
     except Exception:
         return _result()
 
-    return _result()
+    if not analyzer.HasFaulty():
+        return _result()
+
+    return _result(
+        findings=[
+            {
+                "check": "SelfIntersection",
+                "severity": "Major",
+                "detail": "Topology analyzer reported self-interfering faces or edges.",
+                "suggestion": "Inspect for self-intersecting topology before meshing.",
+            }
+        ],
+    )
 
 
 def summarize_findings(findings: list[dict[str, Any]]) -> dict[str, Any]:
@@ -695,7 +693,7 @@ def run_essential_checks_detailed(shape: Any, geometry_summary: Any) -> CheckRes
         check_non_manifold_edges(shape),
         check_open_boundaries(shape, geometry_summary),
         check_short_edges(shape, geometry_summary),
-        check_thin_walls(geometry_summary),
+        check_thin_walls(shape, geometry_summary),
         check_small_features(shape, geometry_summary),
         check_small_fillets(shape, geometry_summary),
         check_duplicate_body_heuristic(shape, geometry_summary),

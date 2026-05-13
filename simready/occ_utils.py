@@ -11,6 +11,7 @@ try:
     from OCC.Core.GCPnts import GCPnts_AbscissaPoint
     from OCC.Core.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_SOLID
     from OCC.Core.TopExp import TopExp_Explorer, topexp
+    from OCC.Core.TopoDS import topods
     from OCC.Core.TopTools import TopTools_IndexedDataMapOfShapeListOfShape
 except ImportError:  # pragma: no cover
     Bnd_Box = None
@@ -20,6 +21,7 @@ except ImportError:  # pragma: no cover
     TopAbs_EDGE = TopAbs_FACE = TopAbs_SOLID = None
     TopExp_Explorer = None
     topexp = None
+    topods = None
     TopTools_IndexedDataMapOfShapeListOfShape = None
 
 
@@ -98,3 +100,22 @@ def count_topology(shape: Any) -> dict[str, int]:
         "edge_count": count_shapes(shape, TopAbs_EDGE),
         "solid_count": count_shapes(shape, TopAbs_SOLID),
     }
+
+
+def iter_faces(shape: Any) -> list[tuple[int, Any]]:
+    """Canonical 0-based face iterator. Shared across checks and ML modules."""
+    if TopExp_Explorer is None or TopAbs_FACE is None:
+        return []
+    try:
+        explorer = TopExp_Explorer(shape, TopAbs_FACE)
+    except Exception:
+        return []
+    faces: list[tuple[int, Any]] = []
+    index = 0
+    while explorer.More():
+        current = explorer.Current()
+        face = topods.Face(current) if topods is not None else current
+        faces.append((index, face))
+        index += 1
+        explorer.Next()
+    return faces

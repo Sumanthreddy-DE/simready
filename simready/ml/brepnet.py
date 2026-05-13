@@ -1,32 +1,26 @@
-"""BRepNet inference scaffolding with graceful CPU fallback."""
+"""Per-face complexity scoring from B-Rep graph features.
+
+Phase 2 status: graph-feature heuristic only. A real learned BRepNet (GNN)
+will replace this in Phase 2A Task 4 once weights are trained on the
+Fusion360 Gallery auto-label dataset (Task 6). The module name and field
+shape are kept stable so that callers do not change when the heuristic is
+swapped for a real model.
+"""
 
 from __future__ import annotations
 
-import json
 import math
-import os
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any
 
 from simready.ml.graph_extractor import GraphData
 
-try:
-    import torch
-except ImportError:  # pragma: no cover
-    torch = None
 
-
-DEFAULT_WEIGHTS_ENV = "SIMREADY_BREPNET_WEIGHTS"
-DEFAULT_WEIGHTS_PATHS = [
-    "weights/brepnet.pt",
-    "weights/brepnet.pth",
-    "models/brepnet.pt",
-    "models/brepnet.pth",
-]
 EMBEDDING_DIM = 128
 NEUTRAL_FACE_SCORE = 0.5
 SIMPLE_SURFACE_TYPES = {"plane", "cylinder"}
+MODEL_NAME = "graph-heuristic-complexity"
+SCORE_SOURCE = "graph-feature-heuristic"
 
 
 @dataclass
@@ -38,89 +32,27 @@ class BRepNetInferenceResult:
     score_source: str
     per_face_scores: dict[int, float] = field(default_factory=dict)
     per_face_embeddings: dict[int, list[float]] = field(default_factory=dict)
-    aggregate_score: float = 0.5
+    aggregate_score: float = NEUTRAL_FACE_SCORE
     notes: list[str] = field(default_factory=list)
 
 
-class HeuristicBRepNetModel:
-    """Lightweight fallback that mimics per-face complexity scoring."""
+def _heuristic_face_score(node: dict[str, Any], graph: GraphData) -> float:
+    """Map raw graph features to a [0, 1] complexity proxy.
 
-    model_name = "heuristic-brepnet-fallback"
-
-    def infer(self, graph: GraphData) -> BRepNetInferenceResult:
-        scores: dict[int, float] = {}
-        embeddings: dict[int, list[float]] = {}
-
-        for node in graph.node_features:
-            face_index = int(node.get("face_index", 0))
-            area = float(node.get("area", 0.0) or 0.0)
-            normal = node.get("normal", (0.0, 0.0, 0.0))
-            surface_type = str(node.get("surface_type", "other"))
-            adjacency_degree = sum(1 for pair in graph.adjacency if face_index in pair)
-            small_area_boost = 0.18 if area <= 1e-6 else min(0.18, 1.0 / (1.0 + area))
-            surface_boost = 0.08 if surface_type not in SIMPLE_SURFACE_TYPES else 0.0
-            degree_boost = min(0.22, adjacency_degree * 0.03)
-            normal_energy = min(0.1, sum(abs(float(v)) for v in normal) * 0.02)
-            score = min(1.0, max(0.0, 0.32 + small_area_boost + surface_boost + degree_boost + normal_energy))
-            scores[face_index] = score
-            embeddings[face_index] = _build_embedding(node, score)
-
-        aggregate = sum(scores.values()) / len(scores) if scores else NEUTRAL_FACE_SCORE
-        return BRepNetInferenceResult(
-            available=False,
-            weights_loaded=False,
-            weights_path=None,
-            model_name=self.model_name,
-            score_source="heuristic-fallback",
-            per_face_scores=scores,
-            per_face_embeddings=embeddings,
-            aggregate_score=aggregate,
-            notes=[
-                "BRepNet weights not found. Using heuristic fallback scores.",
-                "Production deployment should use downloaded or fine-tuned weights.",
-            ],
-        )
-
-
-class TorchBRepNetAdapter:
-    """Small adapter that loads a torch checkpoint when available."""
-
-    model_name = "brepnet-checkpoint-adapter"
-
-    def __init__(self, checkpoint: Any, weights_path: str):
-        self.checkpoint = checkpoint
-        self.weights_path = weights_path
-
-    def infer(self, graph: GraphData) -> BRepNetInferenceResult:
-        checkpoint_meta = self.checkpoint if isinstance(self.checkpoint, dict) else {}
-        configured_dim = int(checkpoint_meta.get("embedding_dim", EMBEDDING_DIM) or EMBEDDING_DIM)
-        bias = float(checkpoint_meta.get("complexity_bias", 0.0) or 0.0)
-        scale = float(checkpoint_meta.get("complexity_scale", 1.0) or 1.0)
-
-        scores: dict[int, float] = {}
-        embeddings: dict[int, list[float]] = {}
-        for node in graph.node_features:
-            face_index = int(node.get("face_index", 0))
-            base_score = _heuristic_face_score(node, graph)
-            score = min(1.0, max(0.0, (base_score * scale) + bias))
-            scores[face_index] = score
-            embeddings[face_index] = _build_embedding(node, score, configured_dim)
-
-        aggregate = sum(scores.values()) / len(scores) if scores else NEUTRAL_FACE_SCORE
-        return BRepNetInferenceResult(
-            available=True,
-            weights_loaded=True,
-            weights_path=self.weights_path,
-            model_name=self.model_name,
-            score_source="checkpoint-adapter",
-            per_face_scores=scores,
-            per_face_embeddings=embeddings,
-            aggregate_score=aggregate,
-            notes=[
-                "Loaded BRepNet-compatible checkpoint metadata.",
-                "Current adapter uses checkpoint scaling over graph-derived heuristic features until full model wiring lands.",
-            ],
-        )
+    Not learned. Picked to be roughly monotone in features a real BRepNet
+    would key on: small area, non-trivial surface type, high adjacency
+    degree.
+    """
+    face_index = int(node.get("face_index", 0))
+    area = float(node.get("area", 0.0) or 0.0)
+    surface_type = str(node.get("surface_type", "other"))
+    adjacency_degree = sum(1 for pair in graph.adjacency if face_index in pair)
+    small_area_boost = 0.18 if area <= 1e-6 else min(0.18, 1.0 / (1.0 + area))
+    surface_boost = 0.08 if surface_type not in SIMPLE_SURFACE_TYPES else 0.0
+    degree_boost = min(0.22, adjacency_degree * 0.03)
+    normal = node.get("normal", (0.0, 0.0, 0.0))
+    normal_energy = min(0.1, sum(abs(float(v)) for v in normal) * 0.02)
+    return min(1.0, max(0.0, 0.32 + small_area_boost + surface_boost + degree_boost + normal_energy))
 
 
 def _build_embedding(node: dict[str, Any], score: float, dims: int = EMBEDDING_DIM) -> list[float]:
@@ -139,69 +71,47 @@ def _build_embedding(node: dict[str, Any], score: float, dims: int = EMBEDDING_D
     return embedding
 
 
-def _heuristic_face_score(node: dict[str, Any], graph: GraphData) -> float:
-    face_index = int(node.get("face_index", 0))
-    area = float(node.get("area", 0.0) or 0.0)
-    surface_type = str(node.get("surface_type", "other"))
-    adjacency_degree = sum(1 for pair in graph.adjacency if face_index in pair)
-    small_area_boost = 0.18 if area <= 1e-6 else min(0.18, 1.0 / (1.0 + area))
-    surface_boost = 0.08 if surface_type not in SIMPLE_SURFACE_TYPES else 0.0
-    degree_boost = min(0.22, adjacency_degree * 0.03)
-    return min(1.0, max(0.0, 0.32 + small_area_boost + surface_boost + degree_boost))
-
-
-def _candidate_weight_paths(weights_path: str | None = None) -> list[Path]:
-    candidates: list[Path] = []
-    if weights_path:
-        candidates.append(Path(weights_path))
-    env_path = os.environ.get(DEFAULT_WEIGHTS_ENV)
-    if env_path:
-        candidates.append(Path(env_path))
-    candidates.extend(Path(path) for path in DEFAULT_WEIGHTS_PATHS)
-
-    unique: list[Path] = []
-    seen: set[str] = set()
-    for candidate in candidates:
-        resolved = str(candidate)
-        if resolved not in seen:
-            unique.append(candidate)
-            seen.add(resolved)
-    return unique
-
-
-def resolve_weights_path(weights_path: str | None = None) -> Path | None:
-    for candidate in _candidate_weight_paths(weights_path):
-        if candidate.is_file():
-            return candidate
-    return None
-
-
-def load_brepnet_model(weights_path: str | None = None) -> HeuristicBRepNetModel | TorchBRepNetAdapter:
-    resolved = resolve_weights_path(weights_path)
-    if resolved is None or torch is None:
-        return HeuristicBRepNetModel()
-
-    try:
-        checkpoint = torch.load(str(resolved), map_location="cpu")
-    except Exception:
-        try:
-            checkpoint = json.loads(resolved.read_text(encoding="utf-8"))
-        except Exception:
-            return HeuristicBRepNetModel()
-
-    return TorchBRepNetAdapter(checkpoint=checkpoint, weights_path=str(resolved))
-
-
 def run_brepnet_inference(graph: GraphData, weights_path: str | None = None) -> BRepNetInferenceResult:
-    model = load_brepnet_model(weights_path=weights_path)
-    result = model.infer(graph)
-    if not result.per_face_scores:
-        result.per_face_scores = {int(node.get("face_index", 0)): NEUTRAL_FACE_SCORE for node in graph.node_features}
-    if not result.per_face_embeddings:
-        result.per_face_embeddings = {
-            int(node.get("face_index", 0)): _build_embedding(node, result.per_face_scores[int(node.get("face_index", 0))])
-            for node in graph.node_features
-        }
-    if result.per_face_scores:
-        result.aggregate_score = sum(result.per_face_scores.values()) / len(result.per_face_scores)
-    return result
+    """Score every face in the graph.
+
+    `weights_path` is accepted for forward compatibility with a future
+    learned model. It is currently ignored — the heuristic is the only
+    backend.
+    """
+    nodes = list(getattr(graph, "node_features", []) or [])
+    if not nodes:
+        return BRepNetInferenceResult(
+            available=True,
+            weights_loaded=False,
+            weights_path=None,
+            model_name=MODEL_NAME,
+            score_source=SCORE_SOURCE,
+            per_face_scores={},
+            per_face_embeddings={},
+            aggregate_score=NEUTRAL_FACE_SCORE,
+            notes=["No graph nodes present; nothing to score."],
+        )
+
+    scores: dict[int, float] = {}
+    embeddings: dict[int, list[float]] = {}
+    for node in nodes:
+        face_index = int(node.get("face_index", 0))
+        score = _heuristic_face_score(node, graph)
+        scores[face_index] = score
+        embeddings[face_index] = _build_embedding(node, score)
+
+    aggregate = sum(scores.values()) / len(scores)
+    return BRepNetInferenceResult(
+        available=True,
+        weights_loaded=False,
+        weights_path=None,
+        model_name=MODEL_NAME,
+        score_source=SCORE_SOURCE,
+        per_face_scores=scores,
+        per_face_embeddings=embeddings,
+        aggregate_score=aggregate,
+        notes=[
+            "Heuristic per-face complexity scoring from B-Rep graph features (area, surface type, adjacency degree).",
+            "Not a learned model. Replace with trained BRepNet once Phase 2A Task 6 (auto-label) and Task 7 (fine-tune) ship.",
+        ],
+    )
