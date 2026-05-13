@@ -1,6 +1,14 @@
 from pathlib import Path
 
+import simready.ml.brepnet as brepnet_module
 from simready.pipeline import analyze_file
+
+
+def _force_heuristic(monkeypatch):
+    """Pin pipeline runs to the heuristic ML backend so tests are
+    independent of whether weights/brepnet.pt exists on disk."""
+    monkeypatch.setattr(brepnet_module, "DEFAULT_WEIGHTS_PATHS", [])
+    monkeypatch.delenv("SIMREADY_BREPNET_WEIGHTS", raising=False)
 
 
 def test_analyze_missing_file(missing_step_file):
@@ -81,11 +89,14 @@ def test_analyze_duplicate_face_file():
     assert "DuplicateFaceHeuristic" in checks
 
 
-def test_clean_box_has_no_self_intersection():
+def test_clean_box_has_no_self_intersection(monkeypatch):
     """Regression: BRepAlgoAPI_Common(shape, copy) used to flag every clean solid.
 
     BOPAlgo_ArgumentAnalyzer should report no faulty topology for a simple box.
+    Pinned to the heuristic backend so the assertion is independent of whether
+    a trained ML checkpoint is present (which would apply a complexity penalty).
     """
+    _force_heuristic(monkeypatch)
     report = analyze_file("tests/data/smoke_box.step")
     checks = {finding["check"] for finding in report["findings"]}
     assert "SelfIntersection" not in checks
@@ -132,11 +143,13 @@ def test_thin_walls_spreads_per_face_across_all_faces():
     assert max(values) - min(values) < 1e-6  # uniform spread
 
 
-def test_brepnet_inference_is_honestly_labelled_heuristic():
+def test_brepnet_inference_is_honestly_labelled_heuristic(monkeypatch):
     """Regression: TorchBRepNetAdapter claimed `weights_loaded=True` and
     `score_source="checkpoint-adapter"` while still running the heuristic.
-    The honest module reports weights_loaded=False with a graph-feature label.
+    With no checkpoint on disk, the module reports weights_loaded=False with
+    a graph-feature label and honest notes.
     """
+    _force_heuristic(monkeypatch)
     report = analyze_file("tests/data/smoke_box.step")
     ml = report["ml"]
     assert ml["weights_loaded"] is False

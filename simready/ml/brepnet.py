@@ -1,16 +1,25 @@
 """Per-face complexity scoring from B-Rep graph features.
 
-Phase 2 status: graph-feature heuristic only. A real learned BRepNet (GNN)
-will replace this in Phase 2A Task 4 once weights are trained on the
-Fusion360 Gallery auto-label dataset (Task 6). The module name and field
-shape are kept stable so that callers do not change when the heuristic is
-swapped for a real model.
+Two backends share the same result schema:
+
+- **BRepSAGE (learned)**: PyG GraphSAGE checkpoint, loaded when a `.pt`
+  file is available. Trained by `scripts/train.py` on auto-labeled parametric
+  STEPs (refinement binary + complexity regression).
+- **Graph-feature heuristic**: lightweight per-face score derived from raw
+  graph features (area, surface type, adjacency degree). Used when no
+  checkpoint is present, so the pipeline always returns scores.
+
+`run_brepnet_inference` resolves the backend automatically and reports
+honestly which path produced the result via `model_name`, `weights_loaded`,
+and `score_source`.
 """
 
 from __future__ import annotations
 
 import math
+import os
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from simready.ml.graph_extractor import GraphData
@@ -19,8 +28,22 @@ from simready.ml.graph_extractor import GraphData
 EMBEDDING_DIM = 128
 NEUTRAL_FACE_SCORE = 0.5
 SIMPLE_SURFACE_TYPES = {"plane", "cylinder"}
-MODEL_NAME = "graph-heuristic-complexity"
-SCORE_SOURCE = "graph-feature-heuristic"
+HEURISTIC_MODEL_NAME = "graph-heuristic-complexity"
+HEURISTIC_SCORE_SOURCE = "graph-feature-heuristic"
+LEARNED_MODEL_NAME = "BRepSAGE-multitask"
+LEARNED_SCORE_SOURCE = "brepsage-checkpoint"
+DEFAULT_WEIGHTS_ENV = "SIMREADY_BREPNET_WEIGHTS"
+DEFAULT_WEIGHTS_PATHS = [
+    "weights/brepnet.pt",
+    "weights/brepnet.pth",
+    "models/brepnet.pt",
+    "models/brepnet.pth",
+]
+
+try:
+    import torch
+except ImportError:  # pragma: no cover
+    torch = None
 
 
 @dataclass
@@ -37,12 +60,7 @@ class BRepNetInferenceResult:
 
 
 def _heuristic_face_score(node: dict[str, Any], graph: GraphData) -> float:
-    """Map raw graph features to a [0, 1] complexity proxy.
-
-    Not learned. Picked to be roughly monotone in features a real BRepNet
-    would key on: small area, non-trivial surface type, high adjacency
-    degree.
-    """
+    """Map raw graph features to a [0, 1] complexity proxy."""
     face_index = int(node.get("face_index", 0))
     area = float(node.get("area", 0.0) or 0.0)
     surface_type = str(node.get("surface_type", "other"))
@@ -71,21 +89,40 @@ def _build_embedding(node: dict[str, Any], score: float, dims: int = EMBEDDING_D
     return embedding
 
 
-def run_brepnet_inference(graph: GraphData, weights_path: str | None = None) -> BRepNetInferenceResult:
-    """Score every face in the graph.
+def _candidate_weight_paths(weights_path: str | None = None) -> list[Path]:
+    candidates: list[Path] = []
+    if weights_path:
+        candidates.append(Path(weights_path))
+    env_path = os.environ.get(DEFAULT_WEIGHTS_ENV)
+    if env_path:
+        candidates.append(Path(env_path))
+    candidates.extend(Path(path) for path in DEFAULT_WEIGHTS_PATHS)
+    seen: set[str] = set()
+    unique: list[Path] = []
+    for candidate in candidates:
+        key = str(candidate)
+        if key not in seen:
+            unique.append(candidate)
+            seen.add(key)
+    return unique
 
-    `weights_path` is accepted for forward compatibility with a future
-    learned model. It is currently ignored — the heuristic is the only
-    backend.
-    """
+
+def resolve_weights_path(weights_path: str | None = None) -> Path | None:
+    for candidate in _candidate_weight_paths(weights_path):
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def _run_heuristic(graph: GraphData) -> BRepNetInferenceResult:
     nodes = list(getattr(graph, "node_features", []) or [])
     if not nodes:
         return BRepNetInferenceResult(
             available=True,
             weights_loaded=False,
             weights_path=None,
-            model_name=MODEL_NAME,
-            score_source=SCORE_SOURCE,
+            model_name=HEURISTIC_MODEL_NAME,
+            score_source=HEURISTIC_SCORE_SOURCE,
             per_face_scores={},
             per_face_embeddings={},
             aggregate_score=NEUTRAL_FACE_SCORE,
@@ -105,13 +142,103 @@ def run_brepnet_inference(graph: GraphData, weights_path: str | None = None) -> 
         available=True,
         weights_loaded=False,
         weights_path=None,
-        model_name=MODEL_NAME,
-        score_source=SCORE_SOURCE,
+        model_name=HEURISTIC_MODEL_NAME,
+        score_source=HEURISTIC_SCORE_SOURCE,
         per_face_scores=scores,
         per_face_embeddings=embeddings,
         aggregate_score=aggregate,
         notes=[
             "Heuristic per-face complexity scoring from B-Rep graph features (area, surface type, adjacency degree).",
-            "Not a learned model. Replace with trained BRepNet once Phase 2A Task 6 (auto-label) and Task 7 (fine-tune) ship.",
+            "Not a learned model. Drop a trained BRepSAGE checkpoint into weights/brepnet.pt to switch backends.",
         ],
     )
+
+
+def _run_brepsage(graph: GraphData, weights_file: Path) -> BRepNetInferenceResult | None:
+    """Run a trained BRepSAGE checkpoint, falling back to None on failure."""
+    if torch is None:
+        return None
+    try:
+        from simready.ml.dataset import build_edge_index_from_adjacency
+    except ImportError:
+        build_edge_index_from_adjacency = None
+    try:
+        from simready.ml.model import BRepSAGE, ModelConfig, build_edge_index, node_feature_vector
+    except ImportError:  # pragma: no cover
+        return None
+
+    nodes = list(getattr(graph, "node_features", []) or [])
+    if not nodes:
+        return None
+
+    try:
+        checkpoint = torch.load(str(weights_file), map_location="cpu", weights_only=False)
+    except Exception:
+        return None
+
+    try:
+        config = ModelConfig(**checkpoint.get("config", {}))
+        model = BRepSAGE(config)
+        model.load_state_dict(checkpoint["state_dict"])
+        model.eval()
+    except Exception:
+        return None
+
+    nodes_sorted = sorted(nodes, key=lambda n: int(n.get("face_index", 0)))
+    feature_rows = [node_feature_vector(node) for node in nodes_sorted]
+    x = torch.tensor(feature_rows, dtype=torch.float32)
+    edge_index = build_edge_index(graph.adjacency)
+
+    try:
+        with torch.no_grad():
+            output = model(x, edge_index)
+    except Exception:
+        return None
+
+    complexity_tensor = output["complexity_scores"].detach()
+    refinement_probs = output["refinement_probs"].detach()
+    embeddings_tensor = output["embeddings"].detach()
+
+    scores: dict[int, float] = {}
+    embeddings: dict[int, list[float]] = {}
+    for row, node in enumerate(nodes_sorted):
+        face_index = int(node.get("face_index", 0))
+        # Fuse the two learned heads: refinement signal dominates when high,
+        # complexity provides a continuous baseline.
+        learned_score = min(
+            1.0,
+            max(0.0, 0.5 * float(refinement_probs[row]) + 0.5 * float(complexity_tensor[row])),
+        )
+        scores[face_index] = learned_score
+        embedding_vec = embeddings_tensor[row].tolist()
+        if len(embedding_vec) < EMBEDDING_DIM:
+            embedding_vec = (embedding_vec + [0.0] * EMBEDDING_DIM)[:EMBEDDING_DIM]
+        else:
+            embedding_vec = embedding_vec[:EMBEDDING_DIM]
+        embeddings[face_index] = [float(v) for v in embedding_vec]
+
+    aggregate = sum(scores.values()) / len(scores) if scores else NEUTRAL_FACE_SCORE
+    return BRepNetInferenceResult(
+        available=True,
+        weights_loaded=True,
+        weights_path=str(weights_file),
+        model_name=LEARNED_MODEL_NAME,
+        score_source=LEARNED_SCORE_SOURCE,
+        per_face_scores=scores,
+        per_face_embeddings=embeddings,
+        aggregate_score=aggregate,
+        notes=[
+            "Learned BRepSAGE checkpoint (multi-task: refinement classification + complexity regression).",
+            "Trained by scripts/train.py on the parametric STEP dataset; see weights/brepnet_meta.json for run details.",
+        ],
+    )
+
+
+def run_brepnet_inference(graph: GraphData, weights_path: str | None = None) -> BRepNetInferenceResult:
+    """Score every face in the graph using the best available backend."""
+    resolved = resolve_weights_path(weights_path)
+    if resolved is not None:
+        learned = _run_brepsage(graph, resolved)
+        if learned is not None:
+            return learned
+    return _run_heuristic(graph)
