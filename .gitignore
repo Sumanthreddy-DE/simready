@@ -21,5 +21,8 @@ tests/data/grabcad/
 data/fea_docs/
 data/fea_docs_index.json
 
+# Path C wk-1 day 5 — copilot session transcripts
+data/copilot_sessions/
+
 # Local agent harness scratch
 .claude/

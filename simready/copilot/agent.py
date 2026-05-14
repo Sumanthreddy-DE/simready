@@ -20,9 +20,12 @@ import os
 import random
 import time
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
 
 from simready.copilot.tools import TOOL_SCHEMAS, dispatch_tool
+
+
+EventCallback = Callable[[dict[str, Any]], None]
 
 
 logger = logging.getLogger(__name__)
@@ -145,8 +148,22 @@ class CopilotAgent:
         self.initial_backoff = initial_backoff
         self.tool_result_char_limit = tool_result_char_limit
 
-    def run(self, user_message: str) -> AgentResponse:
-        """Drive a multi-turn tool-use conversation. Returns the final assistant text."""
+    def run(
+        self,
+        user_message: str,
+        on_event: EventCallback | None = None,
+    ) -> AgentResponse:
+        """Drive a multi-turn tool-use conversation. Returns the final assistant text.
+
+        If `on_event` is provided, it is called as the loop progresses with dicts of
+        shape `{"type": <str>, ...}`. Event types:
+          - "iteration_start"  {iteration}
+          - "tool_call"        {iteration, name, arguments}
+          - "tool_result"      {iteration, name, result}
+          - "final_text"       {text, iterations, usage}
+          - "max_iterations"   {iterations}
+        Callback exceptions are logged and swallowed so observers cannot break a run.
+        """
         messages: list[dict[str, Any]] = [
             {"role": "system", "content": self.system_prompt},
             {"role": "user", "content": user_message},
@@ -160,6 +177,7 @@ class CopilotAgent:
         final_text = ""
 
         for iteration in range(1, self.max_iterations + 1):
+            _emit(on_event, {"type": "iteration_start", "iteration": iteration})
             completion = self._completion_with_retry(messages)
             choice = completion.choices[0]
             msg = choice.message
@@ -171,6 +189,12 @@ class CopilotAgent:
             if not tool_calls:
                 final_text = msg.content or ""
                 stop_reason = "stop"
+                _emit(on_event, {
+                    "type": "final_text",
+                    "text": final_text,
+                    "iterations": iteration,
+                    "usage": dict(usage_total),
+                })
                 return AgentResponse(
                     final_text=final_text,
                     tool_calls=tool_calls_record,
@@ -200,9 +224,21 @@ class CopilotAgent:
             for tc in tool_calls:
                 name = tc.function.name
                 args = tc.function.arguments
+                _emit(on_event, {
+                    "type": "tool_call",
+                    "iteration": iteration,
+                    "name": name,
+                    "arguments": args,
+                })
                 result = dispatch_tool(name, args)
                 tool_calls_record.append({"name": name, "arguments": args})
                 tool_results_record.append({"name": name, "result_preview": _preview(result)})
+                _emit(on_event, {
+                    "type": "tool_result",
+                    "iteration": iteration,
+                    "name": name,
+                    "result": result,
+                })
                 messages.append({
                     "role": "tool",
                     "tool_call_id": tc.id,
@@ -210,6 +246,7 @@ class CopilotAgent:
                 })
 
         logger.warning("Agent loop hit max_iterations=%s without final text.", self.max_iterations)
+        _emit(on_event, {"type": "max_iterations", "iterations": self.max_iterations})
         return AgentResponse(
             final_text=final_text,
             tool_calls=tool_calls_record,
@@ -254,6 +291,16 @@ class CopilotAgent:
                 backoff *= 2
         # Unreachable, but keeps the type checker happy.
         raise RuntimeError("retry loop exited without return") from last_exc
+
+
+def _emit(callback: EventCallback | None, event: dict[str, Any]) -> None:
+    """Fire an event callback, swallowing any exception so the loop never breaks."""
+    if callback is None:
+        return
+    try:
+        callback(event)
+    except Exception:  # pragma: no cover — observer must not break agent
+        logger.exception("on_event callback raised; ignoring.")
 
 
 def _accumulate(total: dict[str, Any], more: dict[str, Any]) -> None:

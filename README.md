@@ -76,6 +76,42 @@ It uploads `tests/data/smoke_box.step` to a running local Streamlit app and veri
 python scripts/demo_analysis.py
 ```
 
+## Copilot (Path C, work-in-progress)
+
+LLM-orchestrated tool-use wrapper around the SimReady pipeline. Three tools (`analyze_geometry`, `suggest_fixes`, `lookup_standard`) and an OpenAI-compatible client (use OpenAI, OpenRouter, NVIDIA NIM, or local Ollama-with-OpenAI-shim by swapping `OPENAI_BASE_URL`).
+
+### Setup
+
+```bash
+pip install -r requirements.txt   # adds openai, sentence-transformers, pypdf
+cp .env.example .env              # set OPENAI_API_KEY (and OPENAI_BASE_URL if non-OpenAI)
+```
+
+Optional — build the FEA standards index for `lookup_standard`:
+
+```bash
+# 1. Paste public PDF URLs into data/fea_docs/sources.txt (one per line)
+python scripts/scrape_fea_docs.py
+# 2. Chunk + embed → data/fea_docs_index.json
+python scripts/index_fea_docs.py
+```
+
+### Try the copilot
+
+```bash
+# Rich-formatted terminal chat with tool-call panels
+python -m simready.copilot.cli tests/data/grabcad/bracket_simple.STEP \
+    "What manufacturing issues does this part have?"
+
+# Plain text fallback (no rich)
+python -m simready.copilot.cli tests/data/grabcad/manifold_complex.STEP --no-rich
+
+# Don't persist the session transcript
+python -m simready.copilot.cli tests/data/grabcad/housing_moderate.stp --no-save
+```
+
+Sessions are saved to `data/copilot_sessions/<timestamp>_<part>.json` by default (gitignored).
+
 ## Phase 3 Architecture
 
 ```

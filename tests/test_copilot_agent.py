@@ -329,6 +329,85 @@ def test_accumulate_sums_numeric_usage_fields_and_keeps_strings_first_seen() -> 
     assert total["model"] == "m1"  # first-seen wins for non-numeric
 
 
+def test_on_event_fires_for_iteration_tool_call_result_and_final(
+    fake_openai: type[_FakeClient],
+) -> None:
+    agent = CopilotAgent(model="test-model")
+    agent._client.chat.completions.responses = [
+        _FakeCompletion(
+            choices=[_FakeChoice(message=_FakeMessage(
+                content=None,
+                tool_calls=[_FakeToolCall(
+                    id="call_1",
+                    function=_FakeFunction(
+                        name="suggest_fixes",
+                        arguments=json.dumps({"findings": []}),
+                    ),
+                )],
+            ))],
+            usage=_FakeUsage(),
+        ),
+        _FakeCompletion(
+            choices=[_FakeChoice(message=_FakeMessage(content="Final answer."))],
+            usage=_FakeUsage(),
+        ),
+    ]
+    events: list[dict[str, Any]] = []
+    agent.run("Check.", on_event=events.append)
+    types = [e["type"] for e in events]
+    assert types.count("iteration_start") == 2
+    assert types.count("tool_call") == 1
+    assert types.count("tool_result") == 1
+    assert types.count("final_text") == 1
+    tool_call_event = next(e for e in events if e["type"] == "tool_call")
+    assert tool_call_event["name"] == "suggest_fixes"
+    final = next(e for e in events if e["type"] == "final_text")
+    assert final["text"] == "Final answer."
+    assert final["iterations"] == 2
+
+
+def test_on_event_callback_exception_does_not_break_run(
+    fake_openai: type[_FakeClient],
+) -> None:
+    agent = CopilotAgent(model="test-model")
+    agent._client.chat.completions.responses = [
+        _FakeCompletion(
+            choices=[_FakeChoice(message=_FakeMessage(content="Done."))],
+            usage=_FakeUsage(),
+        )
+    ]
+
+    def boom(_event: dict[str, Any]) -> None:
+        raise RuntimeError("observer crashed")
+
+    response = agent.run("Hi.", on_event=boom)
+    assert response.final_text == "Done."
+
+
+def test_on_event_max_iterations_emits_max_iterations_event(
+    fake_openai: type[_FakeClient],
+) -> None:
+    agent = CopilotAgent(model="test-model", max_iterations=1)
+    agent._client.chat.completions.responses = [
+        _FakeCompletion(
+            choices=[_FakeChoice(message=_FakeMessage(
+                content=None,
+                tool_calls=[_FakeToolCall(
+                    id="call_x",
+                    function=_FakeFunction(
+                        name="suggest_fixes",
+                        arguments=json.dumps({"findings": []}),
+                    ),
+                )],
+            ))],
+            usage=_FakeUsage(),
+        )
+    ]
+    events: list[dict[str, Any]] = []
+    agent.run("Loop.", on_event=events.append)
+    assert any(e["type"] == "max_iterations" for e in events)
+
+
 def test_default_system_prompt_advertises_three_tools_and_few_shot_examples() -> None:
     prompt = DEFAULT_SYSTEM_PROMPT
     for tool_name in ("analyze_geometry", "suggest_fixes", "lookup_standard"):
