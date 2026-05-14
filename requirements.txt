@@ -9,5 +9,9 @@ streamlit>=1.30
 # Copilot (Path C wk-1)
 openai>=1.40
 python-dotenv>=1.0
+# RAG-lite (Path C wk-1 day 3)
+pypdf>=4.0
+requests>=2.31
+sentence-transformers>=3.0
 # Testing
 pytest>=8.0

@@ -1,15 +1,19 @@
 """Tests for the SimReady Copilot tool resolvers.
 
 Day 1 scope: tool dispatch correctness, error paths, schema validity.
+Day 3: lookup_standard wiring to rag (no-index + empty-query paths only;
+real cosine retrieval is covered in test_copilot_rag.py).
 Live API calls are NOT exercised here — see test_copilot_agent.py for that.
 """
 
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
+from simready.copilot import rag
 from simready.copilot.tools import (
     SEVERITY_ORDER,
     TOOL_SCHEMAS,
@@ -18,6 +22,16 @@ from simready.copilot.tools import (
     lookup_standard,
     suggest_fixes,
 )
+
+
+@pytest.fixture(autouse=True)
+def _no_default_rag_index(monkeypatch, tmp_path) -> None:
+    """Force lookup_standard to see no index, unless a test overrides."""
+    monkeypatch.setattr(rag, "DEFAULT_INDEX_PATH", tmp_path / "no_such_index.json")
+    monkeypatch.setenv("SIMREADY_RAG_INDEX", str(tmp_path / "no_such_index.json"))
+    rag.clear_index_cache()
+    yield
+    rag.clear_index_cache()
 
 
 def test_tool_schemas_have_expected_names() -> None:
@@ -77,11 +91,18 @@ def test_suggest_fixes_respects_max_results_cap() -> None:
     assert len(result["suggestions"]) == 3
 
 
-def test_lookup_standard_returns_stub_marker() -> None:
+def test_lookup_standard_no_index_returns_no_index_status() -> None:
     result = lookup_standard("mesh quality")
-    assert result["status"] == "stub"
-    assert result["results"][0]["source"] == "PLACEHOLDER"
+    assert result["status"] == "no_index"
     assert result["query"] == "mesh quality"
+    assert result["results"] == []
+    assert "scripts/index_fea_docs.py" in result["message"]
+
+
+def test_lookup_standard_empty_query_short_circuits() -> None:
+    result = lookup_standard("   ")
+    assert result["status"] == "empty_query"
+    assert result["results"] == []
 
 
 def test_dispatch_tool_routes_to_correct_resolver() -> None:
@@ -91,7 +112,8 @@ def test_dispatch_tool_routes_to_correct_resolver() -> None:
 
 def test_dispatch_tool_accepts_dict_arguments() -> None:
     result = dispatch_tool("lookup_standard", {"query": "FEA"})
-    assert result["status"] == "stub"
+    assert result["query"] == "FEA"
+    assert result["status"] in {"ok", "no_index", "empty_query"}
 
 
 def test_dispatch_tool_unknown_tool_returns_error() -> None:

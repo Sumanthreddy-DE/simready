@@ -17,5 +17,9 @@ weights/
 # Phase 3 real-world test data (download via scripts/download_grabcad_samples.py)
 tests/data/grabcad/
 
+# Path C wk-1 day 3 — RAG-lite corpus + index (regenerate via scripts/scrape_fea_docs.py + scripts/index_fea_docs.py)
+data/fea_docs/
+data/fea_docs_index.json
+
 # Local agent harness scratch
 .claude/

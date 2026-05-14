@@ -3,7 +3,7 @@
 Three tools exposed to the LLM:
 - analyze_geometry: runs the SimReady pipeline on a STEP file.
 - suggest_fixes: ranks per-finding fix suggestions by severity.
-- lookup_standard: RAG lookup over FEA standards docs (stubbed in day 1).
+- lookup_standard: RAG lookup over indexed FEA standards docs.
 """
 
 from __future__ import annotations
@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from simready.pipeline import analyze_file
+from simready.copilot import rag
 
 
 SEVERITY_ORDER = {"Critical": 0, "Major": 1, "Minor": 2, "Info": 3}
@@ -87,9 +88,10 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
         "function": {
             "name": "lookup_standard",
             "description": (
-                "Search indexed FEA / mechanical-standards documents (NAFEMS, ASME, etc.) "
-                "for a paragraph relevant to the query. Returns top matches with source citation. "
-                "STUBBED in day 1; real RAG lands on day 3."
+                "Search indexed FEA / mechanical-standards documents (NAFEMS, ASME, vendor "
+                "whitepapers) for paragraphs relevant to the query. Returns top matches with "
+                "source citation (file name + page number). Backed by sentence-transformers "
+                "embeddings + cosine similarity over a JSON index."
             ),
             "parameters": {
                 "type": "object",
@@ -147,21 +149,35 @@ def suggest_fixes(findings: list[dict[str, Any]], max_results: int = 5) -> dict[
 
 
 def lookup_standard(query: str, top_k: int = 3) -> dict[str, Any]:
-    """RAG lookup over FEA standards. Day-1 stub returns canned response."""
+    """RAG lookup over FEA standards. Returns top-k cosine matches with citations."""
+    if not query or not query.strip():
+        return {
+            "status": "empty_query",
+            "query": query,
+            "results": [],
+            "top_k_requested": top_k,
+        }
+    try:
+        index = rag.get_default_index()
+    except FileNotFoundError as exc:
+        return {
+            "status": "no_index",
+            "query": query,
+            "results": [],
+            "top_k_requested": top_k,
+            "message": (
+                f"{exc}. Build it with: "
+                "python scripts/scrape_fea_docs.py && python scripts/index_fea_docs.py"
+            ),
+        }
+    embedder = rag.get_default_embedder()
+    matches = index.search(query, embedder=embedder, top_k=top_k)
     return {
-        "status": "stub",
+        "status": "ok",
         "query": query,
-        "results": [
-            {
-                "source": "PLACEHOLDER",
-                "paragraph": (
-                    "RAG index not yet built. Day 3 of Path C wk-1 will scrape NAFEMS / ASME "
-                    "public docs and index them as JSON + cosine search."
-                ),
-                "score": 0.0,
-            }
-        ],
+        "results": matches,
         "top_k_requested": top_k,
+        "index_meta": index.meta,
     }
 
 
