@@ -175,8 +175,19 @@ Scripts included:
 - `scripts/evaluate.py`
 - `scripts/demo_analysis.py`
 - `scripts/download_grabcad_samples.py`
+- `scripts/generate_degraded_steps.py` — auto-introduce defects (zero-length edges, open shells, sliver faces, self-intersections) into clean parametric STEPs to lift recall on real-world parts
 
 These support fixture analysis, demo workflows, and future model fine-tuning.
+
+Degraded-synthetic generator usage:
+
+```bash
+python scripts/generate_degraded_steps.py \
+    --input data/parametric --output data/parametric_degraded \
+    --max-inputs 50
+```
+
+Each input STEP yields up to 4 degraded variants (one per defect class) plus a `.tags.json` sidecar with the ground-truth defect label, ready to feed back into `auto_label.py` + `train.py` for the recall fix in week 2.
 
 ## Project Structure
 

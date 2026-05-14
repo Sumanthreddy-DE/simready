@@ -24,5 +24,8 @@ data/fea_docs_index.json
 # Path C wk-1 day 5 — copilot session transcripts
 data/copilot_sessions/
 
+# Path C wk-1 day 6 — degraded-synthetic STEPs (regenerate via scripts/generate_degraded_steps.py)
+data/parametric_degraded/
+
 # Local agent harness scratch
 .claude/
