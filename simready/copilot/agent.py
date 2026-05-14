@@ -1,18 +1,31 @@
 """SimReady Copilot agent — OpenAI-compatible tool-use loop.
 
-Day 1: single-turn execution (one tool call, one summary). Multi-turn comes day 2.
-The client is OpenAI-compatible so any provider (OpenAI, OpenRouter, Anthropic-via-proxy,
-local Ollama with OpenAI shim) works by swapping OPENAI_BASE_URL.
+Day 2: multi-turn tool loop. The model may chain tools across turns; the loop
+terminates when the assistant returns a text-only message (no tool_calls) or
+when max_iterations is reached.
+
+Errors raised by tool resolvers are surfaced back to the LLM as the tool
+result, so the model can recover (e.g. ask the user for a different path).
+Rate-limit / transient HTTP errors retry with exponential backoff.
+
+The client is OpenAI-compatible so any provider (OpenAI, OpenRouter, NVIDIA
+NIM, local Ollama with OpenAI shim) works by swapping OPENAI_BASE_URL.
 """
 
 from __future__ import annotations
 
 import json
+import logging
 import os
+import random
+import time
 from dataclasses import dataclass, field
 from typing import Any
 
 from simready.copilot.tools import TOOL_SCHEMAS, dispatch_tool
+
+
+logger = logging.getLogger(__name__)
 
 
 DEFAULT_SYSTEM_PROMPT = """\
@@ -24,14 +37,23 @@ You have three tools:
 - analyze_geometry(step_path): run SimReady's pipeline on a CAD file. Use this first
   whenever the user references or uploads a CAD file.
 - suggest_fixes(findings): get ranked text-only fix suggestions from a findings list.
+  Pass the findings array from analyze_geometry verbatim.
 - lookup_standard(query): search FEA / mechanical-engineering standards (stubbed in day 1).
 
-Rules:
+Workflow rules:
 - ALWAYS call analyze_geometry first when the user mentions a CAD file path.
-- Cite numbers (face count, score, severity counts) from tool output — never invent.
-- Keep responses concise. Engineers prefer signal over filler.
-- If a tool returns an error, surface it to the user with a recovery suggestion.
+- After analyze_geometry returns findings, call suggest_fixes to rank them.
+- Cite numbers (face count, score, severity counts) from tool output — never invent them.
+- If a tool returns {"error": ...}, surface it to the user and stop chaining.
+- When done with tools, write a concise final summary for the engineer. No filler.
 """
+
+
+# Conservative default; multi-turn loop should rarely exceed a handful of rounds.
+DEFAULT_MAX_ITERATIONS = 6
+DEFAULT_MAX_RETRIES = 3
+DEFAULT_INITIAL_BACKOFF = 1.0
+DEFAULT_TOOL_RESULT_CHAR_LIMIT = 8000
 
 
 @dataclass
@@ -43,10 +65,12 @@ class AgentResponse:
     tool_results: list[dict[str, Any]] = field(default_factory=list)
     model: str = ""
     usage: dict[str, Any] = field(default_factory=dict)
+    iterations: int = 0
+    stop_reason: str = ""
 
 
 class CopilotAgent:
-    """Single-turn copilot agent (day 1). Multi-turn loop in day 2."""
+    """Multi-turn copilot agent. Loops until the assistant emits no tool_calls."""
 
     def __init__(
         self,
@@ -54,8 +78,12 @@ class CopilotAgent:
         api_key: str | None = None,
         base_url: str | None = None,
         system_prompt: str | None = None,
+        max_iterations: int = DEFAULT_MAX_ITERATIONS,
+        max_retries: int = DEFAULT_MAX_RETRIES,
+        initial_backoff: float = DEFAULT_INITIAL_BACKOFF,
+        tool_result_char_limit: int = DEFAULT_TOOL_RESULT_CHAR_LIMIT,
     ) -> None:
-        # Lazy import: openai is optional dependency, only required when running the agent.
+        # Lazy import: openai is an optional dependency, only required at runtime.
         try:
             from openai import OpenAI  # type: ignore
         except ImportError as exc:  # pragma: no cover
@@ -77,75 +105,129 @@ class CopilotAgent:
         self._client = OpenAI(**client_kwargs)
         self.model = model or os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
         self.system_prompt = system_prompt or DEFAULT_SYSTEM_PROMPT
+        self.max_iterations = max_iterations
+        self.max_retries = max_retries
+        self.initial_backoff = initial_backoff
+        self.tool_result_char_limit = tool_result_char_limit
 
     def run(self, user_message: str) -> AgentResponse:
-        """One round: model picks a tool, we execute it, model summarizes."""
+        """Drive a multi-turn tool-use conversation. Returns the final assistant text."""
         messages: list[dict[str, Any]] = [
             {"role": "system", "content": self.system_prompt},
             {"role": "user", "content": user_message},
         ]
 
-        first = self._client.chat.completions.create(
-            model=self.model,
-            messages=messages,
-            tools=TOOL_SCHEMAS,
-            tool_choice="auto",
-        )
-        first_msg = first.choices[0].message
-        usage = first.usage.model_dump() if first.usage else {}
-
-        if not first_msg.tool_calls:
-            return AgentResponse(
-                final_text=first_msg.content or "",
-                model=self.model,
-                usage=usage,
-            )
-
         tool_calls_record: list[dict[str, Any]] = []
         tool_results_record: list[dict[str, Any]] = []
-        messages.append({
-            "role": "assistant",
-            "content": first_msg.content,
-            "tool_calls": [
-                {
-                    "id": tc.id,
-                    "type": "function",
-                    "function": {"name": tc.function.name, "arguments": tc.function.arguments},
-                }
-                for tc in first_msg.tool_calls
-            ],
-        })
+        usage_total: dict[str, Any] = {}
 
-        for tc in first_msg.tool_calls:
-            name = tc.function.name
-            args = tc.function.arguments
-            result = dispatch_tool(name, args)
-            tool_calls_record.append({"name": name, "arguments": args})
-            tool_results_record.append({"name": name, "result_preview": _preview(result)})
+        stop_reason = "max_iterations"
+        final_text = ""
+
+        for iteration in range(1, self.max_iterations + 1):
+            completion = self._completion_with_retry(messages)
+            choice = completion.choices[0]
+            msg = choice.message
+
+            if completion.usage:
+                _accumulate(usage_total, completion.usage.model_dump())
+
+            tool_calls = msg.tool_calls or []
+            if not tool_calls:
+                final_text = msg.content or ""
+                stop_reason = "stop"
+                return AgentResponse(
+                    final_text=final_text,
+                    tool_calls=tool_calls_record,
+                    tool_results=tool_results_record,
+                    model=self.model,
+                    usage=usage_total,
+                    iterations=iteration,
+                    stop_reason=stop_reason,
+                )
+
             messages.append({
-                "role": "tool",
-                "tool_call_id": tc.id,
-                "content": json.dumps(_truncate_for_llm(result)),
+                "role": "assistant",
+                "content": msg.content,
+                "tool_calls": [
+                    {
+                        "id": tc.id,
+                        "type": "function",
+                        "function": {
+                            "name": tc.function.name,
+                            "arguments": tc.function.arguments,
+                        },
+                    }
+                    for tc in tool_calls
+                ],
             })
 
-        second = self._client.chat.completions.create(
-            model=self.model,
-            messages=messages,
-            tools=TOOL_SCHEMAS,
-            tool_choice="none",
-        )
-        second_msg = second.choices[0].message
-        if second.usage:
-            for k, v in second.usage.model_dump().items():
-                usage[k] = (usage.get(k, 0) or 0) + (v or 0)
+            for tc in tool_calls:
+                name = tc.function.name
+                args = tc.function.arguments
+                result = dispatch_tool(name, args)
+                tool_calls_record.append({"name": name, "arguments": args})
+                tool_results_record.append({"name": name, "result_preview": _preview(result)})
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tc.id,
+                    "content": json.dumps(_truncate_for_llm(result, self.tool_result_char_limit)),
+                })
 
+        logger.warning("Agent loop hit max_iterations=%s without final text.", self.max_iterations)
         return AgentResponse(
-            final_text=second_msg.content or "",
+            final_text=final_text,
             tool_calls=tool_calls_record,
             tool_results=tool_results_record,
             model=self.model,
-            usage=usage,
+            usage=usage_total,
+            iterations=self.max_iterations,
+            stop_reason=stop_reason,
         )
+
+    def _completion_with_retry(self, messages: list[dict[str, Any]]) -> Any:
+        """One chat completion request, retried on rate-limit / transient errors."""
+        try:
+            from openai import APIConnectionError, APITimeoutError, RateLimitError  # type: ignore
+        except ImportError:  # pragma: no cover
+            APIConnectionError = APITimeoutError = RateLimitError = Exception  # type: ignore
+
+        backoff = self.initial_backoff
+        last_exc: Exception | None = None
+        for attempt in range(1, self.max_retries + 1):
+            try:
+                return self._client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    tools=TOOL_SCHEMAS,
+                    tool_choice="auto",
+                )
+            except (RateLimitError, APIConnectionError, APITimeoutError) as exc:
+                last_exc = exc
+                if attempt == self.max_retries:
+                    raise
+                jitter = random.uniform(0, backoff * 0.25)
+                sleep_for = backoff + jitter
+                logger.warning(
+                    "LLM call failed (%s), retry %d/%d in %.2fs",
+                    type(exc).__name__,
+                    attempt,
+                    self.max_retries,
+                    sleep_for,
+                )
+                time.sleep(sleep_for)
+                backoff *= 2
+        # Unreachable, but keeps the type checker happy.
+        raise RuntimeError("retry loop exited without return") from last_exc
+
+
+def _accumulate(total: dict[str, Any], more: dict[str, Any]) -> None:
+    """Sum numeric usage fields across multiple completions."""
+    for key, value in more.items():
+        if isinstance(value, (int, float)):
+            total[key] = (total.get(key, 0) or 0) + (value or 0)
+        elif key not in total:
+            total[key] = value
 
 
 def _preview(result: dict[str, Any], char_limit: int = 200) -> str:
@@ -154,27 +236,43 @@ def _preview(result: dict[str, Any], char_limit: int = 200) -> str:
     return text if len(text) <= char_limit else text[:char_limit] + "...[truncated]"
 
 
-def _truncate_for_llm(result: dict[str, Any], max_chars: int = 8000) -> dict[str, Any]:
-    """Pass tool result back to LLM, truncating large fields. Naive day-1 strategy."""
+def _truncate_for_llm(
+    result: dict[str, Any],
+    max_chars: int = DEFAULT_TOOL_RESULT_CHAR_LIMIT,
+) -> dict[str, Any]:
+    """Trim large fields before feeding a tool result back to the LLM.
+
+    Strategy: drop per-face score dicts first (biggest blobs), then ML internals,
+    then cap findings list. Returns the trimmed dict; never raises.
+    """
     serialized = json.dumps(result, default=str)
     if len(serialized) <= max_chars:
         return result
 
     trimmed = dict(result)
-    # Largest blobs in the analyze_geometry report: per_face_scores, combined_per_face_scores
     for key in ("per_face_scores", "combined_per_face_scores"):
         if key in trimmed:
-            trimmed[key] = "<omitted-for-context: scored per-face dict trimmed>"
-    if "ml" in trimmed and isinstance(trimmed["ml"], dict):
+            trimmed[key] = "<omitted-for-context: per-face dict trimmed>"
+    if isinstance(trimmed.get("ml"), dict):
         ml = dict(trimmed["ml"])
         ml["per_face_scores"] = "<omitted-for-context>"
         trimmed["ml"] = ml
 
-    # If still too large, truncate findings list to top 20
     serialized = json.dumps(trimmed, default=str)
     if len(serialized) > max_chars and isinstance(trimmed.get("findings"), list):
         if len(trimmed["findings"]) > 20:
             trimmed["findings"] = trimmed["findings"][:20] + [
-                {"check": "TRUNCATED", "severity": "Info", "detail": f"{len(trimmed['findings']) - 20} more findings omitted."}
+                {
+                    "check": "TRUNCATED",
+                    "severity": "Info",
+                    "detail": f"{len(trimmed['findings']) - 20} more findings omitted.",
+                }
+            ]
+
+    serialized = json.dumps(trimmed, default=str)
+    if len(serialized) > max_chars and isinstance(trimmed.get("bodies"), list):
+        if len(trimmed["bodies"]) > 5:
+            trimmed["bodies"] = trimmed["bodies"][:5] + [
+                {"note": f"{len(trimmed['bodies']) - 5} more bodies omitted."}
             ]
     return trimmed
