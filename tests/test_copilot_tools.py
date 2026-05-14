@@ -15,8 +15,10 @@ import pytest
 
 from simready.copilot import rag
 from simready.copilot.tools import (
+    DEFAULT_FINDINGS_LIMIT,
     SEVERITY_ORDER,
     TOOL_SCHEMAS,
+    _summarize_report,
     analyze_geometry,
     dispatch_tool,
     lookup_standard,
@@ -63,7 +65,23 @@ def test_analyze_geometry_returns_error_for_missing_file(missing_step_file: str)
 def test_suggest_fixes_returns_empty_when_no_findings() -> None:
     result = suggest_fixes([])
     assert result["suggestions"] == []
+    assert result["severity_counts"] == {"Critical": 0, "Major": 0, "Minor": 0, "Info": 0}
     assert "clean" in result["note"].lower()
+
+
+def test_suggest_fixes_includes_severity_counts() -> None:
+    findings = [
+        {"check": "A", "severity": "Critical"},
+        {"check": "B", "severity": "Major"},
+        {"check": "C", "severity": "Major"},
+        {"check": "D", "severity": "Minor"},
+    ]
+    result = suggest_fixes(findings, max_results=2)
+    assert result["severity_counts"] == {
+        "Critical": 1, "Major": 2, "Minor": 1, "Info": 0,
+    }
+    assert result["total_findings"] == 4
+    assert result["returned"] == 2
 
 
 def test_suggest_fixes_ranks_by_severity_and_dedupes_by_check() -> None:
@@ -130,3 +148,72 @@ def test_dispatch_tool_invalid_json_returns_error() -> None:
 def test_dispatch_tool_missing_required_arg_returns_error() -> None:
     result = dispatch_tool("suggest_fixes", "{}")
     assert result["error"] == "BadArguments"
+
+
+def _fake_pipeline_report() -> dict:
+    return {
+        "status": "Caution",
+        "complexity": "moderate",
+        "score": {"overall": 72.5, "label": "Caution"},
+        "geometry": {
+            "face_count": 148,
+            "edge_count": 412,
+            "solid_count": 1,
+            "bounding_box": [0, 0, 0, 100, 50, 25],
+        },
+        "bodies": [],
+        "findings": [
+            {"check": "ShortEdges", "severity": "Minor", "detail": "tiny", "suggestion": "merge"},
+            {"check": "OpenBoundaries", "severity": "Major", "detail": "gap", "suggestion": "stitch"},
+            {"check": "Degenerate", "severity": "Critical", "detail": "bad", "suggestion": "rebuild"},
+            {"check": "Sliver", "severity": "Info", "detail": "ok", "suggestion": "ignore"},
+        ],
+        "ml": {
+            "available": True,
+            "weights_loaded": True,
+            "score_source": "brepsage",
+            "model_name": "BRepSAGE-v1",
+            "per_face_scores": {i: 0.5 for i in range(500)},  # must be stripped
+        },
+        "validation": {"is_valid": True, "errors": []},
+        "elapsed_seconds": 1.23,
+        "per_face_scores": {i: 0.5 for i in range(500)},  # must be stripped
+        "combined_per_face_scores": {i: 0.5 for i in range(500)},  # must be stripped
+    }
+
+
+def test_summarize_report_keeps_top_level_fields_and_strips_per_face_dicts() -> None:
+    summary = _summarize_report(_fake_pipeline_report(), "/tmp/x.STEP")
+    assert summary["step_path"] == "/tmp/x.STEP"
+    assert summary["status"] == "Caution"
+    assert summary["complexity"] == "moderate"
+    assert summary["score"] == {"overall": 72.5, "label": "Caution"}
+    assert summary["geometry"]["face_count"] == 148
+    assert summary["body_count"] == 1
+    assert summary["findings_total"] == 4
+    assert "per_face_scores" not in summary
+    assert "per_face_scores" not in summary["ml"]
+    assert summary["ml"]["score_source"] == "brepsage"
+    assert summary["validation"] == {"is_valid": True, "error_count": 0}
+
+
+def test_summarize_report_orders_findings_by_severity_and_caps() -> None:
+    summary = _summarize_report(_fake_pipeline_report(), "/tmp/x.STEP", findings_limit=2)
+    severities = [f["severity"] for f in summary["findings"]]
+    assert severities == ["Critical", "Major"]
+    assert summary["findings_returned"] == 2
+    assert summary["severity_counts"] == {
+        "Critical": 1, "Major": 1, "Minor": 1, "Info": 1,
+    }
+
+
+def test_summarize_report_findings_limit_zero_returns_all() -> None:
+    summary = _summarize_report(_fake_pipeline_report(), "/tmp/x.STEP", findings_limit=0)
+    assert summary["findings_returned"] == 4
+
+
+def test_analyze_geometry_schema_advertises_findings_limit() -> None:
+    schema = next(s for s in TOOL_SCHEMAS if s["function"]["name"] == "analyze_geometry")
+    props = schema["function"]["parameters"]["properties"]
+    assert "findings_limit" in props
+    assert props["findings_limit"]["default"] == DEFAULT_FINDINGS_LIMIT

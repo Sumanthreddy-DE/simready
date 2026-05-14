@@ -13,7 +13,12 @@ from typing import Any
 import pytest
 
 from simready.copilot import agent as agent_module
-from simready.copilot.agent import CopilotAgent, _accumulate, _truncate_for_llm
+from simready.copilot.agent import (
+    DEFAULT_SYSTEM_PROMPT,
+    CopilotAgent,
+    _accumulate,
+    _truncate_for_llm,
+)
 
 
 @dataclass
@@ -322,6 +327,19 @@ def test_accumulate_sums_numeric_usage_fields_and_keeps_strings_first_seen() -> 
     assert total["prompt_tokens"] == 30
     assert total["completion_tokens"] == 5
     assert total["model"] == "m1"  # first-seen wins for non-numeric
+
+
+def test_default_system_prompt_advertises_three_tools_and_few_shot_examples() -> None:
+    prompt = DEFAULT_SYSTEM_PROMPT
+    for tool_name in ("analyze_geometry", "suggest_fixes", "lookup_standard"):
+        assert tool_name in prompt
+    assert "Reference dialogues" in prompt
+    assert "Example 1" in prompt
+    assert "Example 2" in prompt
+    assert "Example 3" in prompt
+    # Final-answer schema must be spelled out so the model copies it.
+    assert "Verdict" in prompt
+    assert "severity_counts" in prompt
 
 
 def test_truncate_for_llm_strips_large_per_face_dicts() -> None:
