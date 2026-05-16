@@ -1,0 +1,220 @@
+"""Smoke tests for ``ui/copilot_app.py`` (Streamlit chat UI).
+
+Uses Streamlit's ``AppTest`` to load the page in bare-mode and inject a
+stubbed ``CopilotAgent`` so the test never touches a real LLM provider.
+"""
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+
+from simready.copilot.agent import AgentResponse
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+APP_PATH = REPO_ROOT / "ui" / "copilot_app.py"
+
+
+pytest.importorskip("streamlit.testing.v1")
+from streamlit.testing.v1 import AppTest  # noqa: E402  (gated by importorskip)
+
+
+CANNED_TEXT = (
+    "Verdict: Caution — moderate complexity (6 faces, 1 body).\n"
+    "Issues:\n- [Major] OpenBoundaries: open shell.\n"
+    "Fixes:\n- Stitch shell."
+)
+
+
+FAKE_ANALYSIS_RESULT = {
+    "status": "NeedsAttention",
+    "findings_total": 4,
+    "score": {"overall": 56.4, "label": "NeedsAttention"},
+    "geometry": {"face_count": 6, "edge_count": 26, "solid_count": 0},
+    "severity_counts": {"Critical": 0, "Major": 2, "Minor": 2, "Info": 0},
+    "complexity": {"tier": "simple", "label": "Simple", "confidence": "high"},
+}
+
+
+class _FakeCopilotAgent:
+    """Drop-in replacement for ``CopilotAgent`` that never imports openai.
+
+    Captures whether ``history`` was passed so multi-turn wiring can be asserted.
+    """
+
+    last_history_arg: list[dict] | None = None
+
+    def __init__(self, *_, **__) -> None:
+        self.model = "fake-model"
+
+    def run(self, user_message: str, on_event=None, history=None):  # noqa: D401
+        type(self).last_history_arg = list(history) if history else None
+        if on_event:
+            on_event({"type": "iteration_start", "iteration": 1})
+            on_event({
+                "type": "tool_call",
+                "iteration": 1,
+                "name": "analyze_geometry",
+                "arguments": json.dumps({"step_path": user_message}),
+            })
+            on_event({
+                "type": "tool_result",
+                "iteration": 1,
+                "name": "analyze_geometry",
+                "result": dict(FAKE_ANALYSIS_RESULT),
+            })
+            on_event({
+                "type": "final_text",
+                "text": CANNED_TEXT,
+                "iterations": 2,
+                "usage": {"total_tokens": 1234},
+            })
+        msgs = list(history) if history else [{"role": "system", "content": "fake-sys"}]
+        msgs.append({"role": "user", "content": user_message})
+        msgs.append({"role": "assistant", "content": CANNED_TEXT})
+        return AgentResponse(
+            final_text=CANNED_TEXT,
+            tool_calls=[{"name": "analyze_geometry", "arguments": "{}"}],
+            tool_results=[{"name": "analyze_geometry", "result_preview": "{...}"}],
+            model="fake-model",
+            usage={"total_tokens": 1234},
+            iterations=2,
+            stop_reason="stop",
+            messages=msgs,
+        )
+
+
+def _install_fake_agent(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Patch CopilotAgent at source. AppTest re-imports the UI module on each
+    ``at.run()``, so patching ``ui.copilot_app.CopilotAgent`` is overwritten
+    by the fresh ``from simready.copilot.agent import CopilotAgent``. Patching
+    the source module makes the fake survive the re-import.
+    """
+    import simready.copilot.agent as agent_module
+
+    monkeypatch.setattr(agent_module, "CopilotAgent", _FakeCopilotAgent)
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+
+def test_app_renders_without_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    at = AppTest.from_file(str(APP_PATH), default_timeout=15)
+    at.run()
+    assert not at.exception, [str(e) for e in at.exception]
+    # No chat yet; main-pane intro text should be present.
+    assert any("Try the sidebar" in str(item.value) for item in at.info)
+
+
+def test_app_runs_one_turn_with_mocked_agent(monkeypatch: pytest.MonkeyPatch) -> None:
+    _install_fake_agent(monkeypatch)
+    at = AppTest.from_file(str(APP_PATH), default_timeout=15)
+    at.run()
+    assert not at.exception, [str(e) for e in at.exception]
+
+    at.session_state["_pending_user_msg"] = "Analyze data/demo.step please."
+    at.run()
+    assert not at.exception, [str(e) for e in at.exception]
+
+    chat = at.session_state["chat"]
+    assert len(chat) == 2
+    assert chat[0]["role"] == "user"
+    assert "Analyze data/demo.step" in chat[0]["content"]
+    assert chat[1]["role"] == "assistant"
+    assert chat[1]["content"] == CANNED_TEXT
+    assert chat[1]["iterations"] == 2
+    assert chat[1]["usage"]["total_tokens"] == 1234
+    assert any(ev["type"] == "tool_call" for ev in chat[1]["events"])
+
+
+def test_list_demo_steps_finds_degraded_fixtures() -> None:
+    import ui.copilot_app as ui_module
+
+    steps = ui_module._list_demo_steps()
+    # data/parametric_degraded was generated by the day-10 step 1 run.
+    assert any("parametric_degraded" in str(p) for p in steps), (
+        f"expected at least one degraded STEP in demo list; got {steps[:3]}"
+    )
+
+
+def test_list_demo_steps_is_deduped() -> None:
+    """Windows globs match case-insensitively; ``*.step`` and ``*.STEP`` both
+    pick up the same files. The helper must dedupe by resolved path."""
+    import ui.copilot_app as ui_module
+
+    steps = ui_module._list_demo_steps()
+    resolved = [p.resolve() for p in steps]
+    assert len(resolved) == len(set(resolved)), (
+        f"dropdown contains duplicates: {len(resolved)} total vs {len(set(resolved))} unique"
+    )
+
+
+def test_app_continues_history_across_turns(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The UI must pass the prior LLM message list back into ``agent.run`` so
+    follow-up questions see the prior conversation. Second turn's ``history``
+    arg should include the assistant's reply from the first turn."""
+    _install_fake_agent(monkeypatch)
+    at = AppTest.from_file(str(APP_PATH), default_timeout=15)
+    at.run()
+
+    at.session_state["_pending_user_msg"] = "Analyze data/demo.step"
+    at.run()
+    assert not at.exception, [str(e) for e in at.exception]
+    history_after_first = at.session_state["_llm_history"]
+    assert any(m["role"] == "assistant" for m in history_after_first)
+
+    at.session_state["_pending_user_msg"] = "What about the fillets?"
+    at.run()
+    assert not at.exception, [str(e) for e in at.exception]
+    # Second turn's agent.run() must have received the first turn's history.
+    passed = _FakeCopilotAgent.last_history_arg or []
+    assert any(
+        m["role"] == "user" and "Analyze data/demo.step" in m["content"]
+        for m in passed
+    ), f"second turn did not receive first-turn user message; got {passed}"
+
+
+def test_score_sidebar_populates_from_analyze_geometry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The on_event hook should snapshot the latest ``analyze_geometry`` tool
+    result into ``st.session_state.last_analysis`` for the sidebar badge."""
+    _install_fake_agent(monkeypatch)
+    at = AppTest.from_file(str(APP_PATH), default_timeout=15)
+    at.run()
+
+    assert at.session_state["last_analysis"] is None
+
+    at.session_state["_pending_user_msg"] = "Analyze data/demo.step"
+    at.run()
+    assert not at.exception, [str(e) for e in at.exception]
+
+    last = at.session_state["last_analysis"]
+    assert last is not None
+    assert last["status"] == "NeedsAttention"
+    assert last["score"]["overall"] == 56.4
+
+
+def test_clear_chat_resets_history_and_analysis(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Clear chat must wipe display history, llm history, and last_analysis."""
+    _install_fake_agent(monkeypatch)
+    at = AppTest.from_file(str(APP_PATH), default_timeout=15)
+    at.run()
+
+    at.session_state["_pending_user_msg"] = "Analyze data/demo.step"
+    at.run()
+    assert at.session_state["chat"]
+    assert at.session_state["_llm_history"]
+    assert at.session_state["last_analysis"]
+
+    # Click "Clear chat" via AppTest's button finder.
+    clear = [b for b in at.sidebar.button if "Clear chat" in str(b.label)]
+    assert clear, "Clear chat button not found in sidebar"
+    clear[0].click()
+    at.run()
+    assert at.session_state["chat"] == []
+    assert at.session_state["_llm_history"] == []
+    assert at.session_state["last_analysis"] is None

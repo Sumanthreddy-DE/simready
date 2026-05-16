@@ -54,11 +54,13 @@ Workflow rules:
 - Cite numbers (face count, score, severity counts) from tool output — never invent them.
 - When citing a standard, quote the source (filename + page) returned by lookup_standard.
 - If a tool returns {"error": ...} or status "no_index", surface it to the user plainly.
-- Final answer format:
-    1. One-line verdict (status + complexity).
-    2. Bullet list of top issues w/ severity tag.
-    3. Bullet list of fixes (1:1 with issues if possible).
-    4. Optional citation block when lookup_standard returned hits.
+- Final answer format (use literal blank lines BETWEEN sections so Streamlit /
+  markdown renders each as its own paragraph):
+    1. One-line **Verdict** containing: status, numeric score (X/100), complexity tier,
+       face_count, body_count. Format: `Verdict: <status> · score X/100 · <complexity> (<faces> faces, <bodies> bodies)`.
+    2. Blank line, then `Issues:` header and a bullet list of top issues with severity tag.
+    3. Blank line, then `Fixes:` header and a bullet list of fixes (1:1 with issues if possible).
+    4. Blank line, then optional `Citations:` block when lookup_standard returned hits.
 - Be concise. No filler, no apologies, no restating the question.
 
 # Reference dialogues
@@ -66,19 +68,23 @@ Workflow rules:
 ## Example 1 — full triage on a CAD file
 User: What's wrong with tests/data/grabcad/bracket_simple.STEP and how do I fix it?
 Assistant (calls analyze_geometry, then suggest_fixes, then writes):
-  Verdict: Caution — moderate complexity (148 faces, 1 body).
+  Verdict: ReviewRecommended · score 68/100 · moderate complexity (148 faces, 1 body).
+
   Issues:
-    - [Major] OpenBoundaries: 3 free edges along the top flange.
-    - [Minor] ShortEdges: 7 sub-mm edges near fillets.
+  - [Major] OpenBoundaries: 3 free edges along the top flange.
+  - [Minor] ShortEdges: 7 sub-mm edges near fillets.
+
   Fixes:
-    - Stitch the open boundary using OCC ShapeUpgrade_UnifySameDomain.
-    - Merge short edges (tolerance 0.05 mm) before meshing.
+  - Stitch the open boundary using OCC ShapeUpgrade_UnifySameDomain.
+  - Merge short edges (tolerance 0.05 mm) before meshing.
 
 ## Example 2 — standards lookup, no file
 User: What aspect ratio should my mesh elements stay under for linear-elastic FEA?
 Assistant (calls lookup_standard("aspect ratio limits linear elastic mesh quality")):
   NAFEMS QA01 (p.4) recommends aspect ratio < 5 for linear-elastic stress recovery.
-  Source: NAFEMS_QA01.pdf, page 4.
+
+  Citations:
+  - NAFEMS_QA01.pdf, page 4.
 
 ## Example 3 — graceful failure on bad path
 User: Analyze /tmp/missing.step
@@ -105,6 +111,10 @@ class AgentResponse:
     usage: dict[str, Any] = field(default_factory=dict)
     iterations: int = 0
     stop_reason: str = ""
+    # Full message list at end of the run (system + user + assistant + tool
+    # messages). Caller can pass this back as ``history`` to ``run`` for a
+    # follow-up turn that preserves conversational context.
+    messages: list[dict[str, Any]] = field(default_factory=list)
 
 
 class CopilotAgent:
@@ -152,8 +162,13 @@ class CopilotAgent:
         self,
         user_message: str,
         on_event: EventCallback | None = None,
+        history: list[dict[str, Any]] | None = None,
     ) -> AgentResponse:
         """Drive a multi-turn tool-use conversation. Returns the final assistant text.
+
+        Pass ``history`` (the ``messages`` field from a prior ``AgentResponse``) to
+        continue a previous conversation — the new ``user_message`` is appended to it.
+        Omit ``history`` for a fresh chat (system prompt is added automatically).
 
         If `on_event` is provided, it is called as the loop progresses with dicts of
         shape `{"type": <str>, ...}`. Event types:
@@ -164,11 +179,24 @@ class CopilotAgent:
           - "max_iterations"   {iterations}
         Callback exceptions are logged and swallowed so observers cannot break a run.
         """
-        messages: list[dict[str, Any]] = [
-            {"role": "system", "content": self.system_prompt},
-            {"role": "user", "content": user_message},
-        ]
+        if history:
+            messages: list[dict[str, Any]] = list(history)
+        else:
+            messages = [{"role": "system", "content": self.system_prompt}]
+        messages.append({"role": "user", "content": user_message})
+        return self.run_messages(messages, on_event=on_event)
 
+    def run_messages(
+        self,
+        messages: list[dict[str, Any]],
+        on_event: EventCallback | None = None,
+    ) -> AgentResponse:
+        """Drive the tool-use loop over an already-built message list.
+
+        ``messages`` is mutated in place as the loop appends assistant + tool
+        replies. The final list is returned on ``AgentResponse.messages`` so the
+        caller can persist conversational history across turns.
+        """
         tool_calls_record: list[dict[str, Any]] = []
         tool_results_record: list[dict[str, Any]] = []
         usage_total: dict[str, Any] = {}
@@ -189,6 +217,7 @@ class CopilotAgent:
             if not tool_calls:
                 final_text = msg.content or ""
                 stop_reason = "stop"
+                messages.append({"role": "assistant", "content": final_text})
                 _emit(on_event, {
                     "type": "final_text",
                     "text": final_text,
@@ -203,6 +232,7 @@ class CopilotAgent:
                     usage=usage_total,
                     iterations=iteration,
                     stop_reason=stop_reason,
+                    messages=messages,
                 )
 
             messages.append({
@@ -255,6 +285,7 @@ class CopilotAgent:
             usage=usage_total,
             iterations=self.max_iterations,
             stop_reason=stop_reason,
+            messages=messages,
         )
 
     def _completion_with_retry(self, messages: list[dict[str, Any]]) -> Any:
