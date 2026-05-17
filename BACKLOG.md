@@ -12,7 +12,7 @@ Living list of open issues, deferred work, and known caveats. Updated each sessi
 - Mention by short slug in commit body (e.g. "Closes: multi-turn-history").
 - On close → move to **Done this session** with commit SHA.
 - End of session → user sweeps **Done** → **Archived** (one-line compress).
-- Last swept: **2026-05-17**.
+- Last swept: **2026-05-17** (end-of-session sweep — Day-10 + Day-11 work archived).
 
 ---
 
@@ -33,8 +33,6 @@ _(none currently)_
 
 ## Open — S3 (tech debt, deprecations, low-impact polish)
 
-- [ ] **S3 · session-persist-ui** — Copilot CLI saves to `data/copilot_sessions/` per turn, Streamlit UI does not. Lost transcripts on browser refresh. *Opened 2026-05-17.*
-- [ ] **S3 · dropdown-grouping** — 22 dropdown items mix `data/parametric_degraded/` (synth) and `tests/data/grabcad/` (real). Group by source so user knows which is which. *Opened 2026-05-17.*
 - [ ] **S3 · brepbndlib-deprecation** — `scripts/generate_degraded_steps.py:95` uses deprecated `brepbndlib_Add` (pythonocc 7.7+ wants `brepbndlib.Add` static method). Spams 4 warnings per test run. *Opened 2026-05-17.*
 - [ ] **S3 · trace-format-rot** — Wk-3 day-15 plan generates ~5000 synth tool traces for fine-tune. Schema will differ from current per-CLI-run JSON in `data/copilot_sessions/`. Write traces to `data/fine_tune/traces.jsonl` separately when that lands. *Opened 2026-05-14 (wk-1 Q7).*
 - [ ] **S3 · base-vs-env-marker-split** — Two-Python-env reality (base 3.12 vs `C:\mm\sr` 3.10) keeps confusing tests. Add `pytest -m base` vs `pytest -m occ` marker split + a Makefile/PS shortcut. Less acute now that env is verified working, but the gotcha remains. *Opened 2026-05-14 (wk-1 Q5).*
@@ -49,17 +47,7 @@ _(items currently being worked — move from Open when started, back to Open if 
 
 ## Done this session (2026-05-17)
 
-- [x] **S2 · weak-synth-defects** (`749961c`) — Two fixes: (1) `zero_length_edge` synth class disabled by default — STEPControl_Writer strips the 1e-9 edge during round-trip, so file was clean. 5 dead files deleted from `data/parametric_degraded/`. (2) New `check_thin_solid` (aspect ratio >= 100:1) fires Major on all 5 sliver variants; scores drop 58 → ~43 and pick up an explicit ThinSolid finding. +3 tests in `tests/test_checks.py`. 155/155 pass.
-- [x] **S2 · 3d-viz** (`636d140`) — Option C shipped: static colored-face PNG via OCC tessellation + PIL painter's-algorithm in fixed isometric projection. Rendered per `analyze_geometry`, embedded in chat bubble + sidebar via `image_path`. Skipped pyvista/stpyvista to avoid Win DLL flake; matplotlib also crashes inside the sr env's OCC DLL space on Win, so PIL is the safer pick. 7 new tests in `tests/test_copilot_render.py`, 152/152 total in sr env.
-- [x] **S2 · multi-turn-coverage** (`e906bfc`) — `scripts/smoke_real_llm.py` extended with T2 follow-up using `resp1.messages` as history. T2 answered in 1 iter, 0 tool calls, cited SelfIntersection from T1. 10/10 smoke checks OK against NIM Llama 3.3 70B. ~11.5k tokens total.
-- [x] **S1 · dropdown-duplicates** (`056a746`) — Windows globs case-insensitive; `*.step` + `*.STEP` matched same files (44 entries, 22 unique). Deduped via `set(p.resolve())` in `ui/copilot_app.py:_list_demo_steps`. *Test: `tests/test_copilot_ui.py::test_list_demo_steps_is_deduped`.*
-- [x] **S2 · verdict-format-missing-score** (`056a746`) — `DEFAULT_SYSTEM_PROMPT` updated to require `Verdict: <status> · score X/100 · <complexity> (<faces> faces, <bodies> bodies)` and blank lines between Verdict / Issues / Fixes / Citations sections. Example dialogues match new format.
-- [x] **S2 · multi-turn-history** (`056a746`) — `CopilotAgent.run` now accepts `history` kwarg; new `run_messages` method; `AgentResponse.messages` exposes full message list. UI persists in `st.session_state._llm_history` and passes back on each turn. Backward-compatible.
-- [x] **S2 · score-sidebar** (`056a746`) — Sidebar "Last analysis" badge shows status color, score/100, faces/edges/findings metrics, severity bar, complexity. Captured via `on_event` filter for `analyze_geometry` tool results.
-- [x] **Day-10 step 1** (`d8fcc1f`) — `data/parametric_degraded/` populated, 20 STEPs (5 inputs × 4 defects) + manifest via `scripts/generate_degraded_steps.py`.
-- [x] **Day-10 step 2–3** (`056a746`) — `ui/copilot_app.py` Streamlit chat shipped + 7 AppTest smoke tests in `tests/test_copilot_ui.py`.
-- [x] **Day-10 step 4** (`563ab6c`) — Real-LLM smoke ran clean in env against NIM Llama 3.3 70B via `scripts/smoke_real_llm.py`. 4 iters, 8321 tokens, all 5 smoke checks OK.
-- [x] **env-rediscovered** — Conda env was already at `C:\mm\sr` from 2026-04-23 (memory said missing). Verified full stack: py 3.10.20, OCC 7.9.0, torch 2.12.0+cpu, pyg 2.7.0, openai 2.36.0, streamlit 1.56.0. 145/145 tests pass.
+_(none — swept to Archived at end of session.)_
 
 ---
 
@@ -68,3 +56,5 @@ _(items currently being worked — move from Open when started, back to Open if 
 - **2026-05-13 · Phase 2A bug-fix sweep** (5 items) — see commits `b689b71`..`ec4f33a`. SelfIntersection false-positive, face index 0/1 mismatch, ML weights-loaded lying, GrabCAD manifold hang guard, rule_face_count rename.
 - **2026-05-14 · Path C wk-1 ship** (6 days of work) — see commits `7212e52`..`d8fcc1f`. Copilot stack, 3 tools, RAG-lite, multi-turn loop, terminal UI, degraded-STEP generator.
 - **2026-05-16 · Wk-1 Q1/Q6/Q8 resolved** — light real-LLM smoke (`563ab6c`) validated LLM loop end-to-end on NIM Llama. No tool_choice gotcha. Slim summary respected. Day-10 sub-decisions D1=b, D2=a, D3=mock-then-smoke locked.
+- **2026-05-17 · Path C wk-2 day 10 ship** (4 items) — `056a746`..`69539ef`. Streamlit chat UI + dropdown dedupe, sidebar score badge, multi-turn history via `AgentResponse.messages` round-trip, Verdict-with-score format. Real-LLM smoke gained a turn-2 follow-up (10/10 NIM checks).
+- **2026-05-17 · Path C wk-2 day 11 ship** (7 items) — `636d140`..`c3df6c0`. Static colored-face PNG via OCC tess + PIL painter's-algo (replaces deferred pyvista; matplotlib also broken in sr OCC env on Win); `check_thin_solid` detector + drop broken `zero_length_edge` synth; STEP file uploader + 5MB warn; typed `_classify_agent_exception` chips (RateLimit/Timeout/ConnError/Auth/BadRequest); `[synth]`/`[real]` dropdown grouping; per-session JSON persist under `data/copilot_sessions/`. 160/160 tests in sr env (+15 from session start).

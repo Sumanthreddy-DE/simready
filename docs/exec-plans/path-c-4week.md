@@ -2,8 +2,19 @@
 
 **Author:** SimReady team
 **Created:** 2026-05-13
-**Status:** Active
+**Status:** Active — wk-1 shipped (`7212e52..d8fcc1f`), wk-2 day 10 + 11 shipped (`056a746..c3df6c0`), wk-2 day 12 (gold traces) next
 **Target:** MecAgent ML/AI Founding Engineer application + interview-ready demo
+
+## Progress
+
+- [x] **Wk 1 days 1–7** — copilot core, 3 tools, RAG-lite, terminal CLI, degraded-STEP generator. Commits `7212e52..d8fcc1f`.
+- [x] **Wk 2 day 8 (partial)** — GrabCAD scrape blocked by anti-bot; pivoted to curated set, tracked in BACKLOG (`grabcad-scrape-blocked`).
+- [ ] **Wk 2 day 9** — combined-dataset BRepSAGE retrain (not started; pending GrabCAD curated set).
+- [x] **Wk 2 day 10** — Streamlit copilot UI + multi-turn history + Verdict format + real-LLM smoke (`056a746..69539ef`). 4 dropdown duplicates, sidebar score badge, verdict format, multi-turn coverage all closed.
+- [x] **Wk 2 day 11** — Static colored-face PNG (option C, PIL painter's algo), ThinSolid detector + drop broken zero-length-edge synth, STEP uploader, typed error chips, dropdown grouping (synth/real), session persist (`636d140..c3df6c0`). 160/160 tests pass.
+- [ ] **Wk 2 day 12** — Gold traces (50 hand-crafted Q&A, ~4–6h user work). User task.
+- [ ] **Wk 2 day 13** — Apply prep (lite).
+- [ ] **Wk 2 day 14** — Apply.
 
 ---
 
@@ -114,22 +125,20 @@ Application sent at end of week 2. Weeks 3–4 deepen the artifact (fine-tune pi
 - Eval: `python scripts/evaluate.py --dataset val_combined` → expect recall lift from 0.23 → target >0.55 on real-CAD held-out
 - If recall <0.50 → diagnose: class imbalance? feature mismatch? Iterate one round.
 
-### Day 10 — Streamlit demo build
-- `ui/copilot_app.py`:
-  - File uploader for STEP/STP
-  - Built-in demo dropdown (3 GrabCAD STEPs)
-  - Chat input + history
-  - Tool-call event display (collapsible expanders showing tool name + arguments + result)
-  - stpyvista 3D viz panel with finding-markers
-  - Citation box showing RAG sources
-- Wire to `simready/copilot/agent.py` backend
-- Run locally: `streamlit run ui/copilot_app.py`
+### Day 10 — Streamlit demo build ✅ SHIPPED (`056a746`, `e906bfc`)
+- [x] `ui/copilot_app.py` — chat input + history, demo dropdown (deduped), tool-call expanders, sidebar score badge, multi-turn history via `AgentResponse.messages` round-trip.
+- [x] `simready/copilot/agent.py` — `run_messages` + `history` kwarg + Verdict format in system prompt.
+- [x] Real-LLM smoke against NIM Llama 3.3 70B (10/10 checks, ~11.5k tokens).
+- *Deferred:* stpyvista interactive 3D — replaced by Day-11 static PNG (Option C). Reasoning in commit `636d140`.
 
-### Day 11 — Streamlit polish + bug bash
-- Handle large STEPs (>200 faces): show progress bar, run pipeline in background thread
-- Error states: invalid STEP, no API key, rate limit, timeout
-- Mobile-responsive layout check
-- Test on 3 GrabCAD STEPs + 5 synthetic-harder + 2 fresh uploads
+### Day 11 — Streamlit polish + bug bash ✅ SHIPPED (`636d140`, `749961c`, `46a51de`, `e0708ee`)
+- [x] **3d-viz (Option C):** OCC tessellation → PIL painter's-algorithm isometric PNG, embedded in chat bubble + sidebar. Skipped pyvista/matplotlib due to Win DLL conflict w/ pythonocc.
+- [x] **weak-synth-defects:** `check_thin_solid` detector (aspect ratio ≥ 100:1) catches sliver class; broken `zero_length_edge` synth removed (STEPControl_Writer round-trip strips the 1e-9 edge).
+- [x] **Error states:** sidebar `st.file_uploader`, 5MB warning, `_classify_agent_exception` → typed friendly chat chips (RateLimit / Timeout / ConnError / Auth / BadRequest / generic).
+- [x] **Dropdown grouping:** `[synth]` / `[real]` prefixes + per-source count caption.
+- [x] **Session persist:** `data/copilot_sessions/<session_id>.json` overwritten each turn; `SIMREADY_SESSION_DIR` env var for tests.
+- [x] 160/160 tests pass in sr env (was 145 at session start, +15).
+- *Deferred:* background-thread pipeline run (Streamlit session_state is not thread-safe; spinner + 5MB warning is the pragmatic substitute). Mobile-responsive check.
 
 ### Day 12 — gold traces (user-written)
 - **User task:** write 50 hand-crafted engineering Q&A pairs across categories:

@@ -30,11 +30,18 @@ from simready.copilot.agent import AgentResponse, CopilotAgent
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEMO_DIRS = (
-    REPO_ROOT / "data" / "parametric_degraded",
-    REPO_ROOT / "tests" / "data" / "grabcad",
+# Ordered (dir, label) so the dropdown renders synth-first, real-second with
+# a header row per source so the recruiter can tell which is which.
+DEMO_SOURCES: tuple[tuple[Path, str], ...] = (
+    (REPO_ROOT / "data" / "parametric_degraded", "synth"),
+    (REPO_ROOT / "tests" / "data" / "grabcad", "real"),
 )
+DEMO_DIRS = tuple(d for d, _ in DEMO_SOURCES)
 UPLOAD_DIR = REPO_ROOT / "data" / "copilot_uploads"
+# Allow tests to redirect session persistence via env var; AppTest re-imports
+# the module on each .run() so a monkeypatch on the module-level constant
+# would otherwise be lost between turns.
+SESSION_DIR = Path(os.environ.get("SIMREADY_SESSION_DIR", str(REPO_ROOT / "data" / "copilot_sessions")))
 TOOL_PREVIEW_CHAR_LIMIT = 2000
 LARGE_FILE_BYTES = 5 * 1024 * 1024  # 5MB — informational threshold for slow-pipeline warning
 
@@ -104,6 +111,47 @@ def _list_demo_steps() -> list[Path]:
     return out
 
 
+def _grouped_demo_steps() -> list[tuple[str, Path]]:
+    """Return [(source_label, path), ...] in DEMO_SOURCES order. Source label
+    is "synth" or "real" so the dropdown can render a prefix per source."""
+    seen: set[Path] = set()
+    out: list[tuple[str, Path]] = []
+    for source_dir, label in DEMO_SOURCES:
+        if not source_dir.exists():
+            continue
+        for p in sorted(list(source_dir.glob("*.step")) + list(source_dir.glob("*.STEP"))):
+            resolved = p.resolve()
+            if resolved in seen:
+                continue
+            seen.add(resolved)
+            out.append((label, p))
+    return out
+
+
+def _persist_session() -> None:
+    """Write the current Streamlit chat + LLM history to a per-session JSON
+    file. Called after each turn so a browser refresh / crash retains the
+    transcript. Failures are silenced — persistence must never break a turn."""
+    sid = st.session_state.get("session_id")
+    if not sid:
+        return
+    SESSION_DIR.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "session_id": sid,
+        "chat": st.session_state.get("chat", []),
+        "llm_history": st.session_state.get("_llm_history", []),
+        "last_analysis": st.session_state.get("last_analysis"),
+        "model": os.environ.get("OPENAI_MODEL", ""),
+        "base_url": os.environ.get("OPENAI_BASE_URL", ""),
+    }
+    try:
+        (SESSION_DIR / f"{sid}.json").write_text(
+            json.dumps(payload, indent=2, default=str), encoding="utf-8"
+        )
+    except OSError:
+        pass
+
+
 def _init_state() -> None:
     if "chat" not in st.session_state:
         st.session_state.chat = []  # display history: list[dict]
@@ -117,6 +165,13 @@ def _init_state() -> None:
     if "last_analysis" not in st.session_state:
         # Most-recent ``analyze_geometry`` tool result; surfaced in sidebar.
         st.session_state.last_analysis = None
+    if "session_id" not in st.session_state:
+        # Single id per browser tab so each turn overwrites the same JSON
+        # file under data/copilot_sessions/ rather than spawning one per turn.
+        from datetime import datetime, timezone
+        st.session_state.session_id = (
+            "streamlit_" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        )
 
 
 def _make_agent() -> CopilotAgent | None:
@@ -247,6 +302,7 @@ def _run_agent_turn(user_text: str) -> None:
                 "events": events,
                 "is_error": True,
             })
+            _persist_session()
             return
 
     st.session_state._llm_history = response.messages
@@ -267,6 +323,7 @@ def _run_agent_turn(user_text: str) -> None:
         "iterations": response.iterations,
         "image_path": image_path,
     })
+    _persist_session()
 
 
 _init_state()
@@ -347,17 +404,32 @@ with st.sidebar:
     st.divider()
 
     st.header("Demo CAD")
-    demo_steps = _list_demo_steps()
-    if demo_steps:
-        labels = [str(p.relative_to(REPO_ROOT)).replace("\\", "/") for p in demo_steps]
+    grouped = _grouped_demo_steps()
+    if grouped:
+        # Label each entry "[synth] <path>" or "[real]  <path>". Two-space pad
+        # after "[real]" so the bracket columns align in the popover.
+        labels: list[str] = []
+        paths: list[Path] = []
+        for source_label, p in grouped:
+            rel = str(p.relative_to(REPO_ROOT)).replace("\\", "/")
+            tag = "[synth]" if source_label == "synth" else "[real] "
+            labels.append(f"{tag}  {rel}")
+            paths.append(p)
         pick_idx = st.selectbox(
             "Pick a sample STEP",
             options=range(len(labels)),
             format_func=lambda i: labels[i],
             key="demo_pick",
         )
+        counts = {"synth": 0, "real": 0}
+        for source_label, _ in grouped:
+            counts[source_label] += 1
+        st.caption(
+            f"{counts['synth']} synth (parametric_degraded) · "
+            f"{counts['real']} real (grabcad)"
+        )
         if st.button("Analyze selected STEP", key="use_step_btn"):
-            picked = str(demo_steps[pick_idx])
+            picked = str(paths[pick_idx])
             st.session_state._pending_user_msg = (
                 f"Analyze {picked} and tell me what's wrong + how to fix it."
             )
@@ -375,6 +447,7 @@ with st.sidebar:
     st.text(f"Base URL: {os.environ.get('OPENAI_BASE_URL', '(unset)')}")
     has_key = bool(os.environ.get("OPENAI_API_KEY"))
     st.text(f"API key:  {'set' if has_key else 'MISSING'}")
+    st.caption(f"Session: `{st.session_state.session_id}.json`")
     if not has_key:
         st.warning("Set OPENAI_API_KEY in `.env` to talk to a real LLM.")
 
@@ -384,6 +457,7 @@ with st.sidebar:
         st.session_state._pending_user_msg = None
         st.session_state._llm_history = []
         st.session_state.last_analysis = None
+        _persist_session()  # overwrite session file with empty state
         st.rerun()
 
 

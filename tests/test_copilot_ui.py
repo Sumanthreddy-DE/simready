@@ -196,6 +196,46 @@ def test_score_sidebar_populates_from_analyze_geometry(
     assert last["score"]["overall"] == 56.4
 
 
+def test_grouped_demo_steps_returns_source_labels() -> None:
+    """Dropdown source must distinguish synth (parametric_degraded) from real
+    (tests/data/grabcad). Every entry carries a "synth" or "real" label."""
+    import ui.copilot_app as ui_module
+
+    grouped = ui_module._grouped_demo_steps()
+    assert grouped, "expected at least one demo STEP after day-10/11 setup"
+    labels = {src for src, _ in grouped}
+    assert labels.issubset({"synth", "real"}), f"unexpected labels: {labels}"
+    # Synth comes first in DEMO_SOURCES, so the first entry should be synth
+    # if any synth files exist.
+    synth_paths = [p for src, p in grouped if src == "synth"]
+    if synth_paths:
+        assert grouped[0][0] == "synth"
+
+
+def test_session_is_persisted_to_disk(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """After a turn completes, ``data/copilot_sessions/<session_id>.json``
+    contains the chat + llm_history + last_analysis payload."""
+    _install_fake_agent(monkeypatch)
+    # AppTest re-imports ui.copilot_app every .run(); monkeypatching the
+    # module-level SESSION_DIR doesn't survive. Use the env-var override.
+    monkeypatch.setenv("SIMREADY_SESSION_DIR", str(tmp_path))
+
+    at = AppTest.from_file(str(APP_PATH), default_timeout=15)
+    at.run()
+    at.session_state["_pending_user_msg"] = "Analyze data/demo.step"
+    at.run()
+    assert not at.exception, [str(e) for e in at.exception]
+
+    sid = at.session_state["session_id"]
+    saved = tmp_path / f"{sid}.json"
+    assert saved.exists(), f"session file not written; ls={list(tmp_path.iterdir())}"
+    payload = json.loads(saved.read_text(encoding="utf-8"))
+    assert payload["session_id"] == sid
+    assert any(msg["role"] == "user" for msg in payload["chat"])
+    assert any(msg["role"] == "assistant" for msg in payload["chat"])
+    assert payload["last_analysis"] is not None
+
+
 def test_classify_agent_exception_handles_typed_errors() -> None:
     """The friendly-error classifier returns a tailored message per exception
     class name, so chat error chips don't leak raw tracebacks."""
