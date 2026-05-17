@@ -1,15 +1,20 @@
 """Generate degraded STEP variants from clean parametric STEPs.
 
-For each input STEP, produce up to 4 degraded copies — one per defect class:
+For each input STEP, produce up to 3 degraded copies — one per defect class:
 
-    zero_length_edge   : adds a sub-tolerance edge to the part as a Compound
     open_shell         : removes one face, leaving an open shell
-    sliver_face        : fuses a thin sliver block onto a face
+    sliver_face        : adds a thin sliver block as a sibling solid in a Compound
     self_intersection  : packages two overlapping copies of the part as a Compound
 
 Each output is written to <output_dir>/<stem>__<defect>.step alongside
 <stem>__<defect>.tags.json, which records the ground-truth defect tag(s).
 A combined manifest.json summarizes successes / failures.
+
+The legacy ``zero_length_edge`` defect class is still implemented for
+backwards compatibility but is OFF by default — STEPControl_Writer strips
+the sub-tolerance free edge during round-trip, so the resulting file is
+indistinguishable from a clean baseline and produces a false-clean score.
+Opt back in via ``--defects`` if you have a different writer in mind.
 
 Usage:
     python scripts/generate_degraded_steps.py \
@@ -57,7 +62,9 @@ except ImportError:  # pragma: no cover — OCC not installed; functions raise o
 
 DEFAULT_INPUT = Path("data/parametric")
 DEFAULT_OUTPUT = Path("data/parametric_degraded")
-DEFECT_NAMES = ("zero_length_edge", "open_shell", "sliver_face", "self_intersection")
+# zero_length_edge is gated behind explicit opt-in (see module docstring).
+DEFECT_NAMES = ("open_shell", "sliver_face", "self_intersection")
+ALL_DEFECT_NAMES = ("zero_length_edge", *DEFECT_NAMES)
 
 
 def _require_occ() -> None:
@@ -234,8 +241,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--max-inputs", type=int, default=50,
                         help="Cap the number of input STEPs to process. 0 = no cap. Default 50.")
     parser.add_argument("--defects", type=str, default=",".join(DEFECT_NAMES),
-                        help=f"Comma-separated defect classes (default: all four). "
-                             f"Available: {','.join(DEFECT_NAMES)}")
+                        help=f"Comma-separated defect classes "
+                             f"(default: {','.join(DEFECT_NAMES)}). "
+                             f"Available: {','.join(ALL_DEFECT_NAMES)}")
     args = parser.parse_args(argv)
 
     if not args.input.exists():

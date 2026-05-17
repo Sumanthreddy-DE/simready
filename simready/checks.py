@@ -62,6 +62,11 @@ SMALL_FEATURE_RATIO = 0.02
 SMALL_FEATURE_EDGE_RATIO = 0.2
 SMALL_CYLINDER_RADIUS_RATIO = 0.03
 DEGENERATE_EDGE_TOLERANCE = 1e-7
+# A solid is considered a "sliver" when its longest AABB dim is at least this
+# many times its shortest non-zero AABB dim. Catches degenerate-thin bodies
+# that survive STEP round-trip but would force meshes into pathological aspect
+# ratios. Tuned against the synth sliver_face generator (0.1*diag x 0.1*diag x 1e-3).
+THIN_SOLID_ASPECT_RATIO = 100.0
 
 
 @dataclass
@@ -506,6 +511,74 @@ def check_duplicate_body_heuristic(shape: Any, geometry_summary: Any) -> CheckRe
     )
 
 
+def check_thin_solid(shape: Any, geometry_summary: Any) -> CheckResult:
+    """Flag any solid whose AABB aspect ratio exceeds THIN_SOLID_ASPECT_RATIO.
+
+    Catches sliver-shaped bodies that survive STEP round-trip (where free
+    edges and orphan topology get dropped, but a thin solid body persists).
+    Per-solid scan rather than whole-shape so a single sliver in a multi-body
+    Compound still fires.
+    """
+    if geometry_summary.solid_count <= 0:
+        return _result()
+
+    try:
+        from OCC.Core.Bnd import Bnd_Box
+        from OCC.Core.BRepBndLib import brepbndlib
+        from OCC.Core.TopAbs import TopAbs_SOLID
+    except ImportError:  # pragma: no cover
+        return _result()
+
+    if TopExp_Explorer is None:
+        return _result()
+
+    sliver_count = 0
+    worst_ratio = 0.0
+    explorer = TopExp_Explorer(shape, TopAbs_SOLID)
+    while explorer.More():
+        solid = explorer.Current()
+        box = Bnd_Box()
+        try:
+            brepbndlib.Add(solid, box)
+        except Exception:
+            explorer.Next()
+            continue
+        if box.IsVoid():
+            explorer.Next()
+            continue
+        xmin, ymin, zmin, xmax, ymax, zmax = box.Get()
+        dims = [xmax - xmin, ymax - ymin, zmax - zmin]
+        nonzero = [d for d in dims if d > 0]
+        if len(nonzero) < 3:
+            explorer.Next()
+            continue
+        ratio = max(nonzero) / min(nonzero)
+        if ratio >= THIN_SOLID_ASPECT_RATIO:
+            sliver_count += 1
+            worst_ratio = max(worst_ratio, ratio)
+        explorer.Next()
+
+    if sliver_count == 0:
+        return _result()
+
+    return _result(
+        findings=[
+            {
+                "check": "ThinSolid",
+                "severity": "Major",
+                "detail": (
+                    f"Detected {sliver_count} sliver-shaped solid(s); worst aspect "
+                    f"ratio {worst_ratio:.0f}:1 (threshold {THIN_SOLID_ASPECT_RATIO:.0f}:1)."
+                ),
+                "suggestion": (
+                    "Remove or thicken the sliver body — its aspect ratio will "
+                    "force pathological mesh element shapes."
+                ),
+            }
+        ]
+    )
+
+
 def check_duplicate_face_heuristic(shape: Any, geometry_summary: Any) -> CheckResult:
     if geometry_summary.face_count <= 1:
         return _result()
@@ -763,6 +836,7 @@ def run_essential_checks_detailed(shape: Any, geometry_summary: Any) -> CheckRes
         (check_small_features, (shape, geometry_summary)),
         (check_small_fillets, (shape, geometry_summary)),
         (check_duplicate_body_heuristic, (shape, geometry_summary)),
+        (check_thin_solid, (shape, geometry_summary)),
         (check_duplicate_face_heuristic, (shape, geometry_summary)),
         (check_orientation_nuance, (shape, geometry_summary)),
         (check_sharp_edges, (shape,)),
