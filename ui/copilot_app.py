@@ -34,7 +34,48 @@ DEMO_DIRS = (
     REPO_ROOT / "data" / "parametric_degraded",
     REPO_ROOT / "tests" / "data" / "grabcad",
 )
+UPLOAD_DIR = REPO_ROOT / "data" / "copilot_uploads"
 TOOL_PREVIEW_CHAR_LIMIT = 2000
+LARGE_FILE_BYTES = 5 * 1024 * 1024  # 5MB — informational threshold for slow-pipeline warning
+
+
+def _classify_agent_exception(exc: BaseException) -> tuple[str, str]:
+    """Map an agent-side exception to (title, body) for a friendly chat error."""
+    name = type(exc).__name__
+    if name == "RateLimitError":
+        return (
+            "Provider rate limit reached.",
+            "The LLM provider is throttling requests. Wait ~30s and try again, "
+            "or switch to a less-busy model via `OPENAI_MODEL` in `.env`.",
+        )
+    if name == "APITimeoutError":
+        return (
+            "LLM call timed out.",
+            "The provider didn't respond in time. Retry; if it persists the "
+            "endpoint may be degraded.",
+        )
+    if name == "APIConnectionError":
+        return (
+            "Cannot reach the LLM provider.",
+            f"Check `OPENAI_BASE_URL` (`{os.environ.get('OPENAI_BASE_URL', '(unset)')}`) "
+            "and your network connection.",
+        )
+    if name == "AuthenticationError":
+        return (
+            "API key was rejected.",
+            "`OPENAI_API_KEY` is missing or invalid. Update `.env` and restart "
+            "Streamlit.",
+        )
+    if name == "BadRequestError":
+        return (
+            "Provider rejected the request.",
+            f"`{exc}`. Likely a model-incompatible tool schema or oversized "
+            "prompt; check the tool activity panel of a prior turn.",
+        )
+    return (
+        "Agent call failed.",
+        f"`{name}: {exc}`",
+    )
 
 
 st.set_page_config(page_title="SimReady Copilot", page_icon="🤖", layout="wide")
@@ -199,10 +240,12 @@ def _run_agent_turn(user_text: str) -> None:
                 user_text, on_event=on_event, history=history
             )
         except Exception as exc:  # surface any provider/transport error
+            title, body = _classify_agent_exception(exc)
             st.session_state.chat.append({
                 "role": "assistant",
-                "content": f"Agent failed: `{type(exc).__name__}: {exc}`",
+                "content": f"**{title}**\n\n{body}",
                 "events": events,
+                "is_error": True,
             })
             return
 
@@ -275,6 +318,32 @@ def _render_last_analysis(slot) -> None:
 with st.sidebar:
     st.header("Last analysis")
     _render_last_analysis(st.sidebar)
+    st.divider()
+
+    st.header("Upload CAD")
+    uploaded = st.file_uploader(
+        "Drop a STEP/STP file",
+        type=["step", "stp", "STEP", "STP"],
+        accept_multiple_files=False,
+        key="uploader",
+    )
+    if uploaded is not None:
+        size_mb = uploaded.size / (1024 * 1024)
+        if uploaded.size > LARGE_FILE_BYTES:
+            st.warning(
+                f"Large file ({size_mb:.1f} MB). Pipeline may take 30s+; the "
+                "analysis runs on a 120s timeout."
+            )
+        else:
+            st.caption(f"{size_mb:.2f} MB")
+        if st.button("Analyze uploaded STEP", key="use_upload_btn"):
+            UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+            saved = UPLOAD_DIR / uploaded.name
+            saved.write_bytes(uploaded.getbuffer())
+            st.session_state._pending_user_msg = (
+                f"Analyze {saved.as_posix()} and tell me what's wrong + how to fix it."
+            )
+            st.rerun()
     st.divider()
 
     st.header("Demo CAD")

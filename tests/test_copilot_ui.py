@@ -196,6 +196,82 @@ def test_score_sidebar_populates_from_analyze_geometry(
     assert last["score"]["overall"] == 56.4
 
 
+def test_classify_agent_exception_handles_typed_errors() -> None:
+    """The friendly-error classifier returns a tailored message per exception
+    class name, so chat error chips don't leak raw tracebacks."""
+    import ui.copilot_app as ui_module
+
+    class RateLimitError(Exception):
+        pass
+
+    class APITimeoutError(Exception):
+        pass
+
+    class APIConnectionError(Exception):
+        pass
+
+    class AuthenticationError(Exception):
+        pass
+
+    rl_title, _ = ui_module._classify_agent_exception(RateLimitError("429"))
+    to_title, _ = ui_module._classify_agent_exception(APITimeoutError("slow"))
+    cn_title, _ = ui_module._classify_agent_exception(APIConnectionError("dns"))
+    au_title, _ = ui_module._classify_agent_exception(AuthenticationError("bad"))
+    generic_title, generic_body = ui_module._classify_agent_exception(
+        RuntimeError("boom")
+    )
+
+    assert "rate limit" in rl_title.lower()
+    assert "timed out" in to_title.lower()
+    assert "reach" in cn_title.lower()
+    assert "key" in au_title.lower()
+    assert "failed" in generic_title.lower()
+    assert "RuntimeError" in generic_body
+
+
+def test_agent_error_is_surfaced_as_chat_message(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When CopilotAgent.run raises, the UI must append a friendly assistant
+    chat message tagged ``is_error`` rather than crashing."""
+    import simready.copilot.agent as agent_module
+
+    class _BoomAgent:
+        def __init__(self, *_, **__) -> None:
+            self.model = "fake-model"
+
+        def run(self, user_message, on_event=None, history=None):
+            class RateLimitError(Exception):
+                pass
+
+            raise RateLimitError("429 too many requests")
+
+    monkeypatch.setattr(agent_module, "CopilotAgent", _BoomAgent)
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+    at = AppTest.from_file(str(APP_PATH), default_timeout=15)
+    at.run()
+    at.session_state["_pending_user_msg"] = "Analyze something.step"
+    at.run()
+    assert not at.exception, [str(e) for e in at.exception]
+
+    chat = at.session_state["chat"]
+    assert chat[-1]["role"] == "assistant"
+    assert chat[-1].get("is_error") is True
+    assert "rate limit" in chat[-1]["content"].lower()
+
+
+def test_file_uploader_widget_is_present(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Sidebar must expose a STEP/STP file uploader for Day-11 demo flow."""
+    _install_fake_agent(monkeypatch)
+    at = AppTest.from_file(str(APP_PATH), default_timeout=15)
+    at.run()
+    assert not at.exception, [str(e) for e in at.exception]
+    uploaders = list(at.sidebar.get("file_uploader") or [])
+    assert uploaders, "expected a file_uploader in the sidebar"
+    # The widget should be the upload-CAD one (matched by key set in the UI).
+    keys = {u.key for u in uploaders}
+    assert "uploader" in keys, f"upload-CAD widget missing; got keys {keys}"
+
+
 def test_clear_chat_resets_history_and_analysis(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

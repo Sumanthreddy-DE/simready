@@ -30,5 +30,8 @@ data/parametric_degraded/
 # Path C wk-2 day 11 — colored-face PNG renders from analyze_geometry tool
 data/copilot_renders/
 
+# Path C wk-2 day 11 — uploads from the Streamlit copilot UI
+data/copilot_uploads/
+
 # Local agent harness scratch
 .claude/
