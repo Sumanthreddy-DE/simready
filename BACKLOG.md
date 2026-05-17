@@ -25,7 +25,6 @@ _(none currently)_
 ## Open — S2 (UX gap, polish, deferred decisions)
 
 - [ ] **S2 · 3d-viz** — Copilot UI has no 3D part view. Chat-only demo looks generic for MecAgent recruiter eyes. Re-evaluate D2 before apply. *Opened 2026-05-17.*
-- [ ] **S2 · multi-turn-coverage** — Multi-turn LLM history wired (commit pending), but no real-LLM test confirming follow-up question without re-pasting file path actually works against NIM. Smoke before commit. *Opened 2026-05-17.*
 - [ ] **S2 · weak-synth-defects** — `bracket_with_hole_*__zero_length_edge.step` scores 91/100 (SimulationReady, 1 Minor finding); `__sliver_face.step` scores 58 (NeedsAttention but thin). Pipeline doesn't catch these synth defect types via Compound. Either drop from dropdown, label "(weak demo)", or fix detectors. *Opened 2026-05-17.*
 - [ ] **S2 · readme-polish** (Decision B) — Apply-time README scope. Plan says defer to wk-4 but recruiter clicking GitHub during wk-2 apply will see Phase-3-era README. Options: (1) trust new "Copilot (Path C)" section, (2) add hero block at top before apply, (3) defer everything to interview. Lean (2). *Opened 2026-05-14.*
 - [ ] **S2 · apply-timeline-tight** — Wk-2 day-14 apply ship is feasible only if everything goes right. Cut scope or extend deadline 3–5 days. Re-decide end of wk-2 day 12. *Opened 2026-05-14 (wk-1 Q4).*
@@ -52,6 +51,7 @@ _(items currently being worked — move from Open when started, back to Open if 
 
 ## Done this session (2026-05-17)
 
+- [x] **S2 · multi-turn-coverage** (`e906bfc`) — `scripts/smoke_real_llm.py` extended with T2 follow-up using `resp1.messages` as history. T2 answered in 1 iter, 0 tool calls, cited SelfIntersection from T1. 10/10 smoke checks OK against NIM Llama 3.3 70B. ~11.5k tokens total.
 - [x] **S1 · dropdown-duplicates** (`056a746`) — Windows globs case-insensitive; `*.step` + `*.STEP` matched same files (44 entries, 22 unique). Deduped via `set(p.resolve())` in `ui/copilot_app.py:_list_demo_steps`. *Test: `tests/test_copilot_ui.py::test_list_demo_steps_is_deduped`.*
 - [x] **S2 · verdict-format-missing-score** (`056a746`) — `DEFAULT_SYSTEM_PROMPT` updated to require `Verdict: <status> · score X/100 · <complexity> (<faces> faces, <bodies> bodies)` and blank lines between Verdict / Issues / Fixes / Citations sections. Example dialogues match new format.
 - [x] **S2 · multi-turn-history** (`056a746`) — `CopilotAgent.run` now accepts `history` kwarg; new `run_messages` method; `AgentResponse.messages` exposes full message list. UI persists in `st.session_state._llm_history` and passes back on each turn. Backward-compatible.

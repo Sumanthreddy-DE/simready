@@ -1,4 +1,4 @@
-"""Day-4 smoke (light): real LLM + canned analyze_file payload.
+"""Day-4 / Day-11 smoke (light): real LLM + canned analyze_file payload.
 
 Validates against the real provider (NIM Llama 3.3 70B per env):
   * tool-call argument shape on a multi-tool chain
@@ -6,6 +6,8 @@ Validates against the real provider (NIM Llama 3.3 70B per env):
   * severity_counts surfaced correctly
   * lookup_standard graceful fallback on no_index (RAG corpus empty)
   * max_iterations not silently hit
+  * Day-11 add: multi-turn history — turn-2 follow-up answers without
+    re-pasting the STEP path (validates AgentResponse.messages round-trip).
 
 OCC pipeline is stubbed so we can run without a conda env. Tool *result*
 is canned but loop, prompts, retries, truncation are real.
@@ -95,6 +97,16 @@ def _on_event(ev: dict[str, Any]) -> None:
         print(f"  [MAX ITERS HIT] iters={ev['iterations']}", flush=True)
 
 
+def _print_metadata(label: str, resp: Any) -> None:
+    print(f"\n=== {label} FINAL TEXT ===")
+    print(resp.final_text or "(empty — bug)")
+    print(f"\n=== {label} METADATA ===")
+    print(f"stop_reason   : {resp.stop_reason}")
+    print(f"iterations    : {resp.iterations}")
+    print(f"tool_calls    : {[tc['name'] for tc in resp.tool_calls]}")
+    print(f"usage         : {resp.usage}")
+
+
 def main() -> int:
     step_path = Path("tests/data/grabcad/manifold_complex.STEP")
     if not step_path.exists():
@@ -106,33 +118,49 @@ def main() -> int:
     print(f"Model: {agent.model}")
     print(f"STEP: {step_path}\n")
 
-    question = (
+    # ----- Turn 1: full triage (unchanged from day-4 light smoke) -----
+    turn1_q = (
         f"What manufacturing issues does {step_path.as_posix()} have, "
         "and what fixes do you suggest? Cite a standard if relevant."
     )
-    print(f"User: {question}\n")
+    print(f"User (T1): {turn1_q}\n")
+    resp1 = agent.run(turn1_q, on_event=_on_event)
+    _print_metadata("T1", resp1)
 
-    resp = agent.run(question, on_event=_on_event)
+    # ----- Turn 2: follow-up without re-pasting the STEP path -----
+    # Uses AgentResponse.messages round-trip to validate multi-turn history.
+    # If the model needs to re-call analyze_geometry it will still find the
+    # path in earlier tool-call arguments inside history, NOT in turn2_q.
+    turn2_q = (
+        "Of those findings, which is the worst for an SLS print run, "
+        "and what's the single highest-priority fix?"
+    )
+    print(f"\n\nUser (T2): {turn2_q}\n")
+    resp2 = agent.run(turn2_q, on_event=_on_event, history=resp1.messages)
+    _print_metadata("T2", resp2)
 
-    print("\n=== FINAL TEXT ===")
-    print(resp.final_text or "(empty — bug)")
-    print("\n=== METADATA ===")
-    print(f"stop_reason   : {resp.stop_reason}")
-    print(f"iterations    : {resp.iterations}")
-    print(f"tool_calls    : {[tc['name'] for tc in resp.tool_calls]}")
-    print(f"usage         : {resp.usage}")
+    # ----- Smoke assertions — soft, printed. -----
+    finding_kws = ("SelfIntersection", "OpenBoundaries", "ShortEdges")
+    t1_text = (resp1.final_text or "").lower()
+    t2_text = (resp2.final_text or "").lower()
+    t2_mentions_path = step_path.as_posix().lower() in turn2_q.lower()
 
-    # Smoke assertions — soft, just printed.
     print("\n=== SMOKE CHECKS ===")
     checks = {
-        "called_analyze_geometry": any(tc["name"] == "analyze_geometry" for tc in resp.tool_calls),
-        "non_empty_final_text": bool(resp.final_text and resp.final_text.strip()),
-        "did_not_max_out": resp.stop_reason == "stop",
-        "verdict_word_present": "verdict" in (resp.final_text or "").lower(),
-        "cited_a_finding_check": any(
-            kw.lower() in (resp.final_text or "").lower()
-            for kw in ("SelfIntersection", "OpenBoundaries", "ShortEdges")
+        # Turn 1
+        "T1_called_analyze_geometry": any(
+            tc["name"] == "analyze_geometry" for tc in resp1.tool_calls
         ),
+        "T1_non_empty_final_text": bool(resp1.final_text and resp1.final_text.strip()),
+        "T1_did_not_max_out": resp1.stop_reason == "stop",
+        "T1_verdict_word_present": "verdict" in t1_text,
+        "T1_cited_a_finding_check": any(kw.lower() in t1_text for kw in finding_kws),
+        # Turn 2 (multi-turn history validation)
+        "T2_question_omits_step_path": not t2_mentions_path,
+        "T2_non_empty_final_text": bool(resp2.final_text and resp2.final_text.strip()),
+        "T2_did_not_max_out": resp2.stop_reason == "stop",
+        "T2_cited_a_finding_check": any(kw.lower() in t2_text for kw in finding_kws),
+        "T2_history_grew": len(resp2.messages) > len(resp1.messages),
     }
     for k, v in checks.items():
         print(f"  {'OK ' if v else 'FAIL'} {k}")
