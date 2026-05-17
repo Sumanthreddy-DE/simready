@@ -27,5 +27,8 @@ data/copilot_sessions/
 # Path C wk-1 day 6 — degraded-synthetic STEPs (regenerate via scripts/generate_degraded_steps.py)
 data/parametric_degraded/
 
+# Path C wk-2 day 11 — colored-face PNG renders from analyze_geometry tool
+data/copilot_renders/
+
 # Local agent harness scratch
 .claude/

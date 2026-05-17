@@ -122,15 +122,21 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
 ]
 
 
+RENDER_OUT_DIR = Path("data/copilot_renders")
+
+
 def analyze_geometry(
     step_path: str,
     timeout_seconds: int = 120,
     findings_limit: int = DEFAULT_FINDINGS_LIMIT,
+    render_image: bool = True,
 ) -> dict[str, Any]:
     """Run SimReady analysis pipeline and return an LLM-friendly summary.
 
     Per-face score dicts and large ML internals are dropped. Pass `findings_limit=0`
-    to keep all findings.
+    to keep all findings. When `render_image` is true (default), a static
+    colored-face PNG is rendered to ``data/copilot_renders/`` and its path is
+    attached as ``image_path`` for the UI to embed.
     """
     resolved = Path(step_path).expanduser().resolve()
     if not resolved.exists():
@@ -140,7 +146,26 @@ def analyze_geometry(
             "message": f"No CAD file at {resolved}.",
         }
     full_report = analyze_file(str(resolved), timeout=timeout_seconds)
-    return _summarize_report(full_report, str(resolved), findings_limit=findings_limit)
+    summary = _summarize_report(full_report, str(resolved), findings_limit=findings_limit)
+    if render_image:
+        png_path = _maybe_render_png(str(resolved), full_report)
+        if png_path is not None:
+            summary["image_path"] = str(png_path)
+    return summary
+
+
+def _maybe_render_png(step_path: str, full_report: dict[str, Any]) -> Path | None:
+    """Best-effort PNG render. Returns None silently on any failure."""
+    try:
+        from simready.copilot.render import render_face_score_png
+    except ImportError:
+        return None
+    scores = full_report.get("combined_per_face_scores") or {}
+    return render_face_score_png(
+        step_path=step_path,
+        per_face_scores=scores,
+        out_dir=RENDER_OUT_DIR,
+    )
 
 
 def _severity_counts(findings: list[dict[str, Any]]) -> dict[str, int]:

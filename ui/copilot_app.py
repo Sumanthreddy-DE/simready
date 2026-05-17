@@ -147,6 +147,13 @@ def _render_chat() -> None:
             st.markdown(msg["content"])
             if msg["role"] != "assistant":
                 continue
+            image_path = msg.get("image_path")
+            if image_path and Path(image_path).exists():
+                st.image(
+                    image_path,
+                    caption="Face-score render (green=clean, amber=warn, red=critical)",
+                    use_container_width=True,
+                )
             events = msg.get("events") or []
             _render_tool_events(events)
             _render_citations(events)
@@ -201,12 +208,21 @@ def _run_agent_turn(user_text: str) -> None:
 
     st.session_state._llm_history = response.messages
     text = response.final_text or "_(agent returned no final text — hit max_iterations)_"
+    # Surface the most recent analyze_geometry image_path on this assistant turn
+    # so the chat bubble can embed it inline.
+    image_path: str | None = None
+    for ev in events:
+        if ev.get("type") == "tool_result" and ev.get("name") == "analyze_geometry":
+            result = ev.get("result") or {}
+            if isinstance(result, dict):
+                image_path = result.get("image_path") or image_path
     st.session_state.chat.append({
         "role": "assistant",
         "content": text,
         "events": events,
         "usage": response.usage,
         "iterations": response.iterations,
+        "image_path": image_path,
     })
 
 
@@ -250,6 +266,9 @@ def _render_last_analysis(slot) -> None:
     if complexity:
         tier = complexity.get("tier") or complexity.get("label") or complexity
         slot.caption(f"Complexity: {tier}")
+    image_path = a.get("image_path")
+    if image_path and Path(image_path).exists():
+        slot.image(image_path, caption="Face-score render", use_container_width=True)
 
 
 # ─────────────────── Sidebar ───────────────────
