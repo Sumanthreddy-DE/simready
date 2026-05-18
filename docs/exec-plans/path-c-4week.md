@@ -2,7 +2,7 @@
 
 **Author:** SimReady team
 **Created:** 2026-05-13
-**Status:** Active — wk-1 shipped (`7212e52..d8fcc1f`), wk-2 day 10 + 11 shipped (`056a746..c3df6c0`), wk-2 day 12 (gold traces) next
+**Status:** Active — wk-1 shipped (`7212e52..d8fcc1f`), wk-2 days 10–12 shipped, wk-2 day 13 (apply prep) next
 **Target:** MecAgent ML/AI Founding Engineer application + interview-ready demo
 
 ## Progress
@@ -12,7 +12,7 @@
 - [ ] **Wk 2 day 9** — combined-dataset BRepSAGE retrain (not started; pending GrabCAD curated set).
 - [x] **Wk 2 day 10** — Streamlit copilot UI + multi-turn history + Verdict format + real-LLM smoke (`056a746..69539ef`). 4 dropdown duplicates, sidebar score badge, verdict format, multi-turn coverage all closed.
 - [x] **Wk 2 day 11** — Static colored-face PNG (option C, PIL painter's algo), ThinSolid detector + drop broken zero-length-edge synth, STEP uploader, typed error chips, dropdown grouping (synth/real), session persist (`636d140..c3df6c0`). 160/160 tests pass.
-- [ ] **Wk 2 day 12** — Gold traces (50 hand-crafted Q&A, ~4–6h user work). User task.
+- [x] **Wk 2 day 12** — Gold traces (50 hand-crafted Q&A). `tests/data/gold_traces.jsonl` committed + pushed.
 - [ ] **Wk 2 day 13** — Apply prep (lite).
 - [ ] **Wk 2 day 14** — Apply.
 
