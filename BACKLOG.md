@@ -47,7 +47,7 @@ Living list of open issues, deferred work, and known caveats. Updated each sessi
 
 ## Open — S1 (blocker / broken demo)
 
-- [ ] **S1 · fea-rag-corpus-empty** *(escalated from S2 2026-05-19)* — `data/fea_docs/` empty → `lookup_standard` returns `no_index` → third copilot tool dead in any live demo. Interview risk: recruiter/interviewer tries it, sees nothing. Fix: run `scripts/scrape_fea_docs.py` + `scripts/index_fea_docs.py` against 3-5 stable public URLs (NAFEMS QA01, MIT OCW FEA notes, NIST handbook chapters). Commit resulting `data/fea_docs_index.json`. *Opened 2026-05-14 (wk-1 Q3). Escalated 2026-05-19.*
+- [x] **S1 · fea-rag-corpus-empty** *(escalated from S2 2026-05-19)* — `data/fea_docs/` empty → `lookup_standard` returns `no_index` → third copilot tool dead in any live demo. Fixed: two bugs in rag.py (sentence-transformers API rename + OpenBLAS matmul crash on Windows pythonocc env), PDFs already present on disk, index rebuilt. *Opened 2026-05-14 (wk-1 Q3). **Done `71ccacf`**.*
 
 ---
 
@@ -55,10 +55,10 @@ Living list of open issues, deferred work, and known caveats. Updated each sessi
 
 - [ ] **S2 · readme-polish** — README still reflects Phase-3-era framing; needs hero block + Copilot (Path C) section prominently at top before interview. Lean: add hero block at wk-4 start. *Opened 2026-05-14.*
 - [ ] **S2 · grabcad-scrape-blocked** — `download_grabcad_samples.py` is a manual stub; site has anti-bot + login walls. Pivot to curated 10-STEP manual-download set instead of scraping 20–30. *Opened 2026-05-14 (wk-1 Q2).*
-- [ ] **S2 · heal-return-step** — `suggest_fixes` returns text-only suggestions (e.g. "call ShapeFix_Shell"). Engineers are in NX/SolidWorks — they can't run Python. Fix: run ShapeFix + ShapeUpgrade automatically on analysis output, return healed STEP as a download. Closes the single biggest practising-ME frustration. *Opened 2026-05-19 (contrarian review).*
-- [ ] **S2 · ml-confidence-banner** — BRepSAGE recall on real CAD is ~0.23. UI gives no warning when ML score is unreliable. Show "ML score unreliable — rule findings are primary" banner when `face_count > 200` or geometry type is likely out-of-distribution. *Opened 2026-05-19 (contrarian review).*
+- [x] **S2 · heal-return-step** — `suggest_fixes` returns text-only suggestions (e.g. "call ShapeFix_Shell"). Engineers are in NX/SolidWorks — they can't run Python. Fix: run ShapeFix + ShapeUpgrade automatically on analysis output, return healed STEP as a download. Closes the single biggest practising-ME frustration. *Opened 2026-05-19 (contrarian review). **Done `dd45eef`**.*
+- [x] **S2 · ml-confidence-banner** — BRepSAGE recall on real CAD is ~0.23. UI gives no warning when ML score is unreliable. Show "ML score unreliable — rule findings are primary" banner when `face_count > 200` or geometry type is likely out-of-distribution. *Opened 2026-05-19 (contrarian review). **Done `71ccacf`**.*
 - [ ] **S2 · gmsh-calibration** *(user task)* — Run 10-15 STEPs from `tests/data/` through Gmsh at 2mm target: `gmsh part.step -3 -clmax 2 -o part.msh`. Record pass/fail + worst element quality. Correlate with SimReady score. Even rough correlation makes every score claim on the resume defensible. Requires: download Gmsh from https://gmsh.info (~100 MB, free). *Opened 2026-05-19.*
-- [ ] **S2 · self-intersection-skip-warning** — `check_self_intersection` silently skips above 150 faces. Production geometry (automotive, assembly imports) routinely exceeds 500 faces. Engineer never knows the most important check was skipped. Fix: surface explicit "skipped: N faces exceeds 150-face limit" in findings. *Opened 2026-05-19 (contrarian review).*
+- [x] **S2 · self-intersection-skip-warning** — `check_self_intersection` silently skips above 150 faces. Production geometry (automotive, assembly imports) routinely exceeds 500 faces. Engineer never knows the most important check was skipped. Fix: surface explicit "skipped: N faces exceeds 150-face limit" in findings. *Opened 2026-05-19 (contrarian review). **Done `71ccacf`**.*
 
 ---
 
