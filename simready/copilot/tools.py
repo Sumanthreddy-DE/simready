@@ -9,13 +9,16 @@ Three tools exposed to the LLM:
 from __future__ import annotations
 
 import json
+import logging
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from simready.pipeline import analyze_file
 from simready.copilot import rag
 
+logger = logging.getLogger(__name__)
 
 SEVERITY_ORDER = {"Critical": 0, "Major": 1, "Minor": 2, "Info": 3}
 DEFAULT_FINDINGS_LIMIT = 12
@@ -123,6 +126,7 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
 
 
 RENDER_OUT_DIR = Path("data/copilot_renders")
+HEALED_STEP_DIR = Path("data/healed_steps")
 
 
 def analyze_geometry(
@@ -136,7 +140,8 @@ def analyze_geometry(
     Per-face score dicts and large ML internals are dropped. Pass `findings_limit=0`
     to keep all findings. When `render_image` is true (default), a static
     colored-face PNG is rendered to ``data/copilot_renders/`` and its path is
-    attached as ``image_path`` for the UI to embed.
+    attached as ``image_path`` for the UI to embed. A best-effort healed STEP
+    is written to ``data/healed_steps/`` and attached as ``healed_step_path``.
     """
     resolved = Path(step_path).expanduser().resolve()
     if not resolved.exists():
@@ -151,6 +156,9 @@ def analyze_geometry(
         png_path = _maybe_render_png(str(resolved), full_report)
         if png_path is not None:
             summary["image_path"] = str(png_path)
+    healed_path = _maybe_heal_step(str(resolved), resolved.stem)
+    if healed_path is not None:
+        summary["healed_step_path"] = str(healed_path)
     return summary
 
 
@@ -166,6 +174,36 @@ def _maybe_render_png(step_path: str, full_report: dict[str, Any]) -> Path | Non
         per_face_scores=scores,
         out_dir=RENDER_OUT_DIR,
     )
+
+
+def _maybe_heal_step(step_path: str, stem: str) -> Path | None:
+    """Best-effort: re-parse STEP with OCC, run ShapeFix, export healed STEP.
+
+    Returns the output path on success, None on any failure (never raises).
+    Healed files land in data/healed_steps/<stem>_healed_<ts>.step.
+    """
+    try:
+        from OCC.Core.STEPControl import STEPControl_Reader
+        from OCC.Core.IFSelect import IFSelect_RetDone
+        from simready.healer import heal_shape
+    except ImportError:
+        return None
+    try:
+        reader = STEPControl_Reader()
+        status = reader.ReadFile(step_path)
+        if status != IFSelect_RetDone:
+            return None
+        reader.TransferRoots()
+        shape = reader.OneShape()
+        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+        out_path = HEALED_STEP_DIR / f"{stem}_healed_{ts}.step"
+        result = heal_shape(shape, export_path=str(out_path))
+        if result.export_path is None:
+            return None
+        return Path(result.export_path)
+    except Exception:
+        logger.debug("_maybe_heal_step failed for %s", step_path, exc_info=True)
+        return None
 
 
 def _severity_counts(findings: list[dict[str, Any]]) -> dict[str, int]:

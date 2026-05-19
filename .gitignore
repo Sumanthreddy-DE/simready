@@ -34,5 +34,8 @@ data/copilot_renders/
 # Path C wk-2 day 11 — uploads from the Streamlit copilot UI
 data/copilot_uploads/
 
+# Path C wk-3 — healed STEP exports from analyze_geometry tool
+data/healed_steps/
+
 # Local agent harness scratch
 .claude/
