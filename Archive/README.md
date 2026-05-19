@@ -40,6 +40,9 @@ Archive/
 ### `sessions/`
 - `2026-04-21-SimReady-session.tmp` … `2026-04-24-SimReady-session.tmp` — Stale `.tmp` files from old `/save-session` skill version that wrote to `~/.claude/session-data/`. Current skill writes per-project to `~/.claude/projects/<slug>/sessions/` instead. Moved here so the global session-data dir is not cluttered with cross-project files.
 
+### `planning/`
+- `next-iteration-notes.md` — End-of-wk-2 contrarian review (2026-05-18). All action items migrated to `BACKLOG.md` Strategic Context section on 2026-05-19. Kept for full narrative.
+
 ## Source of truth (live, not here)
 
 - Open issues: `<repo>/BACKLOG.md`

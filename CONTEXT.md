@@ -48,6 +48,12 @@ Canonical terms for this codebase. Read this before writing or reviewing code so
 - **"mesher" / "solver"** — out of scope; SimReady does not do these.
 - **"agent"** — only the copilot loop is the agent. Don't call `analyze_file` an agent.
 
+## Resume bullet (apply-ready, 2026-05-18)
+
+> Built SimReady Copilot — agentic LLM system (OpenAI-compatible multi-turn tool-use loop) that ingests STEP CAD files, runs a BRepSAGE GNN analysis pipeline, and returns ranked manufacturability fix suggestions with RAG-cited FEA-standard references; shipped as a Streamlit app with 3D face-score visualization, 160 passing tests.
+
+---
+
 ## Stakeholders / external context
 
 - **MecAgent** — Target employer (ML/AI Founding Engineer role). Application date: wk-2 day-14 (~2026-05-23). Demo screen-recording + repo link + 1-page bullet list = apply package. See `project_mecagent-alignment.md`.
@@ -76,5 +82,5 @@ Canonical terms for this codebase. Read this before writing or reviewing code so
 - `docs/exec-plans/path-c-4week.md` — full plan + progress.
 - `docs/validation/` — synth + real-CAD validation tables.
 - `docs/impl/brepnet-implementation-notes.md` — BRepSAGE model + dataset notes.
-- `docs/planning/next-iteration-notes.md` — wk-3+ priorities, contrarian review, gaps vs JD.
+- `BACKLOG.md` Strategic Context section — wk-3 priorities, contrarian review summary, gaps vs JD table.
 - `~/.claude/projects/C--.../memory/project_simready.md` — live status (this file's companion in auto-memory).
