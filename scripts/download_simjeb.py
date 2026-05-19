@@ -19,7 +19,7 @@ def main() -> int:
         "Suggested validation workflow:\n"
         "1. Collect 5-10 representative bracket models.\n"
         "2. Run SimReady with --json and --html for each model.\n"
-        "3. Save results under docs/validation_results/.\n"
+        "3. Save results under docs/validation/.\n"
         "4. Record false positives, false negatives, and mesh-relevance notes.\n",
         encoding="utf-8",
     )

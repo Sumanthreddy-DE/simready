@@ -74,6 +74,7 @@ Canonical terms for this codebase. Read this before writing or reviewing code so
 
 - `BACKLOG.md` (repo root) — open issues by severity.
 - `docs/exec-plans/path-c-4week.md` — full plan + progress.
-- `docs/validation_results/` — synth + real-CAD validation tables.
-- `docs/brepnet-implementation-notes.md` — BRepSAGE model + dataset notes.
+- `docs/validation/` — synth + real-CAD validation tables.
+- `docs/impl/brepnet-implementation-notes.md` — BRepSAGE model + dataset notes.
+- `docs/planning/next-iteration-notes.md` — wk-3+ priorities, contrarian review, gaps vs JD.
 - `~/.claude/projects/C--.../memory/project_simready.md` — live status (this file's companion in auto-memory).

@@ -220,7 +220,7 @@ SimReady/
     app.py
     viz.py
   tests/
-  report_schema.json
+  simready/report_schema.json
   environment.yml
   requirements.txt
 ```
