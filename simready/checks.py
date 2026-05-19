@@ -741,13 +741,13 @@ def check_self_intersection(shape: Any) -> CheckResult:
             findings=[
                 {
                     "check": "SelfIntersectionSkipped",
-                    "severity": "Info",
+                    "severity": "Minor",
                     "detail": (
-                        f"Self-intersection check skipped: face count {face_count} exceeds "
+                        f"Self-intersection check skipped: {face_count} faces exceeds "
                         f"limit {SELF_INTERSECTION_FACE_LIMIT}. BOPAlgo_ArgumentAnalyzer "
-                        f"becomes impractical on large topology."
+                        f"is O(N²) on face pairs and becomes impractical on large topology."
                     ),
-                    "suggestion": "Run BOPAlgo_ArgumentAnalyzer manually if self-intersection coverage is required for this part.",
+                    "suggestion": "Run BOPAlgo_ArgumentAnalyzer manually or reduce face count before checking self-intersection.",
                 }
             ],
         )

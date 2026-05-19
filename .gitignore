@@ -19,6 +19,7 @@ tests/data/grabcad/
 
 # Path C wk-1 day 3 — RAG-lite corpus + index (regenerate via scripts/scrape_fea_docs.py + scripts/index_fea_docs.py)
 data/fea_docs/
+!data/fea_docs/sources.txt
 data/fea_docs_index.json
 
 # Path C wk-1 day 5 — copilot session transcripts

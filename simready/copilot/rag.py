@@ -68,7 +68,14 @@ class SentenceTransformerEmbedder:
                 "sentence-transformers not installed. Run: pip install sentence-transformers"
             ) from exc
         self._model = SentenceTransformer(self._model_name)
-        self._dim = int(self._model.get_sentence_embedding_dimension())
+        # get_sentence_embedding_dimension() renamed to get_embedding_dimension()
+        # in sentence-transformers >=3.x; fall back gracefully.
+        get_dim = getattr(
+            self._model,
+            "get_embedding_dimension",
+            getattr(self._model, "get_sentence_embedding_dimension", None),
+        )
+        self._dim = int(get_dim()) if get_dim is not None else self._model.get_sentence_embedding_dimension()
 
     def embed(self, texts: list[str]) -> np.ndarray:
         if not texts:
@@ -156,7 +163,8 @@ class RagIndex:
         if query_vec.size == 0:
             return []
         query_vec = _normalize(query_vec)[0]
-        scores = self.embeddings @ query_vec  # cosine because both normalized
+        # einsum avoids BLAS matmul (OpenBLAS DLL crash on Windows + pythonocc env).
+        scores = np.einsum("ij,j->i", self.embeddings, query_vec)
         k = max(1, min(top_k, len(self.entries)))
         top_idx = np.argpartition(-scores, k - 1)[:k]
         top_idx = top_idx[np.argsort(-scores[top_idx])]

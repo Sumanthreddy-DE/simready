@@ -145,7 +145,7 @@ def test_thin_walls_spreads_per_face_across_all_faces():
 
 def test_self_intersection_skipped_when_face_count_exceeds_limit(monkeypatch):
     """Regression: BOPAlgo_ArgumentAnalyzer on large topology can run for many
-    minutes. The check now skips with an Info finding when face_count exceeds
+    minutes. The check now skips with a Minor finding when face_count exceeds
     SELF_INTERSECTION_FACE_LIMIT instead of hanging the pipeline.
     """
     _force_heuristic(monkeypatch)
@@ -155,7 +155,7 @@ def test_self_intersection_skipped_when_face_count_exceeds_limit(monkeypatch):
     report = analyze_file("tests/data/smoke_box.step")
     checks = {finding["check"]: finding for finding in report["findings"]}
     assert "SelfIntersectionSkipped" in checks
-    assert checks["SelfIntersectionSkipped"]["severity"] == "Info"
+    assert checks["SelfIntersectionSkipped"]["severity"] == "Minor"
     assert "SelfIntersection" not in checks  # Major variant must not fire when skipped
 
 

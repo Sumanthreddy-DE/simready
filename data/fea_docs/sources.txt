@@ -1,0 +1,18 @@
+# SimReady RAG corpus — FEA / mesh quality / FEM solver docs.
+# One URL per line. '#' starts a comment.
+# Vetted 2026-05-17 (user verified each URL returns 200 + correct PDF).
+
+# CalculiX manual — open-source FEM, ~700pp, mesh + elements + contact + materials.
+http://www.dhondt.de/ccx_2.21.pdf
+
+# Elmer FEM (CSC Finland) — solver manual.
+http://www.nic.funet.fi/index/elmer/doc/ElmerSolverManual.pdf
+
+# Elmer FEM — physics models + mesh adaptation.
+http://www.nic.funet.fi/index/elmer/doc/ElmerModelsManual.pdf
+
+# Sandia OSTI — mesh generation tech report.
+https://www.osti.gov/servlets/purl/901851
+
+# Code_Aster — mesh quality criteria reference (EDF FEM).
+https://www.code-aster.org/V2/doc/v15/en/man_u/u4/u4.81.21.pdf

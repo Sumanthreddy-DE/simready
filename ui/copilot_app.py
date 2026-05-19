@@ -356,6 +356,14 @@ def _render_last_analysis(slot) -> None:
     )
     if isinstance(score, (int, float)):
         slot.metric("Score", f"{score:.1f}/100")
+    face_count = geom.get("face_count") or 0
+    ml_info = a.get("ml") or {}
+    ml_score_source = ml_info.get("score_source", "")
+    if ml_score_source == "heuristic" or (isinstance(face_count, int) and face_count > 200):
+        slot.warning(
+            "ML score unreliable — rule findings are primary. "
+            + ("(weights not loaded)" if ml_score_source == "heuristic" else f"({face_count} faces exceeds BRepSAGE training distribution)")
+        )
     cols = slot.columns(3)
     cols[0].metric("Faces", geom.get("face_count", "—"))
     cols[1].metric("Edges", geom.get("edge_count", "—"))
