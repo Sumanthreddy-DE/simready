@@ -166,39 +166,37 @@ Application sent at end of week 2. Weeks 3–4 deepen the artifact (fine-tune pi
 
 ## Week 3 — Fine-tune Pipeline (days 15–21)
 
-### Day 15 — synth trace generation
-- `scripts/synth_tool_traces.py` — paid LLM (GPT-4o-mini) generates tool-call traces:
-  - Seed with random STEP + random question category
-  - Capture: messages, tool calls, tool results, final answer
-  - 5000 traces target
-- Output: `data/fine_tune/traces.jsonl`
-- Cost estimate: $5–15 for 5000 traces at 4o-mini pricing
+### Day 15 — synth trace generation ✅ SCRIPT DONE (run pending API key)
+- [x] `scripts/synth_tool_traces.py` — 50 question templates × 12 STEP files + 8 standards-only = 5000 seed pool. Supports `--dry-run`, `--count N`, `--model`, `--list-steps`, resume on re-run. Monkey-patches render+heal off (skips PNG/ShapeFix OCC overhead for bulk gen).
+- [ ] **Run:** set `OPENAI_API_KEY` + `OPENAI_BASE_URL` (Groq: `https://api.groq.com/openai/v1`), then: `python scripts/synth_tool_traces.py --count 5000 --model llama-3.1-8b-instant`
+- Output: `data/fine_tune/traces.jsonl` (gitignored, resume-safe)
+- Cost: $0 with Groq free tier (rate-limited); ~$1–2 with OpenRouter 8B fallback
 
-### Day 16 — dataset prep
-- Format traces for ShareGPT / Alpaca / chatml schema (Qwen2.5 prefers chatml)
-- Train/val split: 4800/200
-- Hold out 50 gold traces (from day 12) as separate test set — never seen during train
-- Sanity check: load one trace into tokenizer, verify length distribution (<2048 tokens preferred)
+### Day 16 — dataset prep ✅ SCRIPT DONE (run after day-15 traces land)
+- [x] `scripts/prep_finetune_dataset.py` — converts OpenAI tool-call format → Qwen2.5 chatml (`<tool_call>` / `<tool_response>` blocks), 96/4 train/val split, token-estimate stats, `--max-tokens 2048` cap, `--preview` mode.
+- [ ] **Run:** `python scripts/prep_finetune_dataset.py` after day-15 generates traces.jsonl
+- Gold traces stay at `tests/data/gold_traces.jsonl` — never mixed into train/val (eval-only)
+- Output: `data/fine_tune/train.jsonl` + `data/fine_tune/val.jsonl` (both gitignored)
 
-### Day 17 — Colab fine-tune
-- `notebooks/finetune_copilot.ipynb`:
-  - Install: unsloth (fastest QLoRA on T4), trl, peft, transformers
-  - Load Qwen2.5-3B-Instruct in 4-bit
-  - LoRA config: r=16, alpha=32, target_modules=all-linear
-  - Train: 3 epochs, batch 2 + grad-accum 8, lr 2e-4, ~2–3 hrs
-  - Push LoRA adapter to HuggingFace Hub (private repo) or save to Google Drive
+### Day 17 — Colab fine-tune ✅ NOTEBOOK DONE (run pending train.jsonl on Drive)
+- [x] `notebooks/finetune_copilot.ipynb` — 11 sections, 28 cells.
+  - GPU check → install unsloth/trl/peft → mount Drive → load dataset
+  - Qwen2.5-3B-Instruct 4-bit via unsloth; LoRA r=16, alpha=32, all-linear, dropout 0.05
+  - Manual chatml formatter (handles `tool` role that apply_chat_template may skip)
+  - `train_on_responses_only` — only assistant turns in loss; system/user/tool masked
+  - 3 epochs, batch 2 × grad-accum 8 = effective 16, lr 2e-4 cosine, ~2–3 hrs T4
+  - Checkpoint every 200 steps to Drive (resume-safe); loss curve saved as PNG
+  - Quick inference sanity cell; optional HF Hub push (set PUSH_TO_HUB=True)
+- [ ] **Run:** upload train.jsonl + val.jsonl to `MyDrive/simready/`, open notebook in Colab, Runtime → T4, Run All
 
-### Day 18 — eval base vs LoRA
-- `scripts/eval_finetune.py`:
-  - Run 200 held-out synth traces through base Qwen2.5-3B and LoRA model
-  - Run 50 gold traces through both
-  - Metrics: tool-call accuracy (correct tool name + arg shape), final-answer alignment (judged by GPT-4 as eval LLM, or manual rubric)
-- Output: `docs/finetune_results.md` with side-by-side table
+### Day 18 — eval base vs LoRA ✅ SCRIPT DONE (run after Day 17 adapter saved)
+- [x] `scripts/eval_finetune.py` — scores gold (50) + val (up to 200) traces. Metrics: tool_call_exact/partial, tool_order_ok, format_ok, sections_ok, theme_hit_rate. Appends timestamped block to `docs/finetune_results.md`. Skips missing STEP files (grabcad). Dry-run verified.
+- [ ] **Run 1** (reference ceiling): `python scripts/eval_finetune.py --model-tag "Llama-70B-ref" --model meta/llama-3.3-70b-instruct`
+- [ ] **Run 2** (base 3B): run in Colab after Day 17 against unquantized Qwen2.5-3B
+- [ ] **Run 3** (LoRA 3B): run in Colab Day 20 via local backend after adapter saved
 
-### Day 19 — gap analysis writeup
-- Honest documentation: where 3B+LoRA matches paid model, where it fails, why
-- Failure mode taxonomy: 5–10 categories with example traces
-- Lessons for next iteration: more data? bigger base? different tool schema?
+### Day 19 — gap analysis writeup ✅ TEMPLATE DONE (fill after Day 18 runs)
+- [x] `docs/finetune_results.md` — metric definitions, 3-column comparison table, 8-bucket failure mode taxonomy, lessons-for-next-iteration checklist. Fill in numbers after eval runs complete.
 
 ### Day 20 — local inference path
 - `simready/copilot/local_backend.py` — load Qwen2.5-3B+LoRA via vLLM or transformers

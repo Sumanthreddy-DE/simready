@@ -37,5 +37,8 @@ data/copilot_uploads/
 # Path C wk-3 — healed STEP exports from analyze_geometry tool
 data/healed_steps/
 
+# Path C wk-3 — fine-tune traces (regenerate via scripts/synth_tool_traces.py)
+data/fine_tune/
+
 # Local agent harness scratch
 .claude/
