@@ -17,7 +17,7 @@
 - [x] **Wk 2 day 14** — **Applied to MecAgent 2026-05-18**, tagged `v0.4.0-apply` (`34a93e7`). Weeks 3-4 deepen the artifact while in flight.
 - [ ] **Wk 2 day 9** — combined-dataset BRepSAGE retrain. Still not started (blocked on 10-STEP curated GrabCAD set). Highest-signal *technical* deepening per contrarian #3 — strong candidate for next focus.
 - [x] **Wk 3 days 15–19** — pipeline scaffolding shipped (`4e74ff0`). **Runs (2026-05-24):** trace gen → 1455 traces (45 lost to NIM 429s); 70B gold baseline → n=50, errors=0 (tool_call_exact 0.760, partial 0.920, theme 0.678). Eval gained `--request-delay`/`--max-retries`/`--initial-backoff` for NIM rate-limit survival.
-- [ ] **Wk 3 days 16–21** — dataset prep run, Colab QLoRA, base+LoRA eval, local backend: NOT run. Blocked only by decision to apply first.
+- [~] **Wk 3 days 16–21** — **day-16 prep run done** (951 train / 39 val, 2026-05-24); **day-20 done** (serve-via-vLLM decision + `docs/serve_finetuned.md` + Streamlit Backend selector, not the in-process backend). **Still pending — gated on user Colab run:** day-17 QLoRA train (T4), day-18 base+LoRA eval (runs 2+3 via served endpoint), day-19 fill `finetune_results.md` numbers.
 
 ---
 
@@ -177,7 +177,7 @@ Application sent at end of week 2. Weeks 3–4 deepen the artifact (fine-tune pi
 
 ### Day 16 — dataset prep ✅ SCRIPT DONE (run after day-15 traces land)
 - [x] `scripts/prep_finetune_dataset.py` — converts OpenAI tool-call format → Qwen2.5 chatml (`<tool_call>` / `<tool_response>` blocks), 96/4 train/val split, token-estimate stats, `--max-tokens 2048` cap, `--preview` mode.
-- [ ] **Run:** `python scripts/prep_finetune_dataset.py` after day-15 generates traces.jsonl
+- [x] **Run done (2026-05-24):** `python scripts/prep_finetune_dataset.py --max-tokens 2048`. 1455 raw → 305 incomplete dropped → 160 over-2048 dropped → **951 train / 39 val**. Capped at 2048 because notebook `MAX_SEQ_LEN=2048` would truncate longer traces and lose their assistant target turn (harmful under `train_on_responses_only`). Fixed a cp1252-console crash in the stats print (Windows can't encode `→`) — script now forces utf-8 stdout.
 - Gold traces stay at `tests/data/gold_traces.jsonl` — never mixed into train/val (eval-only)
 - Output: `data/fine_tune/train.jsonl` + `data/fine_tune/val.jsonl` (both gitignored)
 
@@ -202,11 +202,23 @@ Application sent at end of week 2. Weeks 3–4 deepen the artifact (fine-tune pi
 ### Day 19 — gap analysis writeup ✅ TEMPLATE DONE (fill after Day 18 runs)
 - [x] `docs/finetune_results.md` — metric definitions, 3-column comparison table, 8-bucket failure mode taxonomy, lessons-for-next-iteration checklist. Fill in numbers after eval runs complete.
 
-### Day 20 — local inference path
-- `simready/copilot/local_backend.py` — load Qwen2.5-3B+LoRA via vLLM or transformers
-- Swap into agent loop via config flag: `--backend openai|local`
-- Streamlit settings panel: toggle backend
-- Document VRAM requirement (~5GB inference)
+### Day 20 — local inference path ✅ DONE (decision changed: serve, don't embed)
+- **Decision (2026-05-24):** dropped the planned in-process `local_backend.py`.
+  `CopilotAgent` + `eval_finetune.py` are already 100% `base_url`-driven, so the
+  cleaner path is to **serve** the LoRA model behind vLLM's OpenAI endpoint and
+  swap `OPENAI_BASE_URL`. vLLM's `--tool-call-parser hermes` converts Qwen2.5's
+  `<tool_call>` text (the exact training format) back into structured
+  `tool_calls`, so the agent/eval/UI run unchanged. An in-process transformers
+  shim would re-implement that parser by hand (~150-200 brittle lines) and be
+  CPU-unusable for a live 3B. Rejected.
+- [x] `docs/serve_finetuned.md` — vLLM serve command (base + LoRA in one server),
+  recommended eval topology (Colab GPU serves via cloudflared tunnel, local box
+  runs `eval_finetune.py` with its pythonocc + STEP fixtures), honest-numbers note.
+- [x] Streamlit `ui/copilot_app.py` — sidebar **Backend** selector
+  (Environment default / Local fine-tuned vLLM / Custom). Rebuilds the agent
+  against the chosen `base_url`+`model` with an `EMPTY` placeholder key for local
+  endpoints. 12/12 UI tests + 160/160 full suite green.
+- VRAM: ~6 GB to serve Qwen2.5-3B (4-bit) + LoRA for inference.
 
 ### Day 21 — wk-3 ship gate
 - Commit: `feat: Path C wk-3 — QLoRA fine-tune pipeline + eval + local backend`

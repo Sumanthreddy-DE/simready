@@ -165,6 +165,13 @@ def _init_state() -> None:
     if "last_analysis" not in st.session_state:
         # Most-recent ``analyze_geometry`` tool result; surfaced in sidebar.
         st.session_state.last_analysis = None
+    if "backend_base_url" not in st.session_state:
+        # Runtime backend override (empty = fall back to OPENAI_BASE_URL env).
+        # Lets the demo point at a locally-served fine-tuned model without a
+        # restart. Set by the sidebar "Backend" selector before _make_agent runs.
+        st.session_state.backend_base_url = ""
+    if "backend_model" not in st.session_state:
+        st.session_state.backend_model = ""
     if "session_id" not in st.session_state:
         # Single id per browser tab so each turn overwrites the same JSON
         # file under data/copilot_sessions/ rather than spawning one per turn.
@@ -175,15 +182,28 @@ def _init_state() -> None:
 
 
 def _make_agent() -> CopilotAgent | None:
-    if not os.environ.get("OPENAI_API_KEY"):
-        st.error(
-            "OPENAI_API_KEY not set. Create a `.env` from `.env.example` "
-            "with OPENAI_API_KEY, OPENAI_BASE_URL, and OPENAI_MODEL, then "
-            "restart Streamlit."
-        )
-        return None
+    # Runtime overrides from the sidebar Backend selector; empty → env fallback
+    # inside CopilotAgent (base_url=None / model=None).
+    base_url = st.session_state.get("backend_base_url") or None
+    model = st.session_state.get("backend_model") or None
+
+    api_key = os.environ.get("OPENAI_API_KEY")
+    # A locally-served vLLM/Ollama endpoint ignores the key, but the OpenAI
+    # client still requires a non-empty string. Supply a placeholder so the
+    # demo can talk to the fine-tuned model without a real provider key.
+    is_local = bool(base_url) and ("localhost" in base_url or "127.0.0.1" in base_url)
+    if not api_key:
+        if is_local:
+            api_key = "EMPTY"
+        else:
+            st.error(
+                "OPENAI_API_KEY not set. Create a `.env` from `.env.example` "
+                "with OPENAI_API_KEY, OPENAI_BASE_URL, and OPENAI_MODEL, then "
+                "restart Streamlit. (Or pick a Local backend in the sidebar.)"
+            )
+            return None
     try:
-        return CopilotAgent()
+        return CopilotAgent(base_url=base_url, model=model, api_key=api_key)
     except (RuntimeError, ImportError) as exc:
         st.error(f"Agent init failed: {type(exc).__name__}: {exc}")
         return None
@@ -471,14 +491,48 @@ with st.sidebar:
         )
 
     st.divider()
+    st.header("Backend")
+    backend_preset = st.selectbox(
+        "LLM endpoint",
+        options=["Environment default", "Local fine-tuned (vLLM)", "Custom"],
+        key="backend_preset",
+        help=(
+            "Point the copilot at the env-configured provider, a locally-served "
+            "fine-tuned model (vLLM OpenAI endpoint), or a custom URL. See "
+            "docs/serve_finetuned.md."
+        ),
+    )
+    if backend_preset == "Environment default":
+        st.session_state.backend_base_url = ""
+        st.session_state.backend_model = ""
+    elif backend_preset == "Local fine-tuned (vLLM)":
+        st.session_state.backend_base_url = "http://localhost:8000/v1"
+        st.session_state.backend_model = "simready"
+        st.caption(
+            "Serve first (GPU host): `vllm serve Qwen/Qwen2.5-3B-Instruct "
+            "--enable-auto-tool-choice --tool-call-parser hermes --enable-lora "
+            "--lora-modules simready=<adapter>`"
+        )
+    else:  # Custom — paste a tunnel URL to demo a Colab-served LoRA from a laptop
+        st.session_state.backend_base_url = st.text_input(
+            "Base URL", value="http://localhost:8000/v1", key="custom_base_url"
+        )
+        st.session_state.backend_model = st.text_input(
+            "Model", value="simready", key="custom_model"
+        )
+
+    st.divider()
     st.header("Config")
-    st.text(f"Model:    {os.environ.get('OPENAI_MODEL', '(unset)')}")
-    st.text(f"Base URL: {os.environ.get('OPENAI_BASE_URL', '(unset)')}")
+    eff_model = st.session_state.backend_model or os.environ.get("OPENAI_MODEL", "(unset)")
+    eff_base = st.session_state.backend_base_url or os.environ.get("OPENAI_BASE_URL", "(unset)")
+    st.text(f"Model:    {eff_model}")
+    st.text(f"Base URL: {eff_base}")
     has_key = bool(os.environ.get("OPENAI_API_KEY"))
-    st.text(f"API key:  {'set' if has_key else 'MISSING'}")
+    is_local_backend = "localhost" in eff_base or "127.0.0.1" in eff_base
+    st.text(f"API key:  {'set' if has_key else ('EMPTY (local)' if is_local_backend else 'MISSING')}")
     st.caption(f"Session: `{st.session_state.session_id}.json`")
-    if not has_key:
-        st.warning("Set OPENAI_API_KEY in `.env` to talk to a real LLM.")
+    if not has_key and not is_local_backend:
+        st.warning("Set OPENAI_API_KEY in `.env`, or pick a Local backend above.")
 
     st.divider()
     if st.button("Clear chat", type="secondary"):
