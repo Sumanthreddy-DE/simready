@@ -97,9 +97,9 @@ def write_step(shape: "TopoDS_Shape", path: Path) -> None:
 def _bounding_diagonal(shape: "TopoDS_Shape") -> float:
     """Approximate diagonal of the AABB. Used to size translations."""
     from OCC.Core.Bnd import Bnd_Box
-    from OCC.Core.BRepBndLib import brepbndlib_Add
+    from OCC.Core.BRepBndLib import brepbndlib
     box = Bnd_Box()
-    brepbndlib_Add(shape, box, True)
+    brepbndlib.Add(shape, box, True)
     if box.IsVoid():
         return 1.0
     xmin, ymin, zmin, xmax, ymax, zmax = box.Get()

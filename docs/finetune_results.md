@@ -44,17 +44,17 @@ C:\mm\sr\python.exe scripts/eval_finetune.py --model-tag "Llama-70B-ref" --model
 ---
 
 ## Summary comparison table
-*(fill in after running all three model tags)*
+*(Llama-70B ref = gold n=50, 2026-05-24. Base/LoRA columns filled after Day 17/18.)*
 
 | Metric | Llama-70B (ref) | Qwen2.5-3B (base) | Qwen2.5-3B+LoRA |
 |---|---|---|---|
-| Tool-call exact (gold) | — | — | — |
+| Tool-call exact (gold) | 0.760 | — | — |
 | Tool-call exact (val) | — | — | — |
-| Tool-call partial (gold) | — | — | — |
-| Tool order correct | — | — | — |
-| Verdict format (gold) | — | — | — |
-| Issues+Fixes sections | — | — | — |
-| Theme hit rate (gold) | — | — | — |
+| Tool-call partial (gold) | 0.920 | — | — |
+| Tool order correct | 0.780 | — | — |
+| Verdict format (gold) | 0.780 | — | — |
+| Issues+Fixes sections | 0.780 | — | — |
+| Theme hit rate (gold) | 0.678 | — | — |
 
 ---
 
@@ -97,13 +97,13 @@ Categorize failures found during eval into these buckets (add examples):
 *(appended automatically by eval_finetune.py)*
 
 
-## Run: Llama-70B-ref  —  2026-05-21 07:39 UTC
+## Run: Llama-70B-ref-full  —  2026-05-24 07:49 UTC
 
-| Metric | Gold (16) | Val (-) |
+| Metric | Gold (50) | Val (-) |
 |---|---|---|
-| Tool-call exact match | 0.812 | — |
-| Tool-call partial match | 0.812 | — |
-| Tool order correct | 0.875 | — |
-| Verdict format present | 0.938 | — |
-| Issues+Fixes sections | 0.938 | — |
-| Theme hit rate (gold only) | 0.769 | — |
+| Tool-call exact match | 0.760 | — |
+| Tool-call partial match | 0.920 | — |
+| Tool order correct | 0.780 | — |
+| Verdict format present | 0.780 | — |
+| Issues+Fixes sections | 0.780 | — |
+| Theme hit rate (gold only) | 0.678 | — |

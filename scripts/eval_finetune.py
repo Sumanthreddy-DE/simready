@@ -33,6 +33,7 @@ import logging
 import os
 import random
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -162,11 +163,14 @@ def build_question(trace: dict) -> str:
 # Eval loop
 # ---------------------------------------------------------------------------
 
-def eval_gold(agent: CopilotAgent, traces: list[dict], dry_run: bool = False) -> list[dict]:
+def eval_gold(agent: CopilotAgent, traces: list[dict], dry_run: bool = False,
+              request_delay: float = 0.0) -> list[dict]:
     results: list[dict] = []
     skip_count = 0
 
-    for trace in traces:
+    for i, trace in enumerate(traces):
+        if request_delay and not dry_run and i:
+            time.sleep(request_delay)
         sp = trace.get("step_path")
         # Skip if STEP file referenced but missing (e.g. gitignored grabcad)
         if sp and not (REPO_ROOT / sp).exists():
@@ -219,10 +223,13 @@ def eval_gold(agent: CopilotAgent, traces: list[dict], dry_run: bool = False) ->
     return results
 
 
-def eval_val(agent: CopilotAgent, traces: list[dict], dry_run: bool = False) -> list[dict]:
+def eval_val(agent: CopilotAgent, traces: list[dict], dry_run: bool = False,
+             request_delay: float = 0.0) -> list[dict]:
     results: list[dict] = []
 
-    for trace in traces:
+    for i, trace in enumerate(traces):
+        if request_delay and not dry_run and i:
+            time.sleep(request_delay)
         question = build_question(trace)
         ref_tools = _extract_ref_tools(trace.get("messages") or [])
 
@@ -355,6 +362,15 @@ def main() -> None:
     parser.add_argument("--dry-run", action="store_true",
                         help="Preview 3 traces per dataset, no LLM calls, no write")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--request-delay", type=float, default=0.0,
+                        help="Seconds to sleep between traces. Use to stay under "
+                             "rate-limited endpoints (e.g. NIM free tier ~4.0).")
+    parser.add_argument("--max-retries", type=int, default=3,
+                        help="Per-call retry budget on 429/transient errors "
+                             "(passed to CopilotAgent; bump to ~6 on NIM free tier).")
+    parser.add_argument("--initial-backoff", type=float, default=1.0,
+                        help="Initial exponential-backoff seconds for retries "
+                             "(passed to CopilotAgent; ~4.0 on NIM free tier).")
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -367,8 +383,16 @@ def main() -> None:
     model_tag = args.model_tag or model
 
     if not args.dry_run:
-        agent = CopilotAgent(model=model)
-        logger.info("Agent ready. Model: %s  Tag: %s", model, model_tag)
+        agent = CopilotAgent(
+            model=model,
+            max_retries=args.max_retries,
+            initial_backoff=args.initial_backoff,
+        )
+        logger.info(
+            "Agent ready. Model: %s  Tag: %s  (max_retries=%d, initial_backoff=%.1fs, "
+            "request_delay=%.1fs)",
+            model, model_tag, args.max_retries, args.initial_backoff, args.request_delay,
+        )
     else:
         agent = None  # type: ignore[assignment]
 
@@ -378,7 +402,8 @@ def main() -> None:
     if args.dataset in ("gold", "both"):
         gold_traces = load_gold_traces()
         logger.info("Gold traces loaded: %d", len(gold_traces))
-        gold_results = eval_gold(agent, gold_traces, dry_run=args.dry_run)
+        gold_results = eval_gold(agent, gold_traces, dry_run=args.dry_run,
+                                 request_delay=args.request_delay)
 
     if args.dataset in ("val", "both"):
         val_traces = load_val_traces(args.n_val, seed=args.seed)
@@ -388,7 +413,8 @@ def main() -> None:
             )
         else:
             logger.info("Val traces sampled: %d", len(val_traces))
-            val_results = eval_val(agent, val_traces, dry_run=args.dry_run)
+            val_results = eval_val(agent, val_traces, dry_run=args.dry_run,
+                                   request_delay=args.request_delay)
 
     if args.dry_run:
         print("\nDry run complete. No results written.")

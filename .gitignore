@@ -40,5 +40,8 @@ data/healed_steps/
 # Path C wk-3 — fine-tune traces (regenerate via scripts/synth_tool_traces.py)
 data/fine_tune/
 
+# Path C wk-3 — eval / run logs (runtime, regenerated each run)
+logs/
+
 # Local agent harness scratch
 .claude/

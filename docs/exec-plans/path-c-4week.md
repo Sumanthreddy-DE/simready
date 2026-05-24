@@ -2,7 +2,7 @@
 
 **Author:** SimReady team
 **Created:** 2026-05-13
-**Status:** Active — wk-1 shipped (`7212e52..d8fcc1f`), wk-2 days 10–12 shipped, wk-2 day 13 (apply prep) next
+**Status:** Active — wk-1 shipped, wk-2 demo shipped + **applied to MecAgent 2026-05-18 (`v0.4.0-apply`, `34a93e7`)**, wk-3 scaffolding + runs landed (days 15–19 scripts + trace gen 1455 + 70B gold baseline n=50, 2026-05-24). Now deepening the artifact while application is in flight. Pending technical: day-9 GNN combined retrain (not started), day-16→20 fine-tune execution.
 **Target:** MecAgent ML/AI Founding Engineer application + interview-ready demo
 
 ## Progress
@@ -13,8 +13,11 @@
 - [x] **Wk 2 day 10** — Streamlit copilot UI + multi-turn history + Verdict format + real-LLM smoke (`056a746..69539ef`). 4 dropdown duplicates, sidebar score badge, verdict format, multi-turn coverage all closed.
 - [x] **Wk 2 day 11** — Static colored-face PNG (option C, PIL painter's algo), ThinSolid detector + drop broken zero-length-edge synth, STEP uploader, typed error chips, dropdown grouping (synth/real), session persist (`636d140..c3df6c0`). 160/160 tests pass.
 - [x] **Wk 2 day 12** — Gold traces (50 hand-crafted Q&A). `tests/data/gold_traces.jsonl` committed + pushed.
-- [ ] **Wk 2 day 13** — Apply prep (lite).
-- [ ] **Wk 2 day 14** — Apply.
+- [x] **Wk 2 day 13** — Apply prep (lite). Done ~2026-05-18.
+- [x] **Wk 2 day 14** — **Applied to MecAgent 2026-05-18**, tagged `v0.4.0-apply` (`34a93e7`). Weeks 3-4 deepen the artifact while in flight.
+- [ ] **Wk 2 day 9** — combined-dataset BRepSAGE retrain. Still not started (blocked on 10-STEP curated GrabCAD set). Highest-signal *technical* deepening per contrarian #3 — strong candidate for next focus.
+- [x] **Wk 3 days 15–19** — pipeline scaffolding shipped (`4e74ff0`). **Runs (2026-05-24):** trace gen → 1455 traces (45 lost to NIM 429s); 70B gold baseline → n=50, errors=0 (tool_call_exact 0.760, partial 0.920, theme 0.678). Eval gained `--request-delay`/`--max-retries`/`--initial-backoff` for NIM rate-limit survival.
+- [ ] **Wk 3 days 16–21** — dataset prep run, Colab QLoRA, base+LoRA eval, local backend: NOT run. Blocked only by decision to apply first.
 
 ---
 
@@ -166,11 +169,11 @@ Application sent at end of week 2. Weeks 3–4 deepen the artifact (fine-tune pi
 
 ## Week 3 — Fine-tune Pipeline (days 15–21)
 
-### Day 15 — synth trace generation ✅ SCRIPT DONE (run pending API key)
+### Day 15 — synth trace generation ✅ SCRIPT DONE ✅ RUN DONE (2026-05-24)
 - [x] `scripts/synth_tool_traces.py` — 50 question templates × 12 STEP files + 8 standards-only = 5000 seed pool. Supports `--dry-run`, `--count N`, `--model`, `--list-steps`, resume on re-run. Monkey-patches render+heal off (skips PNG/ShapeFix OCC overhead for bulk gen).
-- [ ] **Run:** set `OPENAI_API_KEY` + `OPENAI_BASE_URL` (Groq: `https://api.groq.com/openai/v1`), then: `python scripts/synth_tool_traces.py --count 5000 --model llama-3.1-8b-instant`
+- [x] **Run done:** NIM endpoint (`https://integrate.api.nvidia.com/v1`), `--count 1500 --model meta/llama-3.1-8b-instruct`. Resumed 1368 → **1455 traces** (45 lost to 429 rate-limits; resume-safe, exit 0). 1455 ample for 3B QLoRA.
 - Output: `data/fine_tune/traces.jsonl` (gitignored, resume-safe)
-- Cost: $0 with Groq free tier (rate-limited); ~$1–2 with OpenRouter 8B fallback
+- Lesson: NIM free tier 429-storms on bursty concurrent calls. Pacing/backoff needed (added to eval, day 18).
 
 ### Day 16 — dataset prep ✅ SCRIPT DONE (run after day-15 traces land)
 - [x] `scripts/prep_finetune_dataset.py` — converts OpenAI tool-call format → Qwen2.5 chatml (`<tool_call>` / `<tool_response>` blocks), 96/4 train/val split, token-estimate stats, `--max-tokens 2048` cap, `--preview` mode.
@@ -190,10 +193,11 @@ Application sent at end of week 2. Weeks 3–4 deepen the artifact (fine-tune pi
 - [ ] **Run:** upload train.jsonl + val.jsonl to `MyDrive/simready/`, open notebook in Colab, Runtime → T4, Run All
 
 ### Day 18 — eval base vs LoRA ✅ SCRIPT DONE (run after Day 17 adapter saved)
-- [x] `scripts/eval_finetune.py` — scores gold (50) + val (up to 200) traces. Metrics: tool_call_exact/partial, tool_order_ok, format_ok, sections_ok, theme_hit_rate. Appends timestamped block to `docs/finetune_results.md`. Skips missing STEP files (grabcad). Dry-run verified.
-- [ ] **Run 1** (reference ceiling): `python scripts/eval_finetune.py --model-tag "Llama-70B-ref" --model meta/llama-3.3-70b-instruct`
+- [x] `scripts/eval_finetune.py` — scores gold (50) + val (up to 200) traces. Metrics: tool_call_exact/partial, tool_order_ok, format_ok, sections_ok, theme_hit_rate. Appends timestamped block to `docs/finetune_results.md`. Skips missing STEP files (grabcad). Dry-run verified. **+ pacing flags (2026-05-24):** `--request-delay`, `--max-retries`, `--initial-backoff` for rate-limited endpoints.
+- [x] **Run 1 done** (reference ceiling, 2026-05-24): `--model-tag "Llama-70B-ref-full" --model meta/llama-3.3-70b-instruct --dataset gold --request-delay 4 --max-retries 6 --initial-backoff 4` → **n=50, errors=0**. tool_call_exact 0.760, partial 0.920, tool_order 0.780, format 0.780, sections 0.780, theme 0.678. (First un-paced attempt 429-stormed to n=15; pacing flags added, stale partial blocks purged.)
 - [ ] **Run 2** (base 3B): run in Colab after Day 17 against unquantized Qwen2.5-3B
 - [ ] **Run 3** (LoRA 3B): run in Colab Day 20 via local backend after adapter saved
+- Note for runs 2–3: use the new pacing flags if going through NIM; format_ok 0.78 on the 70B ceiling means the Verdict-format contract is brittle — worth a prompt/regex look before reading too much into 3B format drift.
 
 ### Day 19 — gap analysis writeup ✅ TEMPLATE DONE (fill after Day 18 runs)
 - [x] `docs/finetune_results.md` — metric definitions, 3-column comparison table, 8-bucket failure mode taxonomy, lessons-for-next-iteration checklist. Fill in numbers after eval runs complete.
@@ -302,7 +306,7 @@ docs/
 
 | Task | Day | Effort |
 |------|-----|--------|
-| Confirm OpenAI-compatible API key in env | Day 1 | 5 min |
+| ~~Confirm OpenAI-compatible API key in env~~ ✅ done — NIM key in `.env`, verified 2026-05-24 | Day 1 | 5 min |
 | Provide MecAgent application channel decision | Day 14 | own choice |
 | Manually label 20–30 scraped GrabCAD STEPs | Day 8–9 | ~1 day |
 | Write 50 hand-crafted gold Q&A traces | Day 12 | 4–6 hrs |
