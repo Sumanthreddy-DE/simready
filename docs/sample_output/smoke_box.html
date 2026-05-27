@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>SimReady Report</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #0f172a;
+      --panel: #111827;
+      --muted: #94a3b8;
+      --text: #e5e7eb;
+      --green: #22c55e;
+      --yellow: #eab308;
+      --orange: #f97316;
+      --red: #ef4444;
+      --blue: #38bdf8;
+      --border: #334155;
+    }
+    body {
+      font-family: Inter, Arial, sans-serif;
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    .hero, .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 18px;
+    }
+    .score-badge {
+      display: inline-block;
+      padding: 10px 16px;
+      border-radius: 999px;
+      font-weight: 700;
+      background: #22c55e;
+      color: #082f49;
+    }
+    .meta { color: var(--muted); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      text-align: left;
+      padding: 10px 8px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    .sev-Critical, .sev-Major { color: var(--red); font-weight: 700; }
+    .sev-Minor { color: var(--yellow); font-weight: 700; }
+    .sev-Info { color: var(--blue); font-weight: 700; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+    }
+    .stat {
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+    }
+    details {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      margin-top: 12px;
+    }
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: rgba(255,255,255,0.03);
+      padding: 14px;
+      border-radius: 12px;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <h1>SimReady Analysis</h1>
+      <p class="meta">tests/data/smoke_box.step</p>
+      <p><span class="score-badge">93.0/100</span> SimulationReady</p>
+      
+      <p>Complexity: <strong>Simple Geometry</strong> — confidence: high</p>
+      <p class="meta">Score is well-calibrated for simple geometry.</p>
+      
+      <p class="meta">Analysis powered by rule-based geometry checks + BRepNet learned complexity scoring on B-Rep topology.</p>
+    </section>
+
+    <section class="panel">
+      <h2>Geometry Summary</h2>
+      <div class="grid">
+        <div class="stat"><strong>Faces</strong><br />6</div>
+        <div class="stat"><strong>Edges</strong><br />24</div>
+        <div class="stat"><strong>Solids</strong><br />1</div>
+        <div class="stat"><strong>Elapsed</strong><br />5.652639200008707</div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>B-Rep Graph</h2>
+      <div class="grid">
+        <div class="stat"><strong>Graph Faces</strong><br />6</div>
+        <div class="stat"><strong>Graph Edges</strong><br />12</div>
+        <div class="stat"><strong>Coedges</strong><br />24</div>
+        <div class="stat"><strong>Adjacency</strong><br />12</div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Findings</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Severity</th>
+            <th>Check</th>
+            <th>Detail</th>
+            <th>Suggestion</th>
+          </tr>
+        </thead>
+        <tbody>
+          
+          <tr>
+            <td colspan="4">No findings 🎉</td>
+          </tr>
+          
+        </tbody>
+      </table>
+    </section>
+
+    
+
+    
+    <section class="panel">
+      <h2>Healing</h2>
+      <div class="grid">
+        <div class="stat"><strong>Attempted</strong><br />True</div>
+        <div class="stat"><strong>Applied</strong><br />True</div>
+        <div class="stat"><strong>Valid Before</strong><br />True</div>
+        <div class="stat"><strong>Valid After</strong><br />True</div>
+      </div>
+    </section>
+    
+
+    <section class="panel">
+      <h2>How this score was computed</h2>
+      <details>
+        <summary>Show scoring details</summary>
+        <div class="grid">
+          <div class="stat"><strong>Score label</strong><br />SimulationReady</div>
+          <div class="stat"><strong>Combined face mean</strong><br />0.21141140609979625</div>
+          <div class="stat"><strong>ML penalty applied</strong><br />True</div>
+          <div class="stat"><strong>ML penalty points</strong><br />7.04704686999321</div>
+        </div>
+        <p class="meta">ML source: brepsage-checkpoint | weights: weights\brepnet.pt</p>
+      </details>
+    </section>
+
+    <section class="panel">
+      <h2>Raw JSON</h2>
+      <details>
+        <summary>Expand raw report</summary>
+        <pre>{
+  &#34;input_file&#34;: &#34;tests/data/smoke_box.step&#34;,
+  &#34;status&#34;: &#34;SimulationReady&#34;,
+  &#34;summary&#34;: {
+    &#34;total&#34;: 0,
+    &#34;by_severity&#34;: {
+      &#34;Critical&#34;: 0,
+      &#34;Major&#34;: 0,
+      &#34;Minor&#34;: 0,
+      &#34;Info&#34;: 0
+    },
+    &#34;major_checks&#34;: []
+  },
+  &#34;validation&#34;: {
+    &#34;is_valid&#34;: true,
+    &#34;errors&#34;: []
+  },
+  &#34;geometry&#34;: {
+    &#34;face_count&#34;: 6,
+    &#34;edge_count&#34;: 24,
+    &#34;solid_count&#34;: 1,
+    &#34;bounding_box&#34;: {
+      &#34;xmin&#34;: -1e-07,
+      &#34;ymin&#34;: -1e-07,
+      &#34;zmin&#34;: -1e-07,
+      &#34;xmax&#34;: 10.0000001,
+      &#34;ymax&#34;: 20.0000001,
+      &#34;zmax&#34;: 30.0000001
+    }
+  },
+  &#34;findings&#34;: [],
+  &#34;bodies&#34;: [],
+  &#34;elapsed_seconds&#34;: 5.652639200008707,
+  &#34;per_face_scores&#34;: {},
+  &#34;combined_per_face_scores&#34;: {
+    &#34;0&#34;: 0.1966103285551071,
+    &#34;1&#34;: 0.1966103285551071,
+    &#34;2&#34;: 0.19497940689325333,
+    &#34;3&#34;: 0.19497940689325333,
+    &#34;4&#34;: 0.24264448285102844,
+    &#34;5&#34;: 0.24264448285102844
+  },
+  &#34;score&#34;: {
+    &#34;overall&#34;: 92.95295313000679,
+    &#34;label&#34;: &#34;SimulationReady&#34;,
+    &#34;rule_face_mean&#34;: 0.0,
+    &#34;rule_face_count&#34;: 0,
+    &#34;combined_face_mean&#34;: 0.21141140609979625,
+    &#34;ml_penalty_applied&#34;: true,
+    &#34;ml_penalty_points&#34;: 7.04704686999321
+  },
+  &#34;ml&#34;: {
+    &#34;available&#34;: true,
+    &#34;weights_loaded&#34;: true,
+    &#34;weights_path&#34;: &#34;weights\\brepnet.pt&#34;,
+    &#34;model_name&#34;: &#34;BRepSAGE-multitask&#34;,
+    &#34;score_source&#34;: &#34;brepsage-checkpoint&#34;,
+    &#34;aggregate_score&#34;: 0.3523523434996605,
+    &#34;notes&#34;: [
+      &#34;Learned BRepSAGE checkpoint (multi-task: graph-level defect classification + per-face refinement + complexity regression).&#34;,
+      &#34;Trained by scripts/train.py on parametric + degraded STEPs; see weights/metrics.json.&#34;
+    ],
+    &#34;per_face_scores&#34;: {
+      &#34;0&#34;: 0.32768388092517853,
+      &#34;1&#34;: 0.32768388092517853,
+      &#34;2&#34;: 0.3249656781554222,
+      &#34;3&#34;: 0.3249656781554222,
+      &#34;4&#34;: 0.40440747141838074,
+      &#34;5&#34;: 0.40440747141838074
+    }
+  },
+  &#34;graph&#34;: {
+    &#34;face_count&#34;: 6,
+    &#34;edge_count&#34;: 12,
+    &#34;coedge_count&#34;: 24,
+    &#34;adjacency_count&#34;: 12,
+    &#34;extractor&#34;: &#34;custom-brepnet-phase2&#34;,
+    &#34;face_feature_errors&#34;: 0,
+    &#34;edge_feature_errors&#34;: 0
+  },
+  &#34;complexity&#34;: {
+    &#34;tier&#34;: &#34;simple&#34;,
+    &#34;label&#34;: &#34;Simple Geometry&#34;,
+    &#34;confidence&#34;: &#34;high&#34;,
+    &#34;note&#34;: &#34;Score is well-calibrated for simple geometry.&#34;
+  },
+  &#34;heal&#34;: {
+    &#34;attempted&#34;: true,
+    &#34;applied&#34;: true,
+    &#34;valid_before&#34;: true,
+    &#34;valid_after&#34;: true,
+    &#34;notes&#34;: [
+      &#34;Healing completed with no global validity change detected.&#34;
+    ]
+  }
+}</pre>
+      </details>
+    </section>
+  </div>
+</body>
+</html>

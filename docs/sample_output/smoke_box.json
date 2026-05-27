@@ -1,0 +1,96 @@
+{
+  "input_file": "tests/data/smoke_box.step",
+  "status": "SimulationReady",
+  "summary": {
+    "total": 0,
+    "by_severity": {
+      "Critical": 0,
+      "Major": 0,
+      "Minor": 0,
+      "Info": 0
+    },
+    "major_checks": []
+  },
+  "validation": {
+    "is_valid": true,
+    "errors": []
+  },
+  "geometry": {
+    "face_count": 6,
+    "edge_count": 24,
+    "solid_count": 1,
+    "bounding_box": {
+      "xmin": -1e-07,
+      "ymin": -1e-07,
+      "zmin": -1e-07,
+      "xmax": 10.0000001,
+      "ymax": 20.0000001,
+      "zmax": 30.0000001
+    }
+  },
+  "findings": [],
+  "bodies": [],
+  "elapsed_seconds": 5.652639200008707,
+  "per_face_scores": {},
+  "combined_per_face_scores": {
+    "0": 0.1966103285551071,
+    "1": 0.1966103285551071,
+    "2": 0.19497940689325333,
+    "3": 0.19497940689325333,
+    "4": 0.24264448285102844,
+    "5": 0.24264448285102844
+  },
+  "score": {
+    "overall": 92.95295313000679,
+    "label": "SimulationReady",
+    "rule_face_mean": 0.0,
+    "rule_face_count": 0,
+    "combined_face_mean": 0.21141140609979625,
+    "ml_penalty_applied": true,
+    "ml_penalty_points": 7.04704686999321
+  },
+  "ml": {
+    "available": true,
+    "weights_loaded": true,
+    "weights_path": "weights\\brepnet.pt",
+    "model_name": "BRepSAGE-multitask",
+    "score_source": "brepsage-checkpoint",
+    "aggregate_score": 0.3523523434996605,
+    "notes": [
+      "Learned BRepSAGE checkpoint (multi-task: graph-level defect classification + per-face refinement + complexity regression).",
+      "Trained by scripts/train.py on parametric + degraded STEPs; see weights/metrics.json."
+    ],
+    "per_face_scores": {
+      "0": 0.32768388092517853,
+      "1": 0.32768388092517853,
+      "2": 0.3249656781554222,
+      "3": 0.3249656781554222,
+      "4": 0.40440747141838074,
+      "5": 0.40440747141838074
+    }
+  },
+  "graph": {
+    "face_count": 6,
+    "edge_count": 12,
+    "coedge_count": 24,
+    "adjacency_count": 12,
+    "extractor": "custom-brepnet-phase2",
+    "face_feature_errors": 0,
+    "edge_feature_errors": 0
+  },
+  "complexity": {
+    "tier": "simple",
+    "label": "Simple Geometry",
+    "confidence": "high",
+    "note": "Score is well-calibrated for simple geometry."
+  },
+  "heal": {
+    "attempted": true,
+    "applied": true,
+    "valid_before": true,
+    "valid_after": true,
+    "notes": [
+      "Healing completed with no global validity change detected."
+    ]
+  }
+}

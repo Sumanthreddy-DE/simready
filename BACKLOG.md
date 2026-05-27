@@ -41,20 +41,23 @@ Living list of open issues, deferred work, and known caveats. Updated each sessi
 - Mention by short slug in commit body (e.g. "Closes: multi-turn-history").
 - On close → move to **Done this session** with commit SHA.
 - End of session → user sweeps **Done** → **Archived** (one-line compress).
-- Last swept: **2026-05-24** (ran the two pending wk-3 runs to completion: trace gen 1455, 70B gold baseline n=50; added eval pacing flags; fixed brepbndlib; relocated all stale `[x]` items out of Open into Done/Archived; reconciled apply status — confirmed **applied 2026-05-18**, corrected a mid-session mis-conclusion).
+- Last swept: **2026-05-27** (honest README rewrite + self-demo wrap: closed `readme-polish`, `brepnet-naming-fix`; opened `env-example-secret-leak` S2, `grabcad-doc-stale` S3. Prior same-session retrain closed `break-circular-label`, `degraded-to-200-retrain`, `commit-tracked-weights`). Prior sweep 2026-05-26 (hiring-manager repo review → drift diagnosis + re-prioritization; opened S1 `geometry-gen-mvp` and S2 `break-circular-label` / `degraded-to-200-retrain` / `commit-tracked-weights` / `real-cad-eval-set` / `finish-or-relabel-finetune`, S3 `brepnet-naming-fix`; downgraded `grabcad-scrape-blocked`. Full record: `docs/strategy/mecagent-gap-and-drift-2026-05-26.md`). Prior sweep 2026-05-24 (wk-3 runs to completion, eval pacing flags, apply-status reconcile).
 
 ---
 
 ## Open — S1 (blocker / broken demo)
 
-_(none open)_
+- [ ] **S1 · geometry-gen-mvp** — JD bullet #1 ("geometry generation") has **zero** coverage; SimReady is analysis-only. Build the constrained generate→validate→refine loop: LLM emits pythonOCC param code (box/cyl/boolean grammar — same vocab as `generate_parametric_steps.py`) → execute sandboxed → SimReady pipeline → BRepSAGE validates → refine. **Plan deliberately (brainstorm first), don't impulse-build.** Treated S1 because it's the one true JD gap. *Opened 2026-05-26. See `docs/strategy/mecagent-gap-and-drift-2026-05-26.md` rank 5.*
 
 ---
 
 ## Open — S2 (UX gap, polish, deferred decisions)
 
-- [ ] **S2 · readme-polish** — README still reflects Phase-3-era framing; needs hero block + Copilot (Path C) section at top. Note: MecAgent already applied 2026-05-18, so this is **interview-prep** polish (not an apply gate) — do before any interview / at wk-4 start. *Opened 2026-05-14.*
-- [ ] **S2 · grabcad-scrape-blocked** — `download_grabcad_samples.py` is a manual stub; site has anti-bot + login walls. Pivot to curated 10-STEP manual-download set instead of scraping 20–30. **Blocks day-9 GNN combined retrain** (the higher-signal technical deepening). *Opened 2026-05-14 (wk-1 Q2).*
+- [ ] **S2 · env-example-secret-leak** — `.env.example:6` holds a **live** NVIDIA NIM key (`nvapi-…`), not a placeholder, in a **git-tracked** file → already in history. Rotate the key and replace the value with a placeholder. Security, do before any repo share / public push. *Opened 2026-05-27.*
+- [ ] **S2 · real-cad-eval-set** *(user task, IN PROGRESS)* — download 5-10 real STEPs as a held-out generalization probe (review gap D1: no held-out real test). **Note (2026-05-26): `scripts/download_simjeb.py` is a placeholder (no scraper), and SimJEB's B-rep/STEP availability is unconfirmed — it may ship OBJ meshes.** Confirmed-`.step` sources: McMaster-Carr (easiest, no login), GrabCAD (manual per-file), DeepJEB (Harvard Dataverse). Place in `tests/data/real_eval/`; label-free is fine. Assistant wires the eval against the new defect head. *Opened 2026-05-26. Rank 2.*
+- [ ] **S2 · evaluate-py-defect-metric** — `scripts/evaluate.py` still calls `model(x, edge_index)` without `batch` and doesn't report defect-class accuracy. Pass `batch=batch.batch` and add the defect metric for parity with `train.py`. Low risk; per-face heads unaffected. *Opened 2026-05-26.*
+- [ ] **S2 · finish-or-relabel-finetune** *(user runs Colab)* — notebook never ran (0 executed cells); table columns empty. Either run the QLoRA notebook once to fill the table (upload train/val.jsonl to Drive, T4, Run All) OR relabel everything "pipeline, not result" and stop investing. *Opened 2026-05-26. Rank 3.*
+- [ ] **S2 · grabcad-scrape-blocked** *(DOWNGRADED 2026-05-26)* — `download_grabcad_samples.py` is a manual stub w/ anti-bot walls. **No longer blocks day-9 recall** — recall fix is self-unblockable via the degraded generator (see `break-circular-label` + `degraded-to-200-retrain`). GrabCAD/SimJEB STEPs now only needed for `real-cad-eval-set` (held-out eval, not training). *Opened 2026-05-14 (wk-1 Q2).*
 - [ ] **S2 · gmsh-calibration** *(user task)* — Run 10-15 STEPs from `tests/data/` through Gmsh at 2mm target: `gmsh part.step -3 -clmax 2 -o part.msh`. Record pass/fail + worst element quality. Correlate with SimReady score. Even rough correlation makes every score claim on the resume defensible. Requires: download Gmsh from https://gmsh.info (~100 MB, free). *Opened 2026-05-19.*
 
 ---
@@ -62,6 +65,7 @@ _(none open)_
 ## Open — S3 (tech debt, deprecations, low-impact polish)
 
 - [ ] **S3 · base-vs-env-marker-split** — Two-Python-env reality (base 3.12 vs `C:\mm\sr` 3.10) keeps confusing tests. Add `pytest -m base` vs `pytest -m occ` marker split + a Makefile/PS shortcut. Less acute now that env is verified working, but the gotcha remains. *Opened 2026-05-14 (wk-1 Q5).*
+- [ ] **S3 · grabcad-doc-stale** — `docs/validation/grabcad.md` still describes the **old 2-head** checkpoint (ML agg 0.30-0.34, recall 0.23). New 3-head model on the same 3 parts gives ML agg **0.37-0.45** (overall 37.5/36.6/61.0, latency 7.45/2.22/2.87 s; captured in `weights/metrics.json`). Refresh the doc or add a "superseded — see metrics.json" banner. *Opened 2026-05-27.*
 - [ ] **S3 · adr-backlog** — Write 2–3 ADRs under `docs/adr/` for Path C decisions that will be hard to reconstruct in 6 months: (1) OpenAI-compatible SDK over Anthropic-native (why `base_url` swap matters), (2) RAG-lite JSON + cosine over a vector DB (corpus size assumption), (3) multi-turn loop pattern w/ `AgentResponse.messages` round-trip. Useful for the interview narrative. *Opened 2026-05-17.*
 
 ---
@@ -72,7 +76,16 @@ _(items currently being worked — move from Open when started, back to Open if 
 
 ---
 
-## Done this session (2026-05-24)
+## Done this session (2026-05-26 → 27)
+
+- **break-circular-label** (S2) — added a non-circular graph-level **defect-classification head** trained on injected `defect_tags` (not the rule layer). `auto_label.py` now reads `.tags.json` → `graph_label`; `model.py` gains `defect_head` (global-mean-pool → 4-class); `dataset.py` loads `graph_label`; `train.py` adds CE loss + per-class defect accuracy. Wired into `brepnet.py` inference (`predicted_defect`/`defect_confidence`/`defect_probs`). *(SHA: `a29e150`)*
+- **degraded-to-200-retrain** (S2) — generated 600 degraded (200 each: open_shell/sliver_face/self_intersection), labeled 1100 combined, retrained on a **source-grouped (leakage-free) split**. Headline non-circular metric: **defect acc 0.756** (n_val=205); per-class clean 0.87 / sliver 1.0 / open_shell 0.571 / self_int 0.371. Old circular head on the honest split drops to acc 0.848 / recall 0.487 (was 0.975/0.870 on the leaky random split). Results: `docs/validation/defect_classifier.md`. *(SHA: `a29e150`)*
+- **commit-tracked-weights** (S2) — `.gitignore` now tracks `weights/metrics.json` + `eval_fixtures.json` (+ existing brepnet.pt/meta negations); wrote slim honest `weights/metrics.json`; committed the checkpoint so a cloner gets a model + numbers. *(SHA: `a29e150`)*
+- **167/167 tests green** (sr env; +7 in `tests/test_defect_head.py`). No regressions across the touched files.
+- **readme-polish** (S2) + **brepnet-naming-fix** (S3) — full honest README rewrite for the recruiter lens: leads with capabilities (agent / GNN / eval discipline), 3-head model described accurately, **BRepSAGE/GraphSAGE naming fixed** (no more "BRepNet"), circular-refinement vs non-circular-defect caveat surfaced, Results tables w/ provenance + leakage-free-split framing, Mermaid arch diagram, scope=analysis-only, latency, test count 160→**167**. Changed every claim the code didn't support. *(SHA: this session's docs commit — see `git log`.)*
+- **self-demo / repo-not-empty** — refreshed `weights/eval_fixtures.json` against the new 3-head checkpoint (acc 0.725 / recall 0.692, up from 0.23); `docs/sample_output/smoke_box.{json,html}` (checkpoint-backed CLI bundle, zero-setup proof); `docs/img/streamlit-analysis.png` + reproducible `scripts/ui_screenshots.py` (Playwright driver). Closes the "weights + metrics gitignored → clone is empty" gap (strategy doc pointer #1). *(SHA: docs commit.)*
+
+## Done (2026-05-24)
 
 - **trace-gen-restart** (S2) — resumed 1368 → **1455 traces** (8B, NIM; 45 lost to 429s, resume-safe, exit 0). Ample for 3B QLoRA.
 - **gold-eval-incomplete** (S2) — full **70B gold baseline n=50, errors=0** (`tool_call_exact 0.760`, `partial 0.920`, `tool_order 0.780`, `format 0.780`, `theme 0.678`). Added `--request-delay`/`--max-retries`/`--initial-backoff` to `eval_finetune.py` to survive NIM 429s; purged 3 stale partial gold blocks from `finetune_results.md`, filled the summary table's Llama-70B column.
