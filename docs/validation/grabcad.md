@@ -2,7 +2,9 @@
 
 **Purpose:** First real-world gate for SimReady. Three GrabCAD STEPs of increasing complexity, run through the same pipeline used for synthetic fixtures.
 
-**Pipeline:** commit at time of run (post-merge `66e5123` + self-intersection guard). BRepSAGE multitask checkpoint (`weights/brepnet.pt`) trained on 500 parametric STEPs. Heuristic backend used when `weights/brepnet.pt` is absent.
+> **Refreshed 2026-05-27 to the 3-head leakage-free checkpoint (`a29e150`).** Model-dependent numbers below (Overall, ML aggregate, latency) are from `weights/metrics.json`. Rule-layer findings (severity counts, edges/solids, rule mean) are model-independent and carry over unchanged from the original 2-head run. Canonical metric set: `weights/metrics.json`.
+
+**Pipeline:** post-merge `66e5123` + self-intersection guard; numbers refreshed against the 3-head retrain (`a29e150`). BRepSAGE checkpoint (`weights/brepnet.pt`) now trained on 1100 graphs (500 parametric + 600 degraded-synth) with refinement + complexity + non-circular defect heads. Heuristic backend used when `weights/brepnet.pt` is absent.
 
 **Inputs (placed in `tests/data/grabcad/`):**
 - `bracket_simple.STEP` — 198 KB
@@ -11,13 +13,13 @@
 
 ## Results
 
-| Fixture | Faces | Edges | Solids | Critical | Major | Minor | Info | Overall | Label | Tier | Rule mean | Combined mean | ML agg | Elapsed |
-|---------|------:|------:|-------:|---------:|------:|------:|-----:|--------:|-------|------|----------:|--------------:|-------:|--------:|
-| bracket_simple | 87 | 432 | 1 | 0 | 3 | 2 | 0 | 38.3 | NotReady | moderate | 0.667 | 0.438 | 0.337 | 9.07 s |
-| housing_moderate | 107 | 572 | 1 | 0 | 3 | 2 | 0 | 38.9 | NotReady | moderate | 0.722 | 0.429 | 0.304 | 3.85 s |
-| manifold_complex | 161 | 912 | 1 | 0 | 1 | 2 | 1 | 68.5 | NeedsAttention | moderate | 0.882 | 0.608 | 0.323 | 6.31 s |
+| Fixture | Faces | Edges | Solids | Critical | Major | Minor | Info | Overall | Label | Tier | Rule mean | ML agg | Elapsed |
+|---------|------:|------:|-------:|---------:|------:|------:|-----:|--------:|-------|------|----------:|-------:|--------:|
+| bracket_simple | 87 | 432 | 1 | 0 | 3 | 2 | 0 | 37.5 | NotReady | moderate | 0.667 | 0.373 | 7.45 s |
+| housing_moderate | 107 | 572 | 1 | 0 | 3 | 2 | 0 | 36.6 | NotReady | moderate | 0.722 | 0.418 | 2.22 s |
+| manifold_complex | 161 | 912 | 1 | 0 | 1 | 2 | 1 | 61.0 | NeedsAttention | moderate | 0.882 | 0.449 | 2.87 s |
 
-All three: `validation.is_valid=True`, `heal_applied=True`, `BRepSAGE-multitask` checkpoint loaded.
+All three: `validation.is_valid=True`, `heal_applied=True`, `BRepSAGE` 3-head checkpoint loaded. Model-dependent cells (Overall, ML agg, Elapsed) are from the 3-head leakage-free retrain (`weights/metrics.json`, `a29e150`); geometry/rule cells (Faces, Edges, Solids, severity counts, Rule mean) are model-independent and carry over from the original run. The earlier `Combined mean` column is dropped — `weights/metrics.json` does not capture it for the 3-head run.
 
 ## Findings detail
 
@@ -65,9 +67,9 @@ Regression test: `test_self_intersection_skipped_when_face_count_exceeds_limit` 
 
 ## Observations on the BRepSAGE learned model
 
-Across all three fixtures the ML aggregate sits in 0.30–0.34. The model is consistently more conservative than rules (rule_mean 0.67–0.88 vs ML 0.30–0.34). On the parametric training set the BRepSAGE val recall was 0.87; the recall drop on these GrabCAD parts is consistent with the earlier honest caveat: synthetic parametric solids under-represent real CAD with open-shell artifacts, dense small-feature fields, and high face-density manifolds.
+Across all three fixtures the ML aggregate sits in 0.37–0.45 (up from 0.30–0.34 on the old 2-head checkpoint). The model stays consistently more conservative than rules (rule_mean 0.67–0.88 vs ML 0.37–0.45). The refinement head's val recall is **0.487** on a leakage-free source-grouped split — the 0.870 quoted in earlier docs was a leaky random split (see `weights/metrics.json` + `docs/validation/defect_classifier.md`). The new non-circular graph-level defect head reaches **0.756** val accuracy. The persistent gap on these GrabCAD parts is consistent with the honest caveat: synthetic parametric solids under-represent real CAD with open-shell artifacts, dense small-feature fields, and high face-density manifolds.
 
-This is the diagnostic gate the validation step exists to surface. Next iterations should mix real CAD (or augmented-with-defect synthetics) into the training set.
+This is the diagnostic gate the validation step exists to surface. Done since: 600 augmented-with-defect synthetics were mixed into training (now 1100 graphs) and the model retrained on a leakage-free split (`a29e150`). Held-out fixtures recall lifted 0.23 → 0.69; the real-CAD gap above remains, motivating `real-cad-eval-set` (held-out real STEPs as the next generalization probe).
 
 ## What this proves (and what it does not)
 

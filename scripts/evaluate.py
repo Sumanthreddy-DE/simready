@@ -16,7 +16,7 @@ import torch
 from torch_geometric.loader import DataLoader
 
 from simready.ml.dataset import load_dataset
-from simready.ml.model import BRepSAGE, ModelConfig
+from simready.ml.model import DEFECT_CLASSES, NUM_DEFECT_CLASSES, BRepSAGE, ModelConfig
 
 
 def main() -> int:
@@ -48,10 +48,19 @@ def main() -> int:
     total_complexity_sq = 0.0
     total_complexity_abs = 0.0
     per_sample: list[dict] = []
+    # Graph-level defect head (non-circular label). Only scored when the dataset
+    # carries `graph_label`; older parametric-only datasets won't, so guard it.
+    has_defect_labels = False
+    total_graphs = 0
+    total_defect_correct = 0
+    class_correct = [0] * NUM_DEFECT_CLASSES
+    class_total = [0] * NUM_DEFECT_CLASSES
 
     with torch.no_grad():
         for batch in loader:
-            output = model(batch.x, batch.edge_index)
+            # Pass `batch.batch` so the graph-level defect head pools per graph,
+            # not across the whole mini-batch (parity with train.py).
+            output = model(batch.x, batch.edge_index, batch=batch.batch)
             probs = output["refinement_probs"]
             preds = (probs > args.threshold).float()
             total_correct += int((preds == batch.refinement_label).sum())
@@ -63,12 +72,28 @@ def main() -> int:
             total_complexity_sq += float((diff * diff).sum())
             total_complexity_abs += float(diff.abs().sum())
 
+            if getattr(batch, "graph_label", None) is not None:
+                has_defect_labels = True
+                defect_target = batch.graph_label.view(-1)
+                defect_preds = output["defect_logits"].argmax(dim=-1)
+                total_defect_correct += int((defect_preds == defect_target).sum())
+                total_graphs += int(defect_target.numel())
+                for cls in range(NUM_DEFECT_CLASSES):
+                    mask = defect_target == cls
+                    class_total[cls] += int(mask.sum())
+                    class_correct[cls] += int((defect_preds[mask] == cls).sum())
+
     accuracy = total_correct / total_faces if total_faces else 0.0
     precision = total_true_positives / total_predicted_positives if total_predicted_positives else 0.0
     recall = total_true_positives / total_positives if total_positives else 0.0
     f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
     mse = total_complexity_sq / max(1, total_faces)
     mae = total_complexity_abs / max(1, total_faces)
+    defect_accuracy = total_defect_correct / total_graphs if total_graphs else 0.0
+    per_class_acc = {
+        DEFECT_CLASSES[c]: (class_correct[c] / class_total[c] if class_total[c] else None)
+        for c in range(NUM_DEFECT_CLASSES)
+    }
 
     summary = {
         "dataset_dir": str(args.dataset_dir),
@@ -86,12 +111,19 @@ def main() -> int:
         },
         "complexity": {"mse": mse, "mae": mae},
     }
+    if has_defect_labels:
+        summary["defect"] = {
+            "accuracy": defect_accuracy,
+            "graphs": total_graphs,
+            "per_class_acc": per_class_acc,
+        }
     args.output.write_text(json.dumps(summary, indent=2), encoding="utf-8")
 
+    defect_str = f"  defect_acc={defect_accuracy:.3f}" if has_defect_labels else ""
     print(
         f"samples={len(dataset)}  faces={total_faces}  "
         f"acc={accuracy:.3f}  precision={precision:.3f}  recall={recall:.3f}  f1={f1:.3f}  "
-        f"complexity_mse={mse:.4f}  complexity_mae={mae:.4f}"
+        f"complexity_mse={mse:.4f}  complexity_mae={mae:.4f}{defect_str}"
     )
     return 0
 
