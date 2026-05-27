@@ -12,7 +12,15 @@ dist/
 data/parametric/
 data/labels/
 data/labels_fixtures/
-weights/
+data/labels_combined/
+# Ignore weights/ contents, but track the tiny checkpoint + metrics so a fresh
+# clone has a model and numbers. (Can't negate a file under a fully-ignored dir,
+# so ignore the contents glob instead of the directory.)
+weights/*
+!weights/brepnet.pt
+!weights/brepnet_meta.json
+!weights/eval_fixtures.json
+!weights/metrics.json
 
 # Phase 3 real-world test data (download via scripts/download_grabcad_samples.py)
 tests/data/grabcad/

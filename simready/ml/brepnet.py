@@ -57,6 +57,11 @@ class BRepNetInferenceResult:
     per_face_embeddings: dict[int, list[float]] = field(default_factory=dict)
     aggregate_score: float = NEUTRAL_FACE_SCORE
     notes: list[str] = field(default_factory=list)
+    # Graph-level defect prediction (learned head only; None for the heuristic
+    # backend). Non-circular signal trained on injected defect ground truth.
+    predicted_defect: str | None = None
+    defect_confidence: float = 0.0
+    defect_probs: dict[str, float] = field(default_factory=dict)
 
 
 def _adjacency_degree_map(graph: GraphData) -> dict[int, int]:
@@ -174,7 +179,13 @@ def _run_brepsage(graph: GraphData, weights_file: Path) -> BRepNetInferenceResul
     except ImportError:
         build_edge_index_from_adjacency = None
     try:
-        from simready.ml.model import BRepSAGE, ModelConfig, build_edge_index, node_feature_vector
+        from simready.ml.model import (
+            DEFECT_CLASSES,
+            BRepSAGE,
+            ModelConfig,
+            build_edge_index,
+            node_feature_vector,
+        )
     except ImportError:  # pragma: no cover
         return None
 
@@ -210,6 +221,19 @@ def _run_brepsage(graph: GraphData, weights_file: Path) -> BRepNetInferenceResul
     refinement_probs = output["refinement_probs"].detach()
     embeddings_tensor = output["embeddings"].detach()
 
+    # Graph-level defect prediction (single graph → first row). Older checkpoints
+    # without a defect head won't reach here (load_state_dict would have failed).
+    predicted_defect: str | None = None
+    defect_confidence = 0.0
+    defect_probs: dict[str, float] = {}
+    defect_tensor = output.get("defect_probs")
+    if defect_tensor is not None and defect_tensor.numel():
+        row = defect_tensor.detach()[0]
+        defect_probs = {DEFECT_CLASSES[i]: float(row[i]) for i in range(len(DEFECT_CLASSES))}
+        best = int(row.argmax())
+        predicted_defect = DEFECT_CLASSES[best]
+        defect_confidence = float(row[best])
+
     scores: dict[int, float] = {}
     embeddings: dict[int, list[float]] = {}
     for row, node in enumerate(nodes_sorted):
@@ -238,9 +262,13 @@ def _run_brepsage(graph: GraphData, weights_file: Path) -> BRepNetInferenceResul
         per_face_scores=scores,
         per_face_embeddings=embeddings,
         aggregate_score=aggregate,
+        predicted_defect=predicted_defect,
+        defect_confidence=defect_confidence,
+        defect_probs=defect_probs,
         notes=[
-            "Learned BRepSAGE checkpoint (multi-task: refinement classification + complexity regression).",
-            "Trained by scripts/train.py on the parametric STEP dataset; see weights/brepnet_meta.json for run details.",
+            "Learned BRepSAGE checkpoint (multi-task: graph-level defect classification + "
+            "per-face refinement + complexity regression).",
+            "Trained by scripts/train.py on parametric + degraded STEPs; see weights/metrics.json.",
         ],
     )
 

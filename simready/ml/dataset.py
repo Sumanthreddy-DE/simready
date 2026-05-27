@@ -75,6 +75,9 @@ def load_sample(sample: SampleMetadata) -> Data:
     data = Data(x=x, edge_index=edge_index)
     data.refinement_label = refinement
     data.complexity_label = complexity
+    # Graph-level defect class (0 = clean). Shape [1] so PyG batching collates
+    # one label per graph rather than broadcasting across nodes.
+    data.graph_label = torch.tensor([int(labels.get("graph_label", 0))], dtype=torch.long)
     data.face_count = len(nodes_sorted)
     data.stem = sample.stem
     return data
@@ -96,4 +99,34 @@ def split_train_val(data: list[Data], val_ratio: float = 0.2, seed: int = 202605
     val: list[Data] = []
     for idx, entry in enumerate(data):
         (val if idx in val_indices else train).append(entry)
+    return train, val
+
+
+def source_part(stem: str) -> str:
+    """Base part name for a (possibly degraded) sample stem.
+
+    Degraded variants are named ``<source>__<defect>`` by
+    generate_degraded_steps.py, so all variants of one base part share a source
+    key. Splitting on this key prevents leakage (a degraded variant in train and
+    its clean parent in val), which would inflate the held-out defect accuracy.
+    """
+    return stem.split("__", 1)[0]
+
+
+def split_train_val_by_source(
+    data: list[Data], val_ratio: float = 0.2, seed: int = 20260513
+) -> tuple[list[Data], list[Data]]:
+    """Group-aware split: every sample sharing a source part goes to one side."""
+    if not data:
+        return [], []
+    sources = sorted({source_part(str(getattr(d, "stem", i))) for i, d in enumerate(data)})
+    generator = torch.Generator().manual_seed(seed)
+    order = torch.randperm(len(sources), generator=generator).tolist()
+    val_count = max(1, int(round(len(sources) * val_ratio)))
+    val_sources = {sources[order[i]] for i in range(val_count)}
+    train: list[Data] = []
+    val: list[Data] = []
+    for i, entry in enumerate(data):
+        key = source_part(str(getattr(entry, "stem", i)))
+        (val if key in val_sources else train).append(entry)
     return train, val

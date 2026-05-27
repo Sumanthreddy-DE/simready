@@ -1,0 +1,79 @@
+{
+  "model": "BRepSAGE \u2014 2-layer GraphSAGE, 32 hidden, 12-dim per-face features",
+  "heads": {
+    "refinement": "per-face binary; label = rule_per_face > 0.5 (CIRCULAR \u2014 same OCC features the model ingests)",
+    "complexity": "per-face regression; graph-feature proxy",
+    "defect": "graph-level 4-class (clean/open_shell/sliver_face/self_intersection); label = injected ground-truth tags (NON-circular)"
+  },
+  "training": {
+    "dataset": "500 parametric + 600 degraded = 1100 graphs",
+    "split": {
+      "train_graphs": 895,
+      "val_graphs": 205
+    },
+    "epochs": 15,
+    "elapsed_s": 25.4,
+    "device": "cpu"
+  },
+  "val_in_distribution": {
+    "note": "source-grouped 80/20 (all variants of a base part stay on one side) -- leakage-free held-out, NOT random/in-distribution; sizes 895/205 prove grouping (random would be 880/220)",
+    "n_val_graphs": 205,
+    "refinement": {
+      "accuracy": 0.848,
+      "precision": 0.944,
+      "recall": 0.487,
+      "positives": 686,
+      "predicted_positives": 354,
+      "label_caveat": "circular (rule-derived)"
+    },
+    "defect_noncircular": {
+      "accuracy": 0.756,
+      "per_class_acc": {
+        "clean": 0.87,
+        "open_shell": 0.571,
+        "sliver_face": 1.0,
+        "self_intersection": 0.371
+      }
+    }
+  },
+  "heldout_fixtures": {
+    "note": "7 hand-built fixtures / 51 faces; different distribution; refinement head; circular label",
+    "samples": 7,
+    "faces": 51,
+    "accuracy": 0.725,
+    "precision": 0.75,
+    "recall": 0.692,
+    "f1": 0.72
+  },
+  "real_cad_grabcad": {
+    "note": "3 real STEPs, UNLABELED; pipeline outputs only; gate to expose generalization gap",
+    "rule_mean_range": "0.67-0.88",
+    "parts": [
+      {
+        "part": "bracket_simple",
+        "faces": 87,
+        "overall": 37.5,
+        "label": "NotReady",
+        "ml_aggregate": 0.373,
+        "elapsed_s": 7.45
+      },
+      {
+        "part": "housing_moderate",
+        "faces": 107,
+        "overall": 36.6,
+        "label": "NotReady",
+        "ml_aggregate": 0.418,
+        "elapsed_s": 2.22
+      },
+      {
+        "part": "manifold_complex",
+        "faces": 161,
+        "overall": 61.0,
+        "label": "NeedsAttention",
+        "ml_aggregate": 0.449,
+        "elapsed_s": 2.87
+      }
+    ]
+  },
+  "provenance": "weights/brepnet_meta.json (full per-epoch history), weights/eval_fixtures.json (fixtures eval). Regenerate: scripts/train.py + scripts/evaluate.py."
+}

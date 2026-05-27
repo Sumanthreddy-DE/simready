@@ -16,13 +16,21 @@ from typing import Any
 
 import torch
 from torch import nn
-from torch_geometric.nn import SAGEConv
+from torch_geometric.nn import SAGEConv, global_mean_pool
 
 
 SURFACE_TYPES = ["plane", "cylinder", "cone", "sphere", "torus", "bspline", "other"]
 NODE_FEATURE_DIM = len(SURFACE_TYPES) + 5  # one-hot + log_area + normal_mag + mean_curvature + uv_u + uv_v
 DEFAULT_HIDDEN_DIM = 32
 DEFAULT_NUM_LAYERS = 2
+
+# Graph-level defect classes. Index 0 is "clean"; the rest are the injected
+# ground-truth defects produced by scripts/generate_degraded_steps.py. The
+# defect head is trained on these tags (NOT on the rule layer), so its accuracy
+# is a non-circular signal — unlike the refinement head whose label is
+# `rule_per_face > 0.5`. Order is the canonical label encoding; do not reorder.
+DEFECT_CLASSES = ("clean", "open_shell", "sliver_face", "self_intersection")
+NUM_DEFECT_CLASSES = len(DEFECT_CLASSES)
 
 
 @dataclass
@@ -31,6 +39,7 @@ class ModelConfig:
     hidden_dim: int = DEFAULT_HIDDEN_DIM
     num_layers: int = DEFAULT_NUM_LAYERS
     dropout: float = 0.1
+    num_defect_classes: int = NUM_DEFECT_CLASSES
 
 
 class BRepSAGE(nn.Module):
@@ -49,6 +58,8 @@ class BRepSAGE(nn.Module):
 
         self.refinement_head = nn.Linear(cfg.hidden_dim, 1)
         self.complexity_head = nn.Linear(cfg.hidden_dim, 1)
+        # Graph-level defect classifier over pooled face embeddings.
+        self.defect_head = nn.Linear(cfg.hidden_dim, cfg.num_defect_classes)
         self.dropout = nn.Dropout(cfg.dropout)
         self.act = nn.ReLU()
 
@@ -60,15 +71,31 @@ class BRepSAGE(nn.Module):
             h = self.dropout(h)
         return h
 
-    def forward(self, x: torch.Tensor, edge_index: torch.Tensor) -> dict[str, torch.Tensor]:
+    def forward(
+        self,
+        x: torch.Tensor,
+        edge_index: torch.Tensor,
+        batch: torch.Tensor | None = None,
+    ) -> dict[str, torch.Tensor]:
         embeddings = self.encode(x, edge_index)
         refinement_logits = self.refinement_head(embeddings).squeeze(-1)
         complexity_scores = torch.sigmoid(self.complexity_head(embeddings)).squeeze(-1)
+
+        # Graph-level head: mean-pool node embeddings per graph, then classify.
+        # `batch` maps each node to its graph index (PyG convention). When None
+        # (single-graph inference) all nodes belong to graph 0 → one logit row.
+        if batch is None:
+            batch = torch.zeros(embeddings.size(0), dtype=torch.long, device=embeddings.device)
+        pooled = global_mean_pool(embeddings, batch)
+        defect_logits = self.defect_head(pooled)
+
         return {
             "embeddings": embeddings,
             "refinement_logits": refinement_logits,
             "refinement_probs": torch.sigmoid(refinement_logits),
             "complexity_scores": complexity_scores,
+            "defect_logits": defect_logits,
+            "defect_probs": torch.softmax(defect_logits, dim=-1),
         }
 
 

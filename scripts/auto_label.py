@@ -23,12 +23,40 @@ import sys
 from pathlib import Path
 
 from simready.ml.graph_extractor import extract_brep_graph
+from simready.ml.model import DEFECT_CLASSES
 from simready.pipeline import analyze_file
 from simready.validator import validate_step_file
 
 
 SIMPLE_SURFACE_TYPES = {"plane", "cylinder"}
 REFINEMENT_THRESHOLD = 0.5
+
+
+def defect_class_from_tags(tags: dict | None) -> int:
+    """Map a `.tags.json` payload to a graph-level defect class index.
+
+    Returns the index into DEFECT_CLASSES for the first recognized defect tag,
+    or 0 ("clean") when there are no tags / no recognized tag. This is the
+    non-circular training label for the defect head — it comes from the injected
+    ground truth in generate_degraded_steps.py, not from the rule layer.
+    """
+    if not tags:
+        return 0
+    for tag in tags.get("defect_tags", []) or []:
+        if tag in DEFECT_CLASSES:
+            return DEFECT_CLASSES.index(tag)
+    return 0
+
+
+def _read_tags_sidecar(step_file: Path) -> dict | None:
+    """Read the `<stem>.tags.json` sibling written by generate_degraded_steps.py."""
+    tags_path = step_file.parent / f"{step_file.stem}.tags.json"
+    if not tags_path.is_file():
+        return None
+    try:
+        return json.loads(tags_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
 
 
 def iter_step_files(input_dir: Path):
@@ -66,7 +94,7 @@ def compute_complexity_proxy(graph) -> dict[int, float]:
     return scores
 
 
-def build_labels(report: dict, graph) -> dict[str, object]:
+def build_labels(report: dict, graph, graph_label: int = 0) -> dict[str, object]:
     rule_scores = {int(k): float(v) for k, v in (report.get("per_face_scores") or {}).items()}
     face_count = len(graph.node_features)
     indices = sorted({int(node.get("face_index", 0)) for node in graph.node_features})
@@ -80,6 +108,9 @@ def build_labels(report: dict, graph) -> dict[str, object]:
         "refinement": refinement,
         "complexity_proxy": {str(idx): float(complexity.get(idx, 0.0)) for idx in indices},
         "rule_per_face": {str(idx): float(rule_scores.get(idx, 0.0)) for idx in indices},
+        # Non-circular graph-level label from injected defect tags (0 = clean).
+        "graph_label": int(graph_label),
+        "graph_label_name": DEFECT_CLASSES[int(graph_label)],
     }
 
 
@@ -87,6 +118,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Auto-label STEP files for BRepNet fine-tuning")
     parser.add_argument("input_dir", type=Path)
     parser.add_argument("output_dir", type=Path)
+    parser.add_argument("--extra-inputs", type=Path, nargs="*", default=[],
+                        help="Additional input dirs to label into the same output/manifest "
+                             "(e.g. data/parametric_degraded alongside data/parametric).")
     parser.add_argument("--limit", type=int, default=0)
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args()
@@ -94,7 +128,11 @@ def main() -> int:
     args.output_dir.mkdir(parents=True, exist_ok=True)
     manifest: list[dict[str, object]] = []
 
-    step_files = sorted(set(iter_step_files(args.input_dir)))
+    all_inputs = [args.input_dir, *args.extra_inputs]
+    collected: list[Path] = []
+    for input_dir in all_inputs:
+        collected.extend(iter_step_files(input_dir))
+    step_files = sorted(set(collected))
     if args.limit > 0:
         step_files = step_files[: args.limit]
 
@@ -119,7 +157,8 @@ def main() -> int:
                 "adjacency": graph.adjacency,
                 "metadata": graph.metadata,
             }
-            labels = build_labels(report, graph)
+            graph_label = defect_class_from_tags(_read_tags_sidecar(step_file))
+            labels = build_labels(report, graph, graph_label=graph_label)
 
             (args.output_dir / f"{stem}.graph.json").write_text(json.dumps(graph_payload, indent=2), encoding="utf-8")
             (args.output_dir / f"{stem}.labels.json").write_text(json.dumps(labels, indent=2), encoding="utf-8")
@@ -131,6 +170,8 @@ def main() -> int:
                 "stem": stem,
                 "face_count": labels["face_count"],
                 "positive_refinement": sum(1 for v in labels["refinement"].values() if v),
+                "graph_label": graph_label,
+                "graph_label_name": DEFECT_CLASSES[graph_label],
             })
             if args.verbose:
                 print(f"[ok] {stem}: faces={labels['face_count']} pos_refinement={sum(1 for v in labels['refinement'].values() if v)}")
