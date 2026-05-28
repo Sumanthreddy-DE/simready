@@ -25,6 +25,11 @@ weights/*
 # Phase 3 real-world test data (download via scripts/download_grabcad_samples.py)
 tests/data/grabcad/
 
+# Wk-3 real-CAD OOD eval inputs — 12 McMaster-Carr STEPs (part numbers in
+# docs/validation/real_eval.md; redownload from mcmaster.com). Binary + IP-iffy,
+# not redistributed via this repo.
+tests/data/real_eval/
+
 # Path C wk-1 day 3 — RAG-lite corpus + index (regenerate via scripts/scrape_fea_docs.py + scripts/index_fea_docs.py)
 data/fea_docs/
 !data/fea_docs/sources.txt
