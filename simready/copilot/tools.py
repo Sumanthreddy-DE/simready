@@ -122,6 +122,43 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "build_part",
+            "description": (
+                "Generate a new STEP file from a typed parametric spec. Use this when "
+                "the user asks you to CREATE a part (not to analyze an existing one). "
+                "The spec is a list of ops drawn from a tiny grammar: box(dx, dy, dz, at), "
+                "cyl(r, h, at) [axis is +Z], fuse(a, b), cut(a, b). 'a' and 'b' are "
+                "0-based indices into earlier steps. The last step is the part returned. "
+                "After calling this, ALWAYS call analyze_geometry on the returned step_path "
+                "to validate it before describing the result to the user."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "spec": {
+                        "type": "object",
+                        "description": (
+                            "Parametric spec. Shape: "
+                            "{\"steps\": [{\"op\": \"box\"|\"cyl\"|\"fuse\"|\"cut\", ...}, ...]}. "
+                            "Dims are in millimetres. Example for a bracket with a hole: "
+                            "{\"steps\": [{\"op\":\"box\",\"dx\":80,\"dy\":60,\"dz\":10},"
+                            "{\"op\":\"cyl\",\"r\":5,\"h\":10,\"at\":[40,30,0]},"
+                            "{\"op\":\"cut\",\"a\":0,\"b\":1}]}."
+                        ),
+                    },
+                    "timeout_seconds": {
+                        "type": "number",
+                        "description": "Optional hard wall-clock for the build, in seconds. Default 15.",
+                        "default": 15,
+                    },
+                },
+                "required": ["spec"],
+            },
+        },
+    },
 ]
 
 
@@ -341,10 +378,24 @@ def lookup_standard(query: str, top_k: int = 3) -> dict[str, Any]:
     }
 
 
+def build_part(spec: dict[str, Any], timeout_seconds: float = 15.0) -> dict[str, Any]:
+    """Tool entry point for ``geometry-gen``. Delegates to the subprocess-isolated
+    executor in ``simready.gen.build``.
+
+    Returns a dict shaped for the LLM's next turn: ``{step_path, schema_valid,
+    occ_valid, faces, bbox_mm, ...}`` on success, or ``{schema_valid, occ_valid,
+    error}`` on failure. See ``docs/exec-plans/geometry-gen-mvp.md``.
+    """
+    from simready.gen.build import build_part as _build_part
+
+    return _build_part(spec, timeout_s=float(timeout_seconds))
+
+
 _DISPATCH = {
     "analyze_geometry": analyze_geometry,
     "suggest_fixes": suggest_fixes,
     "lookup_standard": lookup_standard,
+    "build_part": build_part,
 }
 
 

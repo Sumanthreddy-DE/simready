@@ -38,7 +38,7 @@ def _no_default_rag_index(monkeypatch, tmp_path) -> None:
 
 def test_tool_schemas_have_expected_names() -> None:
     names = [s["function"]["name"] for s in TOOL_SCHEMAS]
-    assert names == ["analyze_geometry", "suggest_fixes", "lookup_standard"]
+    assert names == ["analyze_geometry", "suggest_fixes", "lookup_standard", "build_part"]
 
 
 def test_tool_schemas_declare_required_args() -> None:
@@ -217,3 +217,48 @@ def test_analyze_geometry_schema_advertises_findings_limit() -> None:
     props = schema["function"]["parameters"]["properties"]
     assert "findings_limit" in props
     assert props["findings_limit"]["default"] == DEFAULT_FINDINGS_LIMIT
+
+
+# ---------------------------------------------------------------------------
+# build_part — geometry-gen-mvp wiring
+# ---------------------------------------------------------------------------
+
+
+def test_build_part_schema_advertised_in_tool_list() -> None:
+    schema = next(s for s in TOOL_SCHEMAS if s["function"]["name"] == "build_part")
+    props = schema["function"]["parameters"]["properties"]
+    assert "spec" in props
+    assert "timeout_seconds" in props
+    assert schema["function"]["parameters"]["required"] == ["spec"]
+
+
+def test_build_part_dispatch_rejects_malformed_spec_in_parent() -> None:
+    # No subprocess spawn should run — the parent-side Pydantic validation
+    # returns schema_valid=False without paying spawn cost.
+    from simready.copilot.tools import dispatch_tool
+
+    result = dispatch_tool("build_part", {"spec": {"steps": []}})
+    assert result.get("schema_valid") is False
+    assert "error" in result
+
+
+occ = pytest.importorskip(
+    "OCC.Core.BRepPrimAPI",
+    reason="pythonocc-core not available (run under the sr env)",
+)
+
+
+def test_build_part_dispatch_happy_box(tmp_path, monkeypatch) -> None:
+    # Redirect the executor's default output dir to a tempdir so the test
+    # doesn't litter data/gen_parts/.
+    monkeypatch.chdir(tmp_path)
+    from simready.copilot.tools import dispatch_tool
+
+    result = dispatch_tool(
+        "build_part",
+        {"spec": {"steps": [{"op": "box", "dx": 15, "dy": 15, "dz": 15}]}, "timeout_seconds": 60},
+    )
+    assert result["schema_valid"] is True
+    assert result["occ_valid"] is True
+    assert result["faces"] == 6
+    assert result["step_path"].endswith(".step")
