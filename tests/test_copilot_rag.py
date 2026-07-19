@@ -174,3 +174,34 @@ def test_lookup_standard_returns_ok_with_real_index(
     assert len(result["results"]) == 2
     assert result["results"][0]["source"] == "NAFEMS_QA01.pdf"
     assert result["index_meta"]["n_chunks"] == 3
+
+
+def test_get_default_index_falls_back_to_seed(
+    monkeypatch, tmp_path, small_corpus, aligned_embedder
+) -> None:
+    """When the full index is missing and no override is given, the committed
+    seed index loads instead of raising FileNotFoundError."""
+    seed_path = tmp_path / "seed.json"
+    rag.build_index(small_corpus, aligned_embedder).save(seed_path)
+
+    monkeypatch.delenv("SIMREADY_RAG_INDEX", raising=False)
+    monkeypatch.setattr(rag, "DEFAULT_INDEX_PATH", tmp_path / "missing.json")
+    monkeypatch.setattr(rag, "SEED_INDEX_PATH", seed_path)
+    rag.clear_index_cache()
+    try:
+        loaded = rag.get_default_index()
+    finally:
+        rag.clear_index_cache()
+    assert loaded.meta["n_chunks"] == 3
+
+
+def test_get_default_index_env_override_beats_seed(
+    monkeypatch, tmp_path, small_corpus, aligned_embedder
+) -> None:
+    """Explicit env override must NOT silently fall back to the seed."""
+    monkeypatch.setenv("SIMREADY_RAG_INDEX", str(tmp_path / "missing.json"))
+    monkeypatch.setattr(rag, "SEED_INDEX_PATH", tmp_path / "also_missing.json")
+    rag.clear_index_cache()
+    with pytest.raises(FileNotFoundError):
+        rag.get_default_index()
+    rag.clear_index_cache()

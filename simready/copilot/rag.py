@@ -38,6 +38,9 @@ DEFAULT_MODEL_NAME = os.environ.get(
 # Anchored to the repo root so lookups work regardless of process cwd.
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_INDEX_PATH = _REPO_ROOT / "data" / "fea_docs_index.json"
+# Tiny committed index (one small public PDF) so a fresh clone gets a live
+# lookup_standard tool instead of "no_index". The full 24 MB index stays local.
+SEED_INDEX_PATH = _REPO_ROOT / "data" / "fea_docs_index_seed.json"
 
 
 class Embedder(Protocol):
@@ -215,8 +218,20 @@ _INDEX_CACHE: dict[str, RagIndex] = {}
 
 
 def get_default_index(path: str | Path | None = None) -> RagIndex:
-    """Load (and cache) the default RAG index. Raises FileNotFoundError if missing."""
-    resolved = Path(path or os.environ.get("SIMREADY_RAG_INDEX", DEFAULT_INDEX_PATH))
+    """Load (and cache) the default RAG index.
+
+    Resolution order: explicit ``path`` arg → ``SIMREADY_RAG_INDEX`` env →
+    ``DEFAULT_INDEX_PATH`` → committed ``SEED_INDEX_PATH``. An explicit
+    path/env override never falls back. Raises FileNotFoundError if the
+    resolved file is missing.
+    """
+    explicit = path or os.environ.get("SIMREADY_RAG_INDEX")
+    if explicit:
+        resolved = Path(explicit)
+    elif DEFAULT_INDEX_PATH.exists():
+        resolved = DEFAULT_INDEX_PATH
+    else:
+        resolved = SEED_INDEX_PATH
     key = str(resolved.resolve()) if resolved.exists() else str(resolved)
     if key not in _INDEX_CACHE:
         _INDEX_CACHE[key] = RagIndex.load(resolved)
