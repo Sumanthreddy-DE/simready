@@ -13,7 +13,11 @@ a new state), update the section's status line.
 
 ## Stream A — Geometry-gen v2: live-LLM E_grammar runner
 
-- **Status:** Ready to paste (drafted 2026-05-31, after `fa581f0`).
+- **Status:** SUPERSEDED by Stream C below (2026-07-19). Wave-1 hygiene changed
+  its assumptions: `build_part` is now IN the default system prompt (`1d5a80a`),
+  suite is 202 not 198, `live_llm` marker already registered, CI green gate
+  exists, and the eval gained a second provider (Kimi K2.6). Do not paste this
+  version; kept for history.
 - **Predecessor work:** session of 2026-05-31 shipped geometry-gen-mvp v1 (typed DSL + `build_part` tool + 31 tests, suite 198/198 sr green; commit `fa581f0`).
 - **Why next:** the strategy doc's rank 5 (JD bullet #1, *geometry generation*) is the one true JD gap. v1 proved the build path; v2 proves the whole loop with a real model in it, which is what an interviewer cares about.
 - **Out of scope:** v3 (`scripts/simready_gen.py` CLI + Streamlit gen panel) — kept as a fallback in the prompt.
@@ -101,6 +105,88 @@ Caveman mode ON (chat terse; code/commits normal).
 ---
 
 <!-- Append new streams below this line. -->
+
+## Stream C — Wave 2 kickoff: geometry-gen v2, dual-provider (NIM + Kimi K2.6)
+
+- **Status:** Ready to paste (drafted 2026-07-19, after wave-1 hygiene batch `1d5a80a..b5d4070`).
+- **Predecessor:** wave-1 session of 2026-07-19 (truth sweep, png_render rename, path
+  anchoring, seed RAG index, CI both-jobs-green, never-applied correction). Supersedes
+  Stream A (assumptions updated).
+- **Why next:** BACKLOG "Triage 2026-07-19" wave 2 item 1. Geometry generation is JD
+  bullet #1; v1 is schema-only until a live model drives the loop. Dual-provider run
+  turns the provider-swap architecture claim into evidence.
+
+```
+Work on SimReady. Wave 2, item 1: geometry-gen v2 — live-LLM E_grammar runner,
+dual provider. Wave-1 hygiene is SHIPPED and pushed (CI green both jobs).
+Baseline: suite 202/202 sr green at b5d4070.
+
+First read (in this order):
+1. BACKLOG.md — "Triage 2026-07-19" wave plan + S1 geometry-gen-mvp stamp
+   (v1 SHIPPED; v2 = this session; v3 CLI/Streamlit stays deferred)
+2. docs/exec-plans/geometry-gen-mvp.md — v2 scope = "## Test plan" →
+   tests/test_gen_e2e.py block + "## Ship sequence" → Commit 2 row
+3. docs/adr/0001-geometry-gen-dsl-over-codegen.md — LLM emits PartSpec via
+   build_part tool call; no LLM code is ever exec'd (non-negotiable)
+4. STATE.md — Doing/Pipeline/Landmines
+5. simready/copilot/agent.py — build_part is ALREADY in DEFAULT_SYSTEM_PROMPT
+   (wave-1 commit 1d5a80a): tool list entry + CREATE workflow rule. Do NOT
+   add a per-run instruction block (Stream A's old advice — obsolete).
+6. simready/copilot/tools.py — build_part schema + dispatch (shipped; call
+   dispatch_tool, don't rewrite)
+7. docs/validation/real_eval.md §1 — defect head 100% FP on real CAD;
+   advisory only, never gate on it
+
+v2 ship gate (E_grammar, locked):
+- tests/data/gen_prompts.jsonl: 5 hand-written prompts, one per
+  generate_parametric_steps.py archetype (normal_box, thin_plate, l_bracket,
+  bracket_with_hole, small_feature_box), each with expect.faces range.
+  Verified ranges per tests/test_gen_build.py: single-box [6,6], L-bracket
+  fuse [10,18], box-minus-through-cyl [6,10].
+- tests/test_gen_e2e.py: runs CopilotAgent against each prompt with the full
+  tool set; pass = final STEP exists + occ_valid + face count in range.
+  pytest.mark.live_llm (marker ALREADY registered in pytest.ini — wave 1).
+  Reads OPENAI_BASE_URL / OPENAI_API_KEY / OPENAI_MODEL from env. max_turns=6.
+- Run the matrix TWICE:
+  Leg 1 (NIM, primary baseline):
+    $env:OPENAI_BASE_URL = "https://integrate.api.nvidia.com/v1"
+    $env:OPENAI_MODEL    = "meta/llama-3.3-70b-instruct"
+    # OPENAI_API_KEY from .env (NIM key, rotated). NEVER Read .env.
+  Leg 2 (Kimi K2.6, provider-swap evidence):
+    $env:OPENAI_BASE_URL = "https://api.moonshot.ai/v1"
+    $env:OPENAI_MODEL    = "<kimi-k2.6 model id — ask user to confirm exact id>"
+    $env:OPENAI_API_KEY  = KIMI_API_KEY value from .env (verified present,
+    len 70; load via dotenv in the test, never echo it)
+- Writes docs/validation/geometry_gen_eval.md: per-prompt row (provider,
+  turns, final spec JSON, occ_valid, faces, score) for BOTH legs + a
+  3-paragraph interpretation incl. provider comparison (same style as
+  real_eval.md). Honest failure modes stay in the doc.
+
+Env (sr env, PowerShell tool — NOT Bash):
+  $env:PYTHONPATH = "C:\Users\suman\Desktop\Docs\Job\Projects\Mech\SimReady"
+  & C:\mm\sr\python.exe -m pytest tests/test_gen_e2e.py -m live_llm -v
+Expect ~90-120 s per leg (5 prompts x subprocess build + analyze + agent
+overhead). Single prompt >60 s wall = regression, flag it in the eval doc.
+
+Wrap-up:
+- BACKLOG sweep: S1 stamp → "v1 + v2 SHIPPED, v3 CLI remaining"; Done entry
+  w/ SHA + n/5 pass counts per provider
+- STATE.md + memory one-line update (pass counts, failure modes)
+- commit; HAND PUSH TO USER (hook blocks agent push; never chain
+  commit && push); after push verify CI green (gh run watch) — full-suite
+  must stay green (live_llm excluded there)
+
+Fallbacks if blocked:
+- Kimi leg fails (auth/model-id/tool-call dialect) → ship NIM-only, record
+  Kimi failure mode in eval doc + BACKLOG S3; K2 tool-call parsing quirks
+  are a finding, not a blocker
+- Both providers blocked → v3 CLI (scripts/simready_gen.py) as fallback
+  scope, or S3 adr-backlog if <30 min budget left
+
+Caveman mode ON (chat terse; code/commits normal).
+```
+
+---
 
 ## Stream B — Sibling-session mid-turn pickup (CONSUMED)
 
