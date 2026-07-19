@@ -4,7 +4,40 @@ Living list of open issues, deferred work, and known caveats. Updated each sessi
 
 ---
 
-## Strategic Context (wk-3, updated 2026-05-19)
+## Triage 2026-07-19 — wave plan (current strategic context)
+
+**Application to MecAgent NEVER sent** (`v0.4.0-apply` = prep tag; older lines below/in
+Archived claiming otherwise are corrected). New goal: make the project substantial,
+then apply. Repo was idle 2026-05-31 → 2026-07-18; this triage restarts it.
+
+**Wave 1 — hygiene (DONE 2026-07-19, see Done this session):** truth sweep (3-head /
+4-tool docstrings + `build_part` in system prompt + README scope/counts),
+`render.py`→`png_render.py` rename, repo-root path anchoring (gen output + RAG index),
+committed seed RAG index (`lookup_standard` now live on fresh clones), CI
+(spec-fast job + micromamba full job), this truth pass.
+
+**Wave 2 — substance (next sessions, in order):**
+1. `geometry-gen-mvp` v2 (S1 stamp) — live-LLM E_grammar runner; kickoff prompt drafted
+   in `docs/session-prompts.md` Stream A. NIM Llama-70B primary baseline + **Kimi K2.7
+   second backend** (user adds `KIMI_API_KEY` to `.env`; base_url swap
+   `https://api.moonshot.ai/v1`) — same eval, two providers.
+2. `analyze-file-occ-hang-per-check` (S2) — demo killer; per-check precheck +
+   subprocess isolation at UI entry points.
+3. `defect-head-real-cad-augmentation` (S2) — hardest, highest ML value.
+
+**Wave 3 — user-gated / decisions:**
+- `finish-or-relabel-finetune` — DECIDED 2026-07-19: RUN one Colab QLoRA collaboratively
+  (user + assistant), then stop investing regardless of result.
+- `real-eval-set-grow` (S3) — user downloads 20–30 STEPs.
+- `gmsh-calibration` (S2) — do-or-drop decision still open.
+- NIM key: rotated (user confirmed 2026-07-19).
+- [ ] **S3 · ci-full-suite-promote** — after first push, check `gh run list`; once the
+  micromamba `full-suite` job is green, drop `continue-on-error` in
+  `.github/workflows/ci.yml`. Record the failure mode here if it's red. *Opened 2026-07-19.*
+
+---
+
+## Strategic Context (wk-3, updated 2026-05-19 — HISTORICAL, superseded by Triage 2026-07-19 above)
 
 **Three critical demo credibility gaps (from contrarian review, end of wk-2):**
 1. `lookup_standard` returns `no_index` always — third copilot tool is dead in every live demo. Fix: populate RAG corpus.
@@ -41,7 +74,7 @@ Living list of open issues, deferred work, and known caveats. Updated each sessi
 - Mention by short slug in commit body (e.g. "Closes: multi-turn-history").
 - On close → move to **Done this session** with commit SHA.
 - End of session → user sweeps **Done** → **Archived** (one-line compress).
-- Last swept: **2026-05-31** (geometry-gen-mvp v1 shipped: typed DSL + trusted executor + `build_part` agent tool + 31 new tests (198/198 sr green); ADR 0001 captures DSL-over-codegen choice; v2 E_grammar runner + v3 CLI/Streamlit remain Open under the S1 stamp; full plan `docs/exec-plans/geometry-gen-mvp.md`). Prior sweep 2026-05-28 (real-CAD OOD eval shipped: closed `real-cad-eval-set` S2 — 12 McMaster STEPs probed, 7/7 false-positive on defect head, ml_agg diverges from rule_mean; `eval_real_cad.py` gained face-count precheck + spawn-subprocess hard timeout after first run hung 12h on a 58-face flange. Opened S2 `analyze-file-occ-hang-per-check`, `defect-head-real-cad-augmentation`, S3 `real-eval-set-grow`. Full record: `docs/validation/real_eval.md`). Prior sweep 2026-05-27 (honest README rewrite + self-demo wrap: closed `readme-polish`, `brepnet-naming-fix`; opened `env-example-secret-leak` S2, `grabcad-doc-stale` S3. Prior same-session retrain closed `break-circular-label`, `degraded-to-200-retrain`, `commit-tracked-weights`). Prior sweep 2026-05-26 (hiring-manager repo review → drift diagnosis + re-prioritization; opened S1 `geometry-gen-mvp` and S2 `break-circular-label` / `degraded-to-200-retrain` / `commit-tracked-weights` / `real-cad-eval-set` / `finish-or-relabel-finetune`, S3 `brepnet-naming-fix`; downgraded `grabcad-scrape-blocked`. Full record: `docs/strategy/mecagent-gap-and-drift-2026-05-26.md`). Prior sweep 2026-05-24 (wk-3 runs to completion, eval pacing flags, apply-status reconcile).
+- Last swept: **2026-07-19** (wave-1 hygiene batch: truth sweep + png_render rename + path anchoring + seed RAG index + CI + never-applied correction; wave 2/3 plan added under Triage section; suite 202/202 sr). Prior sweep 2026-05-31 (geometry-gen-mvp v1 shipped: typed DSL + trusted executor + `build_part` agent tool + 31 new tests (198/198 sr green); ADR 0001 captures DSL-over-codegen choice; v2 E_grammar runner + v3 CLI/Streamlit remain Open under the S1 stamp; full plan `docs/exec-plans/geometry-gen-mvp.md`). Prior sweep 2026-05-28 (real-CAD OOD eval shipped: closed `real-cad-eval-set` S2 — 12 McMaster STEPs probed, 7/7 false-positive on defect head, ml_agg diverges from rule_mean; `eval_real_cad.py` gained face-count precheck + spawn-subprocess hard timeout after first run hung 12h on a 58-face flange. Opened S2 `analyze-file-occ-hang-per-check`, `defect-head-real-cad-augmentation`, S3 `real-eval-set-grow`. Full record: `docs/validation/real_eval.md`). Prior sweep 2026-05-27 (honest README rewrite + self-demo wrap: closed `readme-polish`, `brepnet-naming-fix`; opened `env-example-secret-leak` S2, `grabcad-doc-stale` S3. Prior same-session retrain closed `break-circular-label`, `degraded-to-200-retrain`, `commit-tracked-weights`). Prior sweep 2026-05-26 (hiring-manager repo review → drift diagnosis + re-prioritization; opened S1 `geometry-gen-mvp` and S2 `break-circular-label` / `degraded-to-200-retrain` / `commit-tracked-weights` / `real-cad-eval-set` / `finish-or-relabel-finetune`, S3 `brepnet-naming-fix`; downgraded `grabcad-scrape-blocked`. Full record: `docs/strategy/mecagent-gap-and-drift-2026-05-26.md`). Prior sweep 2026-05-24 (wk-3 runs to completion, eval pacing flags, apply-status reconcile).
 
 ---
 
@@ -75,9 +108,16 @@ _(items currently being worked — move from Open when started, back to Open if 
 
 ---
 
-## Done this session (2026-05-31)
+## Done this session (2026-07-19)
 
-- **geometry-gen-mvp v1** (S1, commit-1 of 3) — closed the JD-bullet-#1 gap with a typed DSL + trusted executor instead of codegen-with-sandbox (ADR `docs/adr/0001-geometry-gen-dsl-over-codegen.md`). Shipped: `simready/gen/spec.py` (Pydantic `PartSpec`/`BoxOp`/`CylOp`/`FuseOp`/`CutOp`, schema + cross-step ref validation), `simready/gen/build.py` (in-process `build_shape(spec)` + spawn-subprocess `build_part(...)` w/ `Process.terminate()` after `--build-timeout` default 15 s — same hang-protection pattern as `scripts/eval_real_cad.py`, motivated by the OCC C++ lesson), and the `build_part` tool wired into `simready/copilot/tools.py` (schema + dispatch). Defect head wired as advisory not gate (per `real_eval.md` §1 it FPs at 100 % on real CAD). **31 new tests** (17 spec + 11 build + 3 copilot-tools); full suite **198/198 sr green**. Plan: `docs/exec-plans/geometry-gen-mvp.md`. v2 (E_grammar live runner) + v3 (CLI + Streamlit panel) remain Open under the S1 stamp. *(SHA: this session's commit — see `git log`.)*
+- **wave1-truth-sweep** — 3-head `model.py` docstring, 4-tool `tools.py` docstring, `build_part` added to `DEFAULT_SYSTEM_PROMPT` (tool list + CREATE workflow rule — the prompt never mentioned the shipped tool), README scope paragraph rewritten (gen v1 exists, live-LLM eval pending), test count 167→198. *(SHA `1d5a80a`)*
+- **wave1-png-render-rename** — `simready/copilot/render.py` → `png_render.py` (+ test file), import sites updated; kills the `render`/`renderer` module-name collision. *(SHA `70b489d`)*
+- **wave1-path-anchoring** — `resolve_output_dir()` in `simready/gen/build.py` + `rag.DEFAULT_INDEX_PATH` anchored to repo root via `_REPO_ROOT`; generated parts + RAG lookups no longer depend on `Path.cwd()`. +2 tests. *(SHA `f7309a6`)*
+- **wave1-seed-rag-index** — committed `data/fea_docs_index_seed.json` (20 chunks, 0.18 MB, from `901851.pdf`); `get_default_index()` falls back to it when the full 24 MB local index is absent (explicit path/env never falls back). Fresh clones now get a live `lookup_standard` instead of `no_index`. Smoke: `ok`, 3 hits. +2 tests. *(SHA `1962c95`)*
+- **wave1-ci** — `.github/workflows/ci.yml`: `spec-fast` (pip pydantic+pytest, `tests/test_gen_spec.py`) + `full-suite` (micromamba `environment.yml` + pip deps + `torch_geometric`, `-m "not live_llm"`, `continue-on-error` until proven on linux). `live_llm` marker registered in `pytest.ini`. Suite locally 202/202 sr green. *(SHA `29589a7`)*
+- **wave1-truth-pass** — this BACKLOG restructure: never-applied correction, wave plan section, 2026-05-31 block compressed to Archived; STATE.md refreshed. *(SHA: this commit)*
+
+---
 
 ## Done this session (2026-05-28)
 
@@ -108,10 +148,12 @@ _(items currently being worked — move from Open when started, back to Open if 
 
 ## Archived (older sweeps, compressed)
 
+- **2026-05-31 · geometry-gen-mvp v1** — `fa581f0`. Typed Pydantic DSL (`simready/gen/spec.py`) + trusted executor w/ spawn-subprocess hang protection (`simready/gen/build.py`) + `build_part` tool in `simready/copilot/tools.py`; ADR 0001 locks DSL-over-codegen; defect head advisory-only; 31 new tests, 198/198 sr. v2 (live-LLM E_grammar) + v3 (CLI/Streamlit) remain Open under the S1 stamp.
+
 - **2026-05-21 · wk-3 days 15-19 scaffolding** — `4e74ff0` (7 files / 1670 ins): `synth_tool_traces.py`, `prep_finetune_dataset.py`, `finetune_copilot.ipynb` (Colab T4 QLoRA on Qwen2.5-3B), `eval_finetune.py` (6 metrics), `finetune_results.md` template, gitignore `data/fine_tune/`. `trace-format-rot` closed by design. `project_api-key-todo` memory opened. 160/160 tests, no prod-code changes.
 - **2026-05-19→20 · contrarian-review demo fixes** — `71ccacf` + `dd45eef`. Closed the 4 demo-credibility gaps: `fea-rag-corpus-empty` (rag.py API-rename + OpenBLAS-crash fixes, index rebuilt), `heal-return-step` (auto ShapeFix/ShapeUpgrade → healed-STEP download), `ml-confidence-banner` (unreliable-score banner when `face_count>200`), `self-intersection-skip-warning` (explicit "skipped N faces" finding above 150).
 
-- **2026-05-18 · apply-timeline-tight** — Application sent to MecAgent at `v0.4.0-apply` (`34a93e7`). Item obsolete.
+- **2026-05-18 · apply-timeline-tight** — CORRECTED 2026-07-19: application was NEVER sent; `v0.4.0-apply` (`34a93e7`) tagged the prep snapshot only. (The 2026-05-24 "reconciliation" that concluded it was sent is also wrong.) Apply deferred until project substantial — user decision 2026-07-19.
 - **2026-05-13 · Phase 2A bug-fix sweep** (5 items) — see commits `b689b71`..`ec4f33a`. SelfIntersection false-positive, face index 0/1 mismatch, ML weights-loaded lying, GrabCAD manifold hang guard, rule_face_count rename.
 - **2026-05-14 · Path C wk-1 ship** (6 days of work) — see commits `7212e52`..`d8fcc1f`. Copilot stack, 3 tools, RAG-lite, multi-turn loop, terminal UI, degraded-STEP generator.
 - **2026-05-16 · Wk-1 Q1/Q6/Q8 resolved** — light real-LLM smoke (`563ab6c`) validated LLM loop end-to-end on NIM Llama. No tool_choice gotcha. Slim summary respected. Day-10 sub-decisions D1=b, D2=a, D3=mock-then-smoke locked.

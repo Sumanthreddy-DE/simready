@@ -1,34 +1,35 @@
 # STATE — SimReady
 
-<!-- Machine-maintained by save-session Step 6b. Do not hand-edit. -->
+<!-- Machine-maintained by save-session Step 6b. Hand-edit 2026-07-19 authorized by user (triage session). -->
 
 Status: active
-Last touched: 2026-05-31
+Last touched: 2026-07-19
 
 ## What
-MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processing. LLM copilot over B-rep analysis pipeline + BRepSAGE (3-head GraphSAGE) defect classifier + geometry-generation DSL (`build_part` tool). Strategy doc: docs/strategy/mecagent-gap-and-drift-2026-05-26.md.
+MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processing. LLM copilot over B-rep analysis pipeline + BRepSAGE (3-head GraphSAGE) defect classifier + geometry-generation DSL (`build_part` tool). **Application NEVER sent** (`v0.4.0-apply` was prep only — corrected 2026-07-19); apply AFTER project substantial. Strategy doc: docs/strategy/mecagent-gap-and-drift-2026-05-26.md; wave plan: BACKLOG.md "Triage 2026-07-19".
 
 ## Done
-- Full pipeline + copilot, 198 tests green in sr env
+- Full pipeline + copilot, 202 tests green in sr env
 - Real-CAD OOD eval on 12 McMaster STEPs → docs/validation/real_eval.md (quantified the OOD gap)
-- geometry-gen-mvp v1: typed Pydantic DSL + trusted executor (ADR 0001) + build_part tool, 31 new tests
-- Honest README rewrite + self-demo artifacts; all pushed to origin (verified 0 0)
+- geometry-gen-mvp v1: typed Pydantic DSL + trusted executor (ADR 0001) + build_part tool
+- Honest README rewrite + self-demo artifacts
+- **Wave-1 hygiene (2026-07-19, `1d5a80a..`):** truth sweep (build_part now in system prompt), render→png_render rename, repo-root path anchoring, committed seed RAG index (lookup_standard live on clones), CI (spec-fast + micromamba full job), BACKLOG never-applied correction
 
 ## Doing
-- Nothing mid-flight — Stream A kickoff prompt ready in docs/session-prompts.md
+- Wave 2 next: gen v2 live-LLM E_grammar runner (docs/session-prompts.md Stream A) with NIM Llama-70B primary + Kimi K2.7 second backend (user adds KIMI_API_KEY to .env)
 
 ## Pipeline
-- gen v2: live-LLM E_grammar eval (tests/test_gen_e2e.py, ~90 s against NIM Llama-70B)
-- gen v3: CLI + Streamlit gen panel
-- S2: analyze-file OCC-hang per-check guard; defect-head real-CAD augmentation
-- S3: grow real_eval set 20-30 STEPs
-- User-gated: Colab T4 QLoRA finetune run; Gmsh install + calibration
+- Wave 2: gen v2 live-LLM eval → analyze-file OCC-hang per-check guard → defect-head real-CAD augmentation
+- Wave 3 (user-gated): one collaborative Colab QLoRA run (DECIDED: run once then stop); grow real_eval set 20-30 STEPs; gmsh-calibration do-or-drop
+- gen v3 (CLI + Streamlit gen panel) deferred until v2 proves the loop
+- After first push: check CI runs (`gh run list`); promote full-suite job when green (S3 ci-full-suite-promote)
 
 ## Resume here
-Paste Stream A prompt from docs/session-prompts.md → build tests/data/gen_prompts.jsonl + tests/test_gen_e2e.py → write docs/validation/geometry_gen_eval.md.
+Paste Stream A prompt from docs/session-prompts.md (gen v2). Before running: confirm KIMI_API_KEY in .env if the Kimi backend leg is wanted this session.
 
 ## Landmines
+- Memory + old BACKLOG claimed "applied to MecAgent 2026-05-18" — FALSE, never applied (corrected 2026-07-19; memory + BACKLOG fixed)
 - OCC C++ hangs are immune to Python thread timeouts — only multiprocessing Process.terminate() kills (12 h lost on a 58-face flange)
 - Defect head fires >0.95 confidence on clean real CAD — do NOT trust ML scores on real parts until augmentation done
 - tests/data/real_eval/ is gitignored (IP/size) — don't try to commit it
-- BACKLOG.md has misfiled Done entries under stale 05-26→27 header (cosmetic, lesson #10)
+- torch_geometric is NOT in requirements.txt/environment.yml (Windows wheel gotcha) — CI installs it pip-side; sr env has it manually
