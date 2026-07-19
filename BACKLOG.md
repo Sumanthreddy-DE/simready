@@ -17,11 +17,10 @@ committed seed RAG index (`lookup_standard` now live on fresh clones), CI
 (spec-fast job + micromamba full job), this truth pass.
 
 **Wave 2 — substance (next sessions, in order):**
-1. `geometry-gen-mvp` v2 (S1 stamp) — live-LLM E_grammar runner; kickoff prompt drafted
-   in `docs/session-prompts.md` Stream A. NIM Llama-70B primary baseline + **Kimi K2.6
-   second backend** (corrected 2026-07-19: user has K2.6, not K2.7; also holds GLM 5.2 +
-   MiniMax M3 keys as further options. User adds `KIMI_API_KEY` to `.env`; base_url swap
-   `https://api.moonshot.ai/v1`) — same eval, two providers.
+1. ~~`geometry-gen-mvp` v2~~ **DONE 2026-07-19** — dual-model E_grammar eval on NIM:
+   GLM 5.2 5/5, Llama-70B 3/5 (Kimi K2.6 blocked by NIM account 404 → S3; all
+   "options" keys turned out to be NIM catalog models under one `nvapi-` key, not
+   separate providers). See Done this session + `docs/validation/geometry_gen_eval.md`.
 2. `analyze-file-occ-hang-per-check` (S2) — demo killer; per-check precheck +
    subprocess isolation at UI entry points.
 3. `defect-head-real-cad-augmentation` (S2) — hardest, highest ML value.
@@ -83,12 +82,13 @@ committed seed RAG index (`lookup_standard` now live on fresh clones), CI
 
 ## Open — S1 (blocker / broken demo)
 
-- [ ] **S1 · geometry-gen-mvp** *(v1 SHIPPED 2026-05-31 — see Done; v2 + v3 remaining)* — JD bullet #1. Approach locked as a JSON DSL → trusted `build_shape(spec)` (ADR `0001-geometry-gen-dsl-over-codegen.md`), not codegen-with-sandbox. **v1 (this session): `simready/gen/{spec,build}.py` + `build_part` tool in `simready/copilot/tools.py` + 31 tests.** v2 remaining: `tests/data/gen_prompts.jsonl` (5 E_grammar prompts) + `tests/test_gen_e2e.py` live-LLM runner (mark `live_llm`, skipped in CI). v3 remaining: `scripts/simready_gen.py` CLI + Streamlit gen panel. Plan: `docs/exec-plans/geometry-gen-mvp.md`. *Opened 2026-05-26. See `docs/strategy/mecagent-gap-and-drift-2026-05-26.md` rank 5.*
+- [ ] **S1 · geometry-gen-mvp** *(v1 + v2 SHIPPED — v3 CLI remaining)* — JD bullet #1. Approach locked as a JSON DSL → trusted `build_shape(spec)` (ADR `0001-geometry-gen-dsl-over-codegen.md`), not codegen-with-sandbox. **v1 (2026-05-31): `simready/gen/{spec,build}.py` + `build_part` tool + 31 tests.** **v2 (2026-07-19): live-LLM E_grammar eval, dual-model — GLM 5.2 5/5, Llama-3.3-70B 3/5; `docs/validation/geometry_gen_eval.md`.** v3 remaining: `scripts/simready_gen.py` CLI + Streamlit gen panel. Plan: `docs/exec-plans/geometry-gen-mvp.md`. *Opened 2026-05-26. See `docs/strategy/mecagent-gap-and-drift-2026-05-26.md` rank 5.*
 
 ---
 
 ## Open — S2 (UX gap, polish, deferred decisions)
 
+- [ ] **S2 · gen-spec-orphan-step-rule** — v2.1 follow-up from the E_grammar eval: both Llama gate failures were specs whose non-final step is never referenced downstream (primitives emitted, final `fuse`/`cut` omitted → build silently returns the lone last primitive, `occ_valid: true`). `PartSpec._check_refs` validates ref indices only. Add a Pydantic rule rejecting orphan non-final steps so the bad spec bounces back to the LLM with an actionable error inside the agent loop. Cheap, directly raises gate pass rate. *Opened 2026-07-19. See `docs/validation/geometry_gen_eval.md` §2.*
 - [ ] **S2 · analyze-file-occ-hang-per-check** — `analyze_file` hung on 4/12 industrial parts at 58–578 faces during the real-CAD eval (both flanges, 1 ball-bearing-w/-flange, 1 T-slot bracket). Pre-existing `check_self_intersection` face-count guard + 30 s thread watchdog covers one check; the hang is in a different one (suspect: per-face curvature / sharp-edge / open-shell). Python thread timeouts do not stop the underlying OCC C++ (`lessons_pythonocc-gotchas.md`), so the Streamlit UI / copilot can also freeze on a real STEP upload. Identify the offending check, add a face-count / topology-density precheck per check, and prefer subprocess isolation at the UI entry points. The `eval_real_cad.py` 60 s spawn-subprocess `terminate()` is a script-level workaround, not a fix. *Opened 2026-05-28. See `docs/validation/real_eval.md` §3.*
 - [ ] **S2 · defect-head-real-cad-augmentation** — non-circular defect head fired on 7/7 presumed-clean real McMaster parts (median confidence > 0.95) despite 0.756 source-grouped val acc. Synthetic-only positives (`open_shell`/`sliver_face`/`self_intersection` from `generate_degraded_steps.py`) do not cover real-CAD feature distributions (NURBS density, manufactured fillets/chamfers/drafts, knurls, tight aspect ratios). Need either a small hand-labelled real-CAD positive set or a domain-randomization step in the degradation generator that varies NURBS-density / fillet-radius / draft-angle instead of fixed-magnitude geometry hacks. Without this, the held-out FP-rate (currently 100 %) is the ceiling. *Opened 2026-05-28. See `docs/validation/real_eval.md` §1.*
 - [ ] **S2 · finish-or-relabel-finetune** *(user runs Colab)* — notebook never ran (0 executed cells); table columns empty. Either run the QLoRA notebook once to fill the table (upload train/val.jsonl to Drive, T4, Run All) OR relabel everything "pipeline, not result" and stop investing. *Opened 2026-05-26. Rank 3.*
@@ -101,6 +101,8 @@ committed seed RAG index (`lookup_standard` now live on fresh clones), CI
 
 - [ ] **S3 · real-eval-set-grow** — n=7 (post-skip / post-timeout) is too small for a defensible held-out metric. Add 20–30 more real STEPs that survive the analyze guard (avoid dense flange / bearing NURBS for now, or wait for `analyze-file-occ-hang-per-check`). Use defect-head FP-rate as the primary held-out metric, not "accuracy" (no labels). *Opened 2026-05-28. See `docs/validation/real_eval.md` §4.*
 - [ ] **S3 · base-vs-env-marker-split** — Two-Python-env reality (base 3.12 vs `C:\mm\sr` 3.10) keeps confusing tests. Add `pytest -m base` vs `pytest -m occ` marker split + a Makefile/PS shortcut. Less acute now that env is verified working, but the gotcha remains. *Opened 2026-05-14 (wk-1 Q5).*
+- [ ] **S3 · kimi-k26-nim-404** — `moonshotai/kimi-k2.6` listed in the account's NIM `/v1/models` catalog but every invoke (incl. plain no-tools completion, 3 retries) returns `404 Function '23d4f03a-…' not found for account` — NVIDIA-side serverless provisioning gap. GLM 5.2 substituted for the v2 eval second leg (user-approved); MiniMax M3 + DeepSeek V4-flash verified invocable as further options. Re-probe k2.6 later; if it wakes, re-run `tests/test_gen_e2e.py` for a third leg. NOTE: KIMI_API_KEY in `.env` is an `nvapi-` key (build.nvidia.com), not a Moonshot key — Moonshot-direct base_url is not an option with current keys. *Opened 2026-07-19.*
+- [ ] **S3 · gen-eval-latency** — E_grammar prompts ran 40–143 s wall (plan budget ~60 s; 8/10 first runs over). Build path is fine; the analyze path does demo-grade work per eval call (in-process BRepSAGE + PNG render + STEP heal + first-call torch/embedder loads). Levers: persistent build worker (v1 plan risk note), `render_image=False` slim mode for eval callers, subprocess isolation from `analyze-file-occ-hang-per-check`. *Opened 2026-07-19. See `geometry_gen_eval.md` §3.*
 - [ ] **S3 · adr-backlog** — Write 2–3 ADRs under `docs/adr/` for Path C decisions that will be hard to reconstruct in 6 months: (1) OpenAI-compatible SDK over Anthropic-native (why `base_url` swap matters), (2) RAG-lite JSON + cosine over a vector DB (corpus size assumption), (3) multi-turn loop pattern w/ `AgentResponse.messages` round-trip. Useful for the interview narrative. *Opened 2026-05-17.*
 
 ---
@@ -113,6 +115,7 @@ _(items currently being worked — move from Open when started, back to Open if 
 
 ## Done this session (2026-07-19)
 
+- **geometry-gen-v2** (S1 part) — live-LLM E_grammar runner shipped: `tests/data/gen_prompts.jsonl` (5 archetype prompts w/ face ranges) + `tests/test_gen_e2e.py` (full CopilotAgent loop, `live_llm` mark + env-gated module skip, API key via `OPENAI_API_KEY_VAR` indirection, per-prompt records to gitignored `data/gen_eval/`). Two legs on NIM: **GLM 5.2 5/5**, **Llama-3.3-70B 3/5** (dropped-boolean failure mode; l_bracket systematic 0/2, small_feature_box stochastic 1/2). Kimi K2.6 blocked by NIM account 404 → S3 `kimi-k26-nim-404`; opened S2 `gen-spec-orphan-step-rule` + S3 `gen-eval-latency`. Full record: `docs/validation/geometry_gen_eval.md`. *(SHA: this commit)*
 - **wave1-truth-sweep** — 3-head `model.py` docstring, 4-tool `tools.py` docstring, `build_part` added to `DEFAULT_SYSTEM_PROMPT` (tool list + CREATE workflow rule — the prompt never mentioned the shipped tool), README scope paragraph rewritten (gen v1 exists, live-LLM eval pending), test count 167→198. *(SHA `1d5a80a`)*
 - **wave1-png-render-rename** — `simready/copilot/render.py` → `png_render.py` (+ test file), import sites updated; kills the `render`/`renderer` module-name collision. *(SHA `70b489d`)*
 - **wave1-path-anchoring** — `resolve_output_dir()` in `simready/gen/build.py` + `rag.DEFAULT_INDEX_PATH` anchored to repo root via `_REPO_ROOT`; generated parts + RAG lookups no longer depend on `Path.cwd()`. +2 tests. *(SHA `f7309a6`)*

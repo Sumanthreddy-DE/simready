@@ -42,6 +42,10 @@ data/copilot_sessions/
 # spec JSON in conversation transcripts).
 data/gen_parts/
 
+# geometry-gen v2 — raw per-prompt eval records from tests/test_gen_e2e.py
+# (canonical numbers live in docs/validation/geometry_gen_eval.md)
+data/gen_eval/
+
 # Path C wk-1 day 6 — degraded-synthetic STEPs (regenerate via scripts/generate_degraded_steps.py)
 data/parametric_degraded/
 

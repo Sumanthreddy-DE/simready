@@ -14,18 +14,20 @@ MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processi
 - geometry-gen-mvp v1: typed Pydantic DSL + trusted executor (ADR 0001) + build_part tool
 - Honest README rewrite + self-demo artifacts
 - **Wave-1 hygiene (2026-07-19, `1d5a80a..`):** truth sweep (build_part now in system prompt), render→png_render rename, repo-root path anchoring, committed seed RAG index (lookup_standard live on clones), CI (spec-fast + micromamba full job), BACKLOG never-applied correction
+- **geometry-gen v2 (2026-07-19):** live-LLM E_grammar eval, dual-model on NIM — GLM 5.2 **5/5**, Llama-3.3-70B **3/5** (dropped-boolean failure mode). Kimi K2.6 blocked by NIM account 404 (S3). docs/validation/geometry_gen_eval.md
 
 ## Doing
-- Wave 2 next: gen v2 live-LLM E_grammar runner (docs/session-prompts.md Stream A) with NIM Llama-70B primary + Kimi K2.6 second backend (user adds KIMI_API_KEY to .env; GLM 5.2 + MiniMax M3 keys also available)
+- Wave 2 item 2 next: analyze-file-occ-hang-per-check (S2) — per-check precheck + subprocess isolation at UI entry points
 
 ## Pipeline
-- Wave 2: gen v2 live-LLM eval → analyze-file OCC-hang per-check guard → defect-head real-CAD augmentation
+- Wave 2 remaining: analyze-file OCC-hang per-check guard → defect-head real-CAD augmentation
+- gen v2.1: orphan-step Pydantic rule (S2, cheap — would have caught both Llama failures); re-probe kimi-k2.6 on NIM (S3)
 - Wave 3 (user-gated): one collaborative Colab QLoRA run (DECIDED: run once then stop); grow real_eval set 20-30 STEPs; gmsh-calibration do-or-drop
 - gen v3 (CLI + Streamlit gen panel) deferred until v2 proves the loop
 - CI proven 2026-07-19: full-suite ran 190/192 on linux first try; 2 local-data tests now skip-if-absent; continue-on-error dropped (ci-full-suite-promote CLOSED)
 
 ## Resume here
-Push c57709c if unpushed (verify 0 0), then paste Stream C prompt from docs/session-prompts.md (gen v2 dual-provider; Stream A superseded). Confirm exact Kimi K2.6 model id with user before the Kimi leg.
+Gen v2 shipped 2026-07-19 (Stream C CONSUMED). Push the v2 commit if unpushed (verify 0 0), confirm CI green, then start wave-2 item 2: analyze-file-occ-hang-per-check (BACKLOG S2). Quick win available first: gen-spec-orphan-step-rule (S2).
 
 ## Landmines
 - Memory + old BACKLOG claimed "applied to MecAgent 2026-05-18" — FALSE, never applied (corrected 2026-07-19; memory + BACKLOG fixed)

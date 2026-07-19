@@ -1,0 +1,5 @@
+{"id": "normal_box", "prompt": "Create a solid rectangular block, 60 mm long, 40 mm wide and 30 mm tall.", "expect": {"faces": [6, 6]}}
+{"id": "thin_plate", "prompt": "Create a thin flat plate: 100 mm by 80 mm, only 0.5 mm thick.", "expect": {"faces": [6, 6]}}
+{"id": "l_bracket", "prompt": "Create an L-bracket: a horizontal base plate 60 x 60 x 10 mm, fused with a vertical upright wall that is 60 mm long, 10 mm thick and 50 mm tall, standing on top of the base along one edge.", "expect": {"faces": [10, 18]}}
+{"id": "bracket_with_hole", "prompt": "Create a mounting bracket: an 80 x 60 x 10 mm rectangular plate with a single 10 mm diameter hole drilled straight through the middle of the plate.", "expect": {"faces": [6, 10]}}
+{"id": "small_feature_box", "prompt": "Create a 60 x 60 x 30 mm block with one tiny 1 mm diameter pin hole drilled all the way through it, near the center of the top face.", "expect": {"faces": [6, 10]}}

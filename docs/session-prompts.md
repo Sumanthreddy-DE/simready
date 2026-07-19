@@ -108,7 +108,7 @@ Caveman mode ON (chat terse; code/commits normal).
 
 ## Stream C — Wave 2 kickoff: geometry-gen v2, dual-provider (NIM + Kimi K2.6)
 
-- **Status:** Ready to paste (drafted 2026-07-19, after wave-1 hygiene batch `1d5a80a..b5d4070`).
+- **Status:** CONSUMED 2026-07-19 — shipped `gen_prompts.jsonl` + `test_gen_e2e.py` + `docs/validation/geometry_gen_eval.md`. Outcome: GLM 5.2 **5/5**, Llama-3.3-70B **3/5** (dropped-boolean failure mode). Deviations from this prompt: Kimi K2.6 never ran — the "Kimi key" is an `nvapi-` build.nvidia.com key and NIM 404s the k2.6 function for this account (S3 `kimi-k26-nim-404`); second leg swapped to `z-ai/glm-5.2` on NIM with user approval, so both legs are model-swap on one endpoint, not cross-provider. Follow-ups opened: S2 `gen-spec-orphan-step-rule`, S3 `gen-eval-latency`.
 - **Predecessor:** wave-1 session of 2026-07-19 (truth sweep, png_render rename, path
   anchoring, seed RAG index, CI both-jobs-green, never-applied correction). Supersedes
   Stream A (assumptions updated).
