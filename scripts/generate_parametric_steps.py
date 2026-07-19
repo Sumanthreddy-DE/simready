@@ -21,7 +21,11 @@ from pathlib import Path
 
 try:
     from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Cut, BRepAlgoAPI_Fuse
+    from OCC.Core.BRepFilletAPI import BRepFilletAPI_MakeChamfer, BRepFilletAPI_MakeFillet
     from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeBox, BRepPrimAPI_MakeCylinder
+    from OCC.Core.TopAbs import TopAbs_EDGE
+    from OCC.Core.TopExp import TopExp_Explorer
+    from OCC.Core.TopoDS import topods
     from OCC.Core.gp import gp_Ax2, gp_Dir, gp_Pnt
     from OCC.Core.STEPControl import STEPControl_AsIs, STEPControl_Writer
 except ImportError as exc:  # pragma: no cover
@@ -102,6 +106,51 @@ def gen_box_with_small_feature(rng: random.Random):
     return BRepAlgoAPI_Cut(body, pin).Shape()
 
 
+def apply_random_features(
+    shape,
+    rng: random.Random,
+    fillet_prob: float = 0.0,
+    chamfer_prob: float = 0.0,
+    radius_range: tuple[float, float] = (1.0, 4.0),
+):
+    """Randomly fillet/chamfer edges so 'clean' training geometry carries
+    manufactured features (real-CAD FP fix — see docs/validation/real_eval.md §1).
+
+    Per-edge Bernoulli draws; any OCC failure (tangency, radius exceeding
+    local size) falls back to the previous good shape so generation never
+    aborts. Feature probability must stay independent of the defect label
+    downstream — degraded variants are generated FROM featured cleans.
+    """
+    for prob, maker_cls in (
+        (fillet_prob, BRepFilletAPI_MakeFillet),
+        (chamfer_prob, BRepFilletAPI_MakeChamfer),
+    ):
+        if prob <= 0.0:
+            continue
+        try:
+            maker = maker_cls(shape)
+            n_added = 0
+            explorer = TopExp_Explorer(shape, TopAbs_EDGE)
+            while explorer.More():
+                if rng.random() < prob:
+                    radius = rng.uniform(*radius_range)
+                    try:
+                        maker.Add(radius, topods.Edge(explorer.Current()))
+                        n_added += 1
+                    except Exception:
+                        pass
+                explorer.Next()
+            if n_added:
+                maker.Build()
+                if maker.IsDone():
+                    candidate = maker.Shape()
+                    if candidate is not None and not candidate.IsNull():
+                        shape = candidate
+        except Exception:
+            pass  # keep the previous good shape
+    return shape
+
+
 CATEGORIES = {
     "normal_box": gen_normal_box,
     "thin_plate": gen_thin_plate,
@@ -117,6 +166,10 @@ def main() -> int:
     parser.add_argument("--per-category", type=int, default=100)
     parser.add_argument("--seed", type=int, default=20260513)
     parser.add_argument("--categories", nargs="*", choices=sorted(CATEGORIES.keys()), default=None)
+    parser.add_argument("--fillet-prob", type=float, default=0.0,
+                        help="Per-edge probability of a random fillet (default 0 = off)")
+    parser.add_argument("--chamfer-prob", type=float, default=0.0,
+                        help="Per-edge probability of a random chamfer (default 0 = off)")
     args = parser.parse_args()
 
     args.output.mkdir(parents=True, exist_ok=True)
@@ -130,6 +183,12 @@ def main() -> int:
         for index in range(args.per_category):
             try:
                 shape = gen(rng)
+                if args.fillet_prob > 0.0 or args.chamfer_prob > 0.0:
+                    shape = apply_random_features(
+                        shape, rng,
+                        fillet_prob=args.fillet_prob,
+                        chamfer_prob=args.chamfer_prob,
+                    )
             except Exception as exc:
                 print(f"[skip] {category}#{index}: gen raised {exc}", file=sys.stderr)
                 skipped += 1
