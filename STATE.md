@@ -25,7 +25,7 @@ MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processi
 - CI proven 2026-07-19: full-suite ran 190/192 on linux first try; 2 local-data tests now skip-if-absent; continue-on-error dropped (ci-full-suite-promote CLOSED)
 
 ## Resume here
-Paste Stream A prompt from docs/session-prompts.md (gen v2). Before running: confirm KIMI_API_KEY in .env if the Kimi backend leg is wanted this session.
+Push c57709c if unpushed (verify 0 0), then paste Stream C prompt from docs/session-prompts.md (gen v2 dual-provider; Stream A superseded). Confirm exact Kimi K2.6 model id with user before the Kimi leg.
 
 ## Landmines
 - Memory + old BACKLOG claimed "applied to MecAgent 2026-05-18" — FALSE, never applied (corrected 2026-07-19; memory + BACKLOG fixed)
