@@ -188,6 +188,80 @@ Caveman mode ON (chat terse; code/commits normal).
 
 ---
 
+## Stream D — Wave 3: user-gated closures + apply decision
+
+- **Status:** Ready to paste (drafted 2026-07-19, after wave-2 completion `b62fc9e..2e04391`).
+- **Predecessor:** wave-2 session of 2026-07-19 (gen v2 dual-model eval, OCC-hang diagnosis+fix, defect-head augmentation honest negative). Suite 220/220 sr + 5 live deselected; CI green; all pushed.
+- **Why next:** BACKLOG "Triage 2026-07-19" wave 3. Everything left is either user-gated (Colab, downloads, decisions) or small dev polish. The strategic question wave 3 must answer: the project is now arguably substantial — **decide on applying to MecAgent and, if go, actually send it.**
+
+```
+Work on SimReady. Wave 3: user-gated closures + polish + THE APPLY DECISION.
+Wave 2 is complete and pushed (CI green at 2e04391): gen v2 live-LLM eval
+(GLM 5.2 5/5, Llama-70B 3/5), OCC-hang fixed (analyze_file_safe everywhere,
+real-eval coverage 11/12, 0 errors), defect-head augmentation attempt =
+recorded honest negative (real-CAD FP 11/11; synthetic lever exhausted).
+
+First read (in this order):
+1. BACKLOG.md — Triage wave-3 block + Open S2/S3 (note: defect-head item
+   carries the 2026-07-19 findings; do NOT re-attempt synthetic augmentation)
+2. STATE.md — Done/Pipeline/Landmines
+3. docs/validation/defect_classifier.md (v2 section) + real_eval_v2.md +
+   occ_hang_diagnosis.md + geometry_gen_eval.md — the four evidence docs
+4. docs/strategy/mecagent-gap-and-drift-2026-05-26.md — re-read the JD table
+   with wave-2 eyes; most "Gap" cells are now closed or honestly measured
+5. memory project_simready.md CURRENT STATE 2026-07-19 block
+
+Work items, in order:
+
+A. gen-spec-orphan-step-rule (S2, dev, ~30 min — do first while user works
+   in parallel): Pydantic rule in simready/gen/spec.py rejecting specs where
+   a non-final step is never referenced downstream. Would have bounced both
+   Llama E_grammar failures back into the agent loop. TDD; then OPTIONALLY
+   re-run the Llama leg of tests/test_gen_e2e.py (env recipe in Stream C /
+   geometry_gen_eval.md) to see if 3/5 -> 5/5; update eval doc + BACKLOG.
+
+B. Collaborative Colab QLoRA run (user-gated; DECIDED 2026-07-19: run ONCE,
+   then stop investing regardless of result): assistant validates
+   train/val.jsonl + walks user through notebooks/finetune_copilot.ipynb
+   (T4, Run All); capture numbers into docs/finetune_results.md; relabel
+   "pipeline, not result" if the run disappoints. Do not iterate.
+
+C. real-eval-set-grow (S3, user-gated): user downloads 20-30 more McMaster/
+   GrabCAD STEPs into tests/data/real_eval/. UNBLOCKED since wave 2 — dense
+   flanges no longer kill the pipeline (freeform skip + analyze_file_safe),
+   so no need to avoid NURBS-heavy parts anymore. Then rerun
+   scripts/eval_real_cad.py --analyze-timeout 90 (write to real_eval_v2.md
+   or a v3 file — do NOT clobber the hand-edited real_eval.md) and report
+   defect-head FP rate on the larger n.
+
+D. gmsh-calibration (S2): do-or-drop DECISION with the user. If drop,
+   move to Archived with one line of reasoning. Stop carrying it.
+
+E. THE APPLY DECISION (main event): with wave 2 done the repo has a live
+   generate->analyze loop with dual-model eval, a hang-proof pipeline, an
+   honest OOD story, CI, 220 tests. Contrarian default: this IS substantial;
+   further polish has diminishing returns vs applying. Walk the JD table
+   (strategy doc) row by row, decide go/no-go WITH the user, and if go:
+   refresh README numbers (test count 220, wave-2 results), draft the
+   application narrative around the honest-eval discipline (the recorded
+   negative is a STRENGTH — tell it that way), and the user sends it.
+   Record the outcome in STATE.md + memory (external-world event — only
+   the user's confirmation counts, per lessons_verification-claims.md).
+
+Deferred (do NOT pick up unless user asks): gen v3 CLI/Streamlit panel,
+persistent-worker latency fix (S3 gen-eval-latency), kimi-k26 re-probe (S3),
+defect-head grammar extension / real-CAD labels (S2, findings recorded).
+
+Env (sr, PowerShell): $env:PYTHONPATH = "C:\Users\suman\Desktop\Docs\Job\Projects\Mech\SimReady"
+Suite: & C:\mm\sr\python.exe -m pytest -q   (expect 220 passed, 5 deselected;
+live_llm needs -m live_llm + OPENAI_* env per Stream C)
+Push is hook-blocked: commit, hand push line to user, verify 0 0 + CI.
+
+Caveman mode ON (chat terse; code/commits normal).
+```
+
+---
+
 ## Stream B — Sibling-session mid-turn pickup (CONSUMED)
 
 - **Status:** CONSUMED 2026-05-31 — produced commits `849449a` (real-CAD OOD eval + `eval_real_cad.py` hang-proofing) and `fa581f0` (geometry-gen-mvp v1). All "still open" items in the prompt below are now done.

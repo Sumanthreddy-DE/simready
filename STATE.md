@@ -29,7 +29,7 @@ MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processi
 - CI proven 2026-07-19: full-suite ran 190/192 on linux first try; 2 local-data tests now skip-if-absent; continue-on-error dropped (ci-full-suite-promote CLOSED)
 
 ## Resume here
-Wave 2 complete 2026-07-19 (gen v2 + OCC-hang fix + augmentation attempt w/ honest negative). Push if unpushed (verify 0 0), confirm CI green. Next candidates: gen-spec-orphan-step-rule (S2 quick win), gen v3 CLI, or wave-3 user-gated items (Colab QLoRA run, real-eval set growth).
+Wave 2 complete + pushed + CI green (2026-07-19, `b62fc9e..2e04391`). Paste **Stream D** from docs/session-prompts.md (wave 3: orphan-step rule quick win → Colab QLoRA once → real-eval growth → gmsh do-or-drop → **THE APPLY DECISION**). Main event is E: decide go/no-go on MecAgent application with wave-2 evidence in hand.
 
 ## Landmines
 - Memory + old BACKLOG claimed "applied to MecAgent 2026-05-18" — FALSE, never applied (corrected 2026-07-19; memory + BACKLOG fixed)
