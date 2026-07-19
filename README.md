@@ -203,7 +203,7 @@ has been trained** (see Roadmap), so the base and LoRA columns are empty by desi
 ```
 simready/        cli · pipeline · validator · healer · checks · occ_utils · report · html_report
   ml/            graph_extractor · model (BRepSAGE) · brepnet (dual-backend) · combiner · dataset
-  copilot/       agent (tool-use loop) · tools · rag · cli · render
+  copilot/       agent (tool-use loop) · tools · rag · cli · renderer (CLI) · png_render
 ui/              app.py (analysis) · copilot_app.py (agent chat)
 scripts/         train · evaluate · auto_label · generate_parametric_steps · generate_degraded_steps
                  · prep_finetune_dataset · eval_finetune · scrape_fea_docs · index_fea_docs · …

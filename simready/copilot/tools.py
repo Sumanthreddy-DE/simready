@@ -203,7 +203,7 @@ def analyze_geometry(
 def _maybe_render_png(step_path: str, full_report: dict[str, Any]) -> Path | None:
     """Best-effort PNG render. Returns None silently on any failure."""
     try:
-        from simready.copilot.render import render_face_score_png
+        from simready.copilot.png_render import render_face_score_png
     except ImportError:
         return None
     scores = full_report.get("combined_per_face_scores") or {}

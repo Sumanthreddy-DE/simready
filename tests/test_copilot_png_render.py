@@ -14,16 +14,16 @@ from pathlib import Path
 
 import pytest
 
-from simready.copilot import render, tools
+from simready.copilot import png_render, tools
 
 
 def test_color_for_score_thresholds() -> None:
-    assert render.color_for_score(0.0) == render._GREEN
-    assert render.color_for_score(0.39) == render._GREEN
-    assert render.color_for_score(0.4) == render._AMBER
-    assert render.color_for_score(0.74) == render._AMBER
-    assert render.color_for_score(0.75) == render._RED
-    assert render.color_for_score(1.0) == render._RED
+    assert png_render.color_for_score(0.0) == png_render._GREEN
+    assert png_render.color_for_score(0.39) == png_render._GREEN
+    assert png_render.color_for_score(0.4) == png_render._AMBER
+    assert png_render.color_for_score(0.74) == png_render._AMBER
+    assert png_render.color_for_score(0.75) == png_render._RED
+    assert png_render.color_for_score(1.0) == png_render._RED
 
 
 def test_save_png_writes_file(tmp_path: Path) -> None:
@@ -33,8 +33,8 @@ def test_save_png_writes_file(tmp_path: Path) -> None:
         [(0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.5, 1.0, 0.0)],
         [(0.0, 0.0, 1.0), (1.0, 0.0, 1.0), (0.5, 1.0, 1.0)],
     ]
-    colors = [render._GREEN, render._RED]
-    result = render._save_png(tris, colors, out, width=400, height=300)
+    colors = [png_render._GREEN, png_render._RED]
+    result = png_render._save_png(tris, colors, out, width=400, height=300)
     assert result == out
     assert out.exists()
     assert out.stat().st_size > 200  # nontrivial PNG (header + IDAT)
@@ -43,15 +43,15 @@ def test_save_png_writes_file(tmp_path: Path) -> None:
 def test_save_png_returns_none_on_empty_tris(tmp_path: Path) -> None:
     pytest.importorskip("PIL")
     out = tmp_path / "empty.png"
-    assert render._save_png([], [], out, width=400, height=300) is None
+    assert png_render._save_png([], [], out, width=400, height=300) is None
     assert not out.exists()
 
 
 def test_project_isometric_is_deterministic() -> None:
     # Same input -> same output; different points -> distinct projections.
-    p1 = render._project_isometric((1.0, 2.0, 3.0))
-    p2 = render._project_isometric((1.0, 2.0, 3.0))
-    p3 = render._project_isometric((1.0, 2.0, 4.0))
+    p1 = png_render._project_isometric((1.0, 2.0, 3.0))
+    p2 = png_render._project_isometric((1.0, 2.0, 3.0))
+    p3 = png_render._project_isometric((1.0, 2.0, 4.0))
     assert p1 == p2
     assert p1 != p3
     # Depth must move when z moves.
@@ -84,10 +84,10 @@ def test_analyze_geometry_attaches_image_path(monkeypatch, tmp_path: Path) -> No
         return fake_png
 
     monkeypatch.setattr(tools, "analyze_file", _fake_analyze)
-    monkeypatch.setattr(render, "render_face_score_png", _fake_render)
+    monkeypatch.setattr(png_render, "render_face_score_png", _fake_render)
     # tools._maybe_render_png imports render lazily — patch the symbol it imports.
     monkeypatch.setattr(
-        "simready.copilot.render.render_face_score_png", _fake_render
+        "simready.copilot.png_render.render_face_score_png", _fake_render
     )
 
     result = tools.analyze_geometry(str(step))
@@ -137,7 +137,7 @@ def test_analyze_geometry_render_missing_silently(monkeypatch, tmp_path: Path) -
 
     monkeypatch.setattr(tools, "analyze_file", _fake_analyze)
     monkeypatch.setattr(
-        "simready.copilot.render.render_face_score_png",
+        "simready.copilot.png_render.render_face_score_png",
         lambda **kw: None,
     )
     result = tools.analyze_geometry(str(step))
