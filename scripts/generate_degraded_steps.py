@@ -258,7 +258,8 @@ def main(argv: list[str] | None = None) -> int:
               file=sys.stderr)
         return 1
 
-    inputs = sorted(args.input.glob("*.step")) + sorted(args.input.glob("*.STEP"))
+    # Case-insensitive FS (Windows): *.step and *.STEP return the same files — dedupe.
+    inputs = sorted({p.resolve() for p in (*args.input.glob("*.step"), *args.input.glob("*.STEP"))})
     if args.max_inputs > 0:
         inputs = inputs[: args.max_inputs]
     if not inputs:
