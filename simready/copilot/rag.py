@@ -35,7 +35,9 @@ import numpy as np
 DEFAULT_MODEL_NAME = os.environ.get(
     "SIMREADY_RAG_MODEL", "sentence-transformers/all-MiniLM-L6-v2"
 )
-DEFAULT_INDEX_PATH = Path("data/fea_docs_index.json")
+# Anchored to the repo root so lookups work regardless of process cwd.
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_INDEX_PATH = _REPO_ROOT / "data" / "fea_docs_index.json"
 
 
 class Embedder(Protocol):

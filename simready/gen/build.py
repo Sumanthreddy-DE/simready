@@ -50,6 +50,22 @@ except ImportError:  # pragma: no cover — base env without pythonocc
 DEFAULT_OUTPUT_DIR = Path("data/gen_parts")
 DEFAULT_BUILD_TIMEOUT_S = 15.0
 
+# Anchor generated parts to the repo root regardless of process cwd —
+# Streamlit / installed-package launches don't run from the repo root.
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def resolve_output_dir(
+    output_dir: str | os.PathLike[str] | None,
+    repo_root: str | os.PathLike[str] | None,
+) -> Path:
+    """Pick the directory generated STEPs land in. Explicit args win; the
+    default is ``<repo>/data/gen_parts`` independent of ``Path.cwd()``."""
+    if output_dir is not None:
+        return Path(output_dir)
+    root = Path(repo_root) if repo_root is not None else _REPO_ROOT
+    return root / DEFAULT_OUTPUT_DIR
+
 
 # ----------------------------------------------------------------------------
 # In-process executor
@@ -187,8 +203,7 @@ def build_part(
             "error": f"{type(exc).__name__}: {exc}",
         }
 
-    root = Path(repo_root) if repo_root is not None else Path.cwd()
-    out_dir = Path(output_dir) if output_dir is not None else root / DEFAULT_OUTPUT_DIR
+    out_dir = resolve_output_dir(output_dir, repo_root)
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / f"gen_{uuid.uuid4().hex[:12]}.step"
 

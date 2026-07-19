@@ -155,3 +155,27 @@ def test_build_part_rejects_empty_steps_in_parent():
     result = build_part({"steps": []}, timeout_s=60)
     assert result["schema_valid"] is False
     assert "error" in result
+
+
+# ----------------------------------------------------------------------------
+# resolve_output_dir — pure path logic (no OCC use, but module import needs it
+# via the file-level importorskip above, so these still run only under sr)
+# ----------------------------------------------------------------------------
+
+
+def test_resolve_output_dir_ignores_cwd(tmp_path, monkeypatch):
+    """Default output dir is anchored to the repo root, not the process cwd."""
+    from simready.gen.build import resolve_output_dir
+
+    monkeypatch.chdir(tmp_path)
+    resolved = resolve_output_dir(None, None)
+    assert resolved.is_absolute()
+    assert str(tmp_path) not in str(resolved)
+    assert resolved.parts[-2:] == ("data", "gen_parts")
+
+
+def test_resolve_output_dir_explicit_wins(tmp_path):
+    from simready.gen.build import resolve_output_dir
+
+    explicit = tmp_path / "out"
+    assert resolve_output_dir(explicit, None) == explicit
