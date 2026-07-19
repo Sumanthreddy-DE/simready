@@ -18,8 +18,9 @@ committed seed RAG index (`lookup_standard` now live on fresh clones), CI
 
 **Wave 2 — substance (next sessions, in order):**
 1. `geometry-gen-mvp` v2 (S1 stamp) — live-LLM E_grammar runner; kickoff prompt drafted
-   in `docs/session-prompts.md` Stream A. NIM Llama-70B primary baseline + **Kimi K2.7
-   second backend** (user adds `KIMI_API_KEY` to `.env`; base_url swap
+   in `docs/session-prompts.md` Stream A. NIM Llama-70B primary baseline + **Kimi K2.6
+   second backend** (corrected 2026-07-19: user has K2.6, not K2.7; also holds GLM 5.2 +
+   MiniMax M3 keys as further options. User adds `KIMI_API_KEY` to `.env`; base_url swap
    `https://api.moonshot.ai/v1`) — same eval, two providers.
 2. `analyze-file-occ-hang-per-check` (S2) — demo killer; per-check precheck +
    subprocess isolation at UI entry points.
@@ -31,9 +32,11 @@ committed seed RAG index (`lookup_standard` now live on fresh clones), CI
 - `real-eval-set-grow` (S3) — user downloads 20–30 STEPs.
 - `gmsh-calibration` (S2) — do-or-drop decision still open.
 - NIM key: rotated (user confirmed 2026-07-19).
-- [ ] **S3 · ci-full-suite-promote** — after first push, check `gh run list`; once the
-  micromamba `full-suite` job is green, drop `continue-on-error` in
-  `.github/workflows/ci.yml`. Record the failure mode here if it's red. *Opened 2026-07-19.*
+- [x] **S3 · ci-full-suite-promote** — CLOSED same day. First run: env resolved on
+  linux-64, 190 passed / 2 failed / 4 skipped in 14.6 s. Both failures were
+  `tests/test_copilot_ui.py` demo-step tests asserting on gitignored local data
+  (`data/parametric_degraded/`, `tests/data/grabcad/`) — now skip-if-absent.
+  `continue-on-error` dropped. *Opened + closed 2026-07-19.*
 
 ---
 

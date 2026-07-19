@@ -16,13 +16,13 @@ MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processi
 - **Wave-1 hygiene (2026-07-19, `1d5a80a..`):** truth sweep (build_part now in system prompt), render→png_render rename, repo-root path anchoring, committed seed RAG index (lookup_standard live on clones), CI (spec-fast + micromamba full job), BACKLOG never-applied correction
 
 ## Doing
-- Wave 2 next: gen v2 live-LLM E_grammar runner (docs/session-prompts.md Stream A) with NIM Llama-70B primary + Kimi K2.7 second backend (user adds KIMI_API_KEY to .env)
+- Wave 2 next: gen v2 live-LLM E_grammar runner (docs/session-prompts.md Stream A) with NIM Llama-70B primary + Kimi K2.6 second backend (user adds KIMI_API_KEY to .env; GLM 5.2 + MiniMax M3 keys also available)
 
 ## Pipeline
 - Wave 2: gen v2 live-LLM eval → analyze-file OCC-hang per-check guard → defect-head real-CAD augmentation
 - Wave 3 (user-gated): one collaborative Colab QLoRA run (DECIDED: run once then stop); grow real_eval set 20-30 STEPs; gmsh-calibration do-or-drop
 - gen v3 (CLI + Streamlit gen panel) deferred until v2 proves the loop
-- After first push: check CI runs (`gh run list`); promote full-suite job when green (S3 ci-full-suite-promote)
+- CI proven 2026-07-19: full-suite ran 190/192 on linux first try; 2 local-data tests now skip-if-absent; continue-on-error dropped (ci-full-suite-promote CLOSED)
 
 ## Resume here
 Paste Stream A prompt from docs/session-prompts.md (gen v2). Before running: confirm KIMI_API_KEY in .env if the Kimi backend leg is wanted this session.

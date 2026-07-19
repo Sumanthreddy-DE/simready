@@ -18,10 +18,10 @@ jobs:
       - run: pytest tests/test_gen_spec.py -q
 
   full-suite:
-    # Full sr-equivalent env via micromamba. continue-on-error until proven
-    # stable on linux-64 (environment.yml was authored on Windows).
+    # Full sr-equivalent env via micromamba (proven on linux-64: first run
+    # resolved and passed 190/192 in 14.6 s; the 2 failures were tests that
+    # asserted on gitignored local data and now skip when it's absent).
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: mamba-org/setup-micromamba@v2
