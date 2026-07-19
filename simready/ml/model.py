@@ -1,9 +1,11 @@
 """PyG GraphSAGE multi-task per-face model for B-Rep analysis.
 
-Two heads on a shared GraphSAGE encoder:
+Three heads on a shared GraphSAGE encoder:
 
-- `refinement_logits`  — per-face binary classification (rule-derived label).
+- `refinement_logits`  — per-face binary classification (rule-derived label — circular).
 - `complexity_scores`  — per-face scalar regression (graph-feature proxy in [0, 1]).
+- `defect_logits`      — graph-level 4-class defect classifier (injected ground-truth
+  tags from generate_degraded_steps.py — non-circular).
 
 Designed for CPU training on the parametric SimReady dataset (~500 graphs).
 Keep the model small so 5-10 epochs are seconds on CPU.

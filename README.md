@@ -4,9 +4,12 @@ An AI copilot for FEA pre-processing. Point it at a STEP file; it analyzes B-Rep
 geometry for meshing/manufacturability problems, scores simulation-readiness 0–100,
 and explains the findings through a multi-turn LLM agent.
 
-**Scope: analysis and validation only.** SimReady reads geometry and reports on it —
-it does *not* generate or modify CAD (healing is a best-effort OCC ShapeFix pass, not a
-design edit). Geometry generation is on the roadmap, not built.
+**Scope: analysis and validation, plus early constrained generation.** SimReady reads
+geometry and reports on it (healing is a best-effort OCC ShapeFix pass, not a design
+edit). Generation exists as a v1 MVP: the agent's `build_part` tool materializes a typed
+box/cyl/fuse/cut spec into a STEP file (no LLM code is executed — see
+`docs/adr/0001-geometry-gen-dsl-over-codegen.md`). The end-to-end generate→analyze loop
+has not yet been evaluated against a live LLM.
 
 ## Capabilities
 
@@ -14,8 +17,9 @@ design edit). Geometry generation is on the roadmap, not built.
   one `OPENAI_BASE_URL` env var (OpenAI / NVIDIA NIM / OpenRouter / local Ollama+shim).
   Exponential-backoff retry on rate-limit/transient errors; token-budgeted tool-result
   truncation (drops per-face score blobs → ML internals → caps findings, in that order)
-  so large CAD reports don't blow the context window. Three tools: `analyze_geometry`,
-  `suggest_fixes`, `lookup_standard` (RAG). — `simready/copilot/agent.py`, `tools.py`
+  so large CAD reports don't blow the context window. Four tools: `analyze_geometry`,
+  `suggest_fixes`, `lookup_standard` (RAG), `build_part` (typed-DSL geometry generation).
+  — `simready/copilot/agent.py`, `tools.py`
 - **B-Rep → graph encoder feeding a GNN.** OCC topology is walked into a face-adjacency
   graph with **12-dim per-face features** (surface-type one-hot ×7, log-area, normal
   magnitude, mean curvature, UV-u extent, UV-v extent). A **2-layer GraphSAGE** ("BRepSAGE")
@@ -171,11 +175,12 @@ has been trained** (see Roadmap), so the base and LoRA columns are empty by desi
   has a non-circular label. No external/non-circular *refinement* target yet; no labeled
   real-CAD test set.
 - Fine-tuning is a **pipeline + eval harness**, not a trained model — no Base-vs-LoRA result.
-- 167 tests pass, but the LLM-facing tests mock the client — test count is not an ML-quality
+- 198 tests pass, but the LLM-facing tests mock the client — test count is not an ML-quality
   signal.
 - Self-intersection check skipped above 150 faces (OCC `BOPAlgo` scaling). Validated only on
   single-body parts <200 faces; assemblies untested.
-- No geometry generation, no mesher hook, no CI.
+- Geometry generation is v1-only (4-op DSL, no live-LLM eval yet, no refine loop). No
+  mesher hook, no CI.
 
 ## Roadmap
 
@@ -188,8 +193,9 @@ has been trained** (see Roadmap), so the base and LoRA columns are empty by desi
 2. **Labeled real-CAD test set** (SimJEB / GrabCAD) as a true generalization probe against the
    >0.50 recall exit criterion — currently only an unlabeled gate exists.
 3. **Finish one QLoRA run** to fill the Base-vs-LoRA comparison, then stop — keep the harness.
-4. **Geometry-generation MVP** — constrained LLM → pythonOCC param code → execute → SimReady
-   pipeline → BRepSAGE validates → refine loop. Deliberately planned, not impulse-built.
+4. **Geometry-generation: prove the live loop.** v1 (typed DSL + `build_part` tool +
+   subprocess-isolated executor) is shipped; next is the live-LLM E_grammar eval
+   (generate → analyze on 5 held-out prompts) and then a refine loop.
 5. CI; mesher (Gmsh) hook.
 
 ## Project layout
@@ -201,7 +207,7 @@ simready/        cli · pipeline · validator · healer · checks · occ_utils �
 ui/              app.py (analysis) · copilot_app.py (agent chat)
 scripts/         train · evaluate · auto_label · generate_parametric_steps · generate_degraded_steps
                  · prep_finetune_dataset · eval_finetune · scrape_fea_docs · index_fea_docs · …
-tests/           167 tests
+tests/           198 tests
 weights/         brepnet.pt (16 KB) · metrics.json · brepnet_meta.json · eval_fixtures.json  (tracked)
 docs/            validation/ · impl/ · exec-plans/ · sample_output/ (committed CLI output) · img/
                  CONTEXT.md = domain glossary

@@ -1,9 +1,10 @@
 """Tool resolvers for the SimReady Copilot.
 
-Three tools exposed to the LLM:
+Four tools exposed to the LLM:
 - analyze_geometry: runs the SimReady pipeline on a STEP file.
 - suggest_fixes: ranks per-finding fix suggestions by severity.
 - lookup_standard: RAG lookup over indexed FEA standards docs.
+- build_part: generates a STEP file from a typed parametric spec (simready.gen).
 """
 
 from __future__ import annotations
