@@ -28,6 +28,12 @@ except ImportError:  # pragma: no cover
     BRepAdaptor_Surface = None
 
 try:
+    from OCC.Core.GeomAbs import GeomAbs_BSplineSurface, GeomAbs_BezierSurface
+except ImportError:  # pragma: no cover
+    GeomAbs_BSplineSurface = None
+    GeomAbs_BezierSurface = None
+
+try:
     from OCC.Core.ShapeAnalysis import ShapeAnalysis_Shell
 except ImportError:  # pragma: no cover
     ShapeAnalysis_Shell = None
@@ -709,6 +715,29 @@ def _angle_between_normals(a: tuple[float, float, float] | None, b: tuple[float,
 
 SELF_INTERSECTION_FACE_LIMIT = 150
 SELF_INTERSECTION_TIMEOUT_SECONDS = 30.0
+# Freeform (B-spline / Bezier) faces above this count skip the analyzer.
+# 0 = any freeform face skips: on the real-eval set, BOPAlgo hung >90 s on
+# both 58-face NURBS flanges (under the face limit) while every part with
+# zero freeform faces completed in milliseconds. See
+# docs/validation/occ_hang_diagnosis.md.
+SELF_INTERSECTION_FREEFORM_LIMIT = 0
+
+
+def _count_freeform_faces(shape: Any) -> int:
+    """Number of faces whose underlying surface is B-spline or Bezier."""
+    if BRepAdaptor_Surface is None or TopExp_Explorer is None:
+        return 0
+    count = 0
+    explorer = TopExp_Explorer(shape, TopAbs_FACE)
+    while explorer.More():
+        try:
+            surf_type = BRepAdaptor_Surface(topods.Face(explorer.Current())).GetType()
+            if surf_type in (GeomAbs_BSplineSurface, GeomAbs_BezierSurface):
+                count += 1
+        except Exception:  # pragma: no cover - malformed face; be conservative
+            count += 1
+        explorer.Next()
+    return count
 
 
 def check_self_intersection(shape: Any) -> CheckResult:
@@ -717,15 +746,20 @@ def check_self_intersection(shape: Any) -> CheckResult:
     Returns no finding for clean geometry. Only fires when the analyzer
     reports faulty topology (self-interfering faces/edges).
 
-    Two safety guards keep this check from hanging the pipeline on real CAD:
+    Safety guards keeping this check from hanging the pipeline on real CAD:
 
-    - Face-count limit: skip with an Info finding when the shape has more
-      than SELF_INTERSECTION_FACE_LIMIT faces. BOPAlgo self-intersection is
-      O(N^2) on face pairs in practice and can take many minutes on parts
-      with hundreds of faces.
-    - 30 s watchdog: run BOPAlgo in a daemon thread and join with a timeout.
-      If the analyzer has not finished, emit a Skipped/timeout Info finding
-      and move on. The daemon thread dies on process exit.
+    - Face-count limit: skip with a finding when the shape has more than
+      SELF_INTERSECTION_FACE_LIMIT faces. BOPAlgo self-intersection is
+      O(N^2) on face pairs in practice.
+    - Freeform-surface limit: skip when the shape carries more than
+      SELF_INTERSECTION_FREEFORM_LIMIT B-spline/Bezier faces. Diagnosed
+      2026-07-19: BOPAlgo hung >90 s on 58-face NURBS flanges that pass
+      the face-count limit (docs/validation/occ_hang_diagnosis.md).
+    - 30 s daemon-thread watchdog — BEST-EFFORT ONLY. pythonocc does not
+      release the GIL during long C++ calls, so the join usually cannot
+      even wake while BOPAlgo runs; the diagnosis measured this watchdog
+      failing to fire on the hang parts. The hard kill is the caller's
+      subprocess isolation (simready.pipeline.analyze_file_safe).
     """
     if BOPAlgo_ArgumentAnalyzer is None:
         return _result()
@@ -735,6 +769,24 @@ def check_self_intersection(shape: Any) -> CheckResult:
         face_count = count_shapes(shape, TopAbs_FACE) if TopAbs_FACE is not None else 0
     except Exception:
         face_count = 0
+
+    freeform_count = _count_freeform_faces(shape)
+    if freeform_count > SELF_INTERSECTION_FREEFORM_LIMIT:
+        return _result(
+            findings=[
+                {
+                    "check": "SelfIntersectionSkipped",
+                    "severity": "Minor",
+                    "detail": (
+                        f"Self-intersection check skipped: {freeform_count} freeform "
+                        f"(B-spline/Bezier) faces exceed limit "
+                        f"{SELF_INTERSECTION_FREEFORM_LIMIT}. BOPAlgo hangs on dense "
+                        f"NURBS topology and Python-side timeouts cannot interrupt it."
+                    ),
+                    "suggestion": "Inspect freeform regions manually or convert to analytic surfaces before checking self-intersection.",
+                }
+            ],
+        )
 
     if face_count > SELF_INTERSECTION_FACE_LIMIT:
         return _result(
