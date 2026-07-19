@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  spec-fast:
+    # Pure-python subset: proves the DSL schema layer with zero native deps.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install pydantic pytest
+      - run: pytest tests/test_gen_spec.py -q
+
+  full-suite:
+    # Full sr-equivalent env via micromamba. continue-on-error until proven
+    # stable on linux-64 (environment.yml was authored on Windows).
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-file: environment.yml
+          cache-environment: true
+      - name: Install pip deps
+        shell: bash -el {0}
+        # torch_geometric is not in requirements.txt because its Windows pip
+        # install needs manual wheel picking; on linux the plain install works.
+        run: pip install -r requirements.txt torch_geometric
+      - name: Run suite (no live-LLM tests)
+        shell: bash -el {0}
+        run: pytest -m "not live_llm" -q
