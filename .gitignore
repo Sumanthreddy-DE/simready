@@ -10,9 +10,14 @@ dist/
 # Phase 2A ML artifacts (regenerate via scripts/generate_parametric_steps.py +
 # scripts/auto_label.py + scripts/train.py)
 data/parametric/
+data/parametric_featured/
+data/parametric_featured_degraded/
 data/labels/
 data/labels_fixtures/
+data/labels_fixtures_v2/
 data/labels_combined/
+data/labels_combined_v2/
+data/labels_combined_v2_log.txt
 # Ignore weights/ contents, but track the tiny checkpoint + metrics so a fresh
 # clone has a model and numbers. (Can't negate a file under a fully-ignored dir,
 # so ignore the contents glob instead of the directory.)

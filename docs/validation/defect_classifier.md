@@ -1,5 +1,31 @@
 # BRepSAGE Defect Classifier — Honest Results
 
+## v2 — feature-randomized retrain (2026-07-19)
+
+**Motivation:** the real-CAD eval (`real_eval.md` §1) showed 7/7 false positives on presumed-clean McMaster parts — the head had learned "smooth box/cyl prims = clean, anything feature-rich = defect". Attempted fix: domain randomization. `scripts/generate_parametric_steps.py --fillet-prob/--chamfer-prob` adds random fillets/chamfers (1–4 mm) to cleans; defects are injected on featured bases too, so feature-richness stays orthogonal to the label.
+
+**Dataset (combined-v2, 2272 graphs):** 500 plain clean + 600 plain degraded + 293 featured clean + 879 featured degraded (`_f` stems; feature rate 98–100 % per category except thin_plate 7 % — 1–4 mm radii physically cannot fit 0.05–0.8 mm sheets). Balanced: featured samples appear evenly in all 4 classes (293/293/293/293).
+
+**Results (source-grouped, n_val = 471; 30 epochs):**
+
+| Metric | v2 | v1 (easier val, n=205) |
+|---|---|---|
+| Defect acc (4-class) | **0.686** | 0.756 |
+| — clean | 0.679 | 0.870 |
+| — open_shell | **0.856** | 0.571 |
+| — sliver_face | 1.000 | 1.000 |
+| — self_intersection | 0.212 | 0.371 |
+| Refinement acc / recall (circular) | 0.825 / 0.609 | 0.848 / 0.487 |
+| Fixtures refinement acc / recall (same 27 fixtures) | **0.853 / 0.895** | 0.580 / 0.527 |
+
+The headline drop (0.756 → 0.686) is not a regression in kind: the v2 val contains featured parts, i.e. the shortcut the v1 number partly measured is gone. open_shell detection improved sharply (0.571 → 0.856); self_intersection got worse (0.371 → 0.212) — the overlap-compound signal drowns further in feature-rich geometry, reinforcing that it needs an interference feature, not data.
+
+**The metric that mattered — real-CAD FP rate: NOT fixed.** Re-run on the McMaster set (`real_eval_v2.md`): **11/11 analyzed parts still flagged as defective** (coverage rose 7→11 thanks to the same-day OCC-hang fixes; 7/11 at conf ≥ 0.98). Conclusion: fillets/chamfers on a box/cyl grammar do not bridge to real industrial CAD — the gap is the **surface-type vocabulary itself** (B-splines, cones, tori, revolved features are absent from the grammar entirely). The honest next lever is real-CAD data (hand-labelled positives or clean real parts in training), not more synthetic augmentation of the same primitives. Backlog item stays open with these findings.
+
+---
+
+## v1 — non-circular head + leakage-free split (2026-05-26)
+
 **Date:** 2026-05-26
 **Model:** `BRepSAGE-multitask` (2-layer GraphSAGE encoder over B-Rep face-adjacency graphs, hidden_dim=32, 3 heads). Checkpoint + numbers tracked at `weights/brepnet.pt` + `weights/metrics.json`.
 **Why this doc exists:** the original per-face "refinement" head was trained on `rule_per_face > 0.5` — a deterministic function of the same OCC features the GNN ingests, so its 97.5%/100% numbers were circular *and* measured on a leaky random split. This run adds a **non-circular** graph-level head and reports it on a **leakage-free** split.

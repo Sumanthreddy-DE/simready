@@ -6,44 +6,53 @@
     "defect": "graph-level 4-class (clean/open_shell/sliver_face/self_intersection); label = injected ground-truth tags (NON-circular)"
   },
   "training": {
-    "dataset": "500 parametric + 600 degraded = 1100 graphs",
+    "dataset": "combined-v2: 500 parametric + 600 degraded + 293 featured (random fillet/chamfer) + 879 featured-degraded = 2272 graphs (2026-07-19)",
     "split": {
-      "train_graphs": 895,
-      "val_graphs": 205
+      "train_graphs": 1801,
+      "val_graphs": 471
     },
-    "epochs": 15,
-    "elapsed_s": 25.4,
+    "epochs": 30,
+    "elapsed_s": 56.2,
     "device": "cpu"
   },
   "val_in_distribution": {
-    "note": "source-grouped 80/20 (all variants of a base part stay on one side) -- leakage-free held-out, NOT random/in-distribution; sizes 895/205 prove grouping (random would be 880/220)",
-    "n_val_graphs": 205,
+    "note": "source-grouped 80/20 (all variants of a base part stay on one side) -- leakage-free held-out. v2 val is HARDER than v1's (featured parts remove the smooth-prim shortcut); v1 numbers kept below for provenance.",
+    "n_val_graphs": 471,
     "refinement": {
-      "accuracy": 0.848,
-      "precision": 0.944,
-      "recall": 0.487,
-      "positives": 686,
-      "predicted_positives": 354,
+      "accuracy": 0.825,
+      "precision": 0.929,
+      "recall": 0.609,
+      "positives": 3138,
+      "predicted_positives": 2058,
       "label_caveat": "circular (rule-derived)"
     },
     "defect_noncircular": {
-      "accuracy": 0.756,
+      "accuracy": 0.686,
       "per_class_acc": {
-        "clean": 0.87,
-        "open_shell": 0.571,
+        "clean": 0.679,
+        "open_shell": 0.856,
         "sliver_face": 1.0,
-        "self_intersection": 0.371
+        "self_intersection": 0.212
+      },
+      "v1_baseline_on_easier_val": {
+        "accuracy": 0.756,
+        "per_class_acc": {
+          "clean": 0.87,
+          "open_shell": 0.571,
+          "sliver_face": 1.0,
+          "self_intersection": 0.371
+        }
       }
     }
   },
   "heldout_fixtures": {
-    "note": "7 hand-built fixtures / 51 faces; different distribution; refinement head; circular label",
-    "samples": 7,
-    "faces": 51,
-    "accuracy": 0.725,
-    "precision": 0.75,
-    "recall": 0.692,
-    "f1": 0.72
+    "note": "27 hand-built fixtures / 3612 faces (labels_fixtures_v2); refinement head; circular label. v1 checkpoint on the SAME fixtures: acc 0.580 / recall 0.527. Fixture defect_acc is 0.148 for BOTH checkpoints - fixtures include deliberately-broken geometry labeled clean for lack of tags; not a usable defect metric.",
+    "samples": 27,
+    "faces": 3612,
+    "accuracy": 0.853,
+    "precision": 0.92,
+    "recall": 0.895,
+    "f1": 0.908
   },
   "real_cad_grabcad": {
     "note": "3 real STEPs, UNLABELED; pipeline outputs only; gate to expose generalization gap",
@@ -74,6 +83,12 @@
         "elapsed_s": 2.87
       }
     ]
+  },
+  "real_cad_mcmaster": {
+    "note": "12 real McMaster STEPs, UNLABELED presumed-clean (docs/validation/real_eval_v2.md, 2026-07-19). v2 checkpoint + hang guards: 11/12 analyzed (was 7/12), 0 errored. Defect head STILL false-positives on 11/11 (was 7/7) - fillet/chamfer augmentation on the box/cyl grammar did NOT close the real-CAD gap; root cause is NURBS/analytic surface types absent from the grammar itself.",
+    "analyzed": 11,
+    "defect_fp": 11,
+    "fp_rate": 1.0
   },
   "provenance": "weights/brepnet_meta.json (full per-epoch history), weights/eval_fixtures.json (fixtures eval). Regenerate: scripts/train.py + scripts/evaluate.py."
 }
