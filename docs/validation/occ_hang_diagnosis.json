@@ -1,0 +1,316 @@
+{
+  "C:\\Users\\suman\\Desktop\\Docs\\Job\\Projects\\Mech\\SimReady\\tests\\data\\real_eval\\1483N211_Mounted Ball Bearing with Two-Bolt Flange.STEP": [
+    {
+      "stage": "load",
+      "seconds": 14.435
+    },
+    {
+      "stage": "validate",
+      "seconds": 0.083
+    },
+    {
+      "stage": "heal",
+      "seconds": 0.327
+    },
+    {
+      "stage": "parse",
+      "seconds": 0.003
+    },
+    {
+      "stage": "check_degenerate_geometry",
+      "seconds": 0.018
+    },
+    {
+      "stage": "check_non_manifold_edges",
+      "seconds": 0.005
+    },
+    {
+      "stage": "check_open_boundaries",
+      "seconds": 0.007
+    },
+    {
+      "stage": "check_short_edges",
+      "seconds": 0.024
+    },
+    {
+      "stage": "check_thin_walls",
+      "seconds": 0.0
+    },
+    {
+      "stage": "check_small_features",
+      "seconds": 0.136
+    },
+    {
+      "stage": "check_small_fillets",
+      "seconds": 0.005
+    },
+    {
+      "stage": "check_duplicate_body_heuristic",
+      "seconds": 0.001
+    },
+    {
+      "stage": "check_thin_solid",
+      "seconds": 0.001
+    },
+    {
+      "stage": "check_duplicate_face_heuristic",
+      "seconds": 0.005
+    },
+    {
+      "stage": "check_orientation_nuance",
+      "seconds": 0.0
+    },
+    {
+      "stage": "check_sharp_edges",
+      "seconds": 0.005
+    },
+    {
+      "stage": "check_self_intersection",
+      "seconds": 0.0
+    },
+    {
+      "stage": "graph",
+      "seconds": 0.291
+    },
+    {
+      "stage": "ml",
+      "seconds": 2.948
+    }
+  ],
+  "C:\\Users\\suman\\Desktop\\Docs\\Job\\Projects\\Mech\\SimReady\\tests\\data\\real_eval\\43505K359_Low-Pressure 304 Stainless Steel Cast Flange.STEP": [
+    {
+      "stage": "load",
+      "seconds": 0.721
+    },
+    {
+      "stage": "validate",
+      "seconds": 0.061
+    },
+    {
+      "stage": "heal",
+      "seconds": 0.217
+    },
+    {
+      "stage": "parse",
+      "seconds": 0.001
+    },
+    {
+      "stage": "check_degenerate_geometry",
+      "seconds": 0.009
+    },
+    {
+      "stage": "check_non_manifold_edges",
+      "seconds": 0.001
+    },
+    {
+      "stage": "check_open_boundaries",
+      "seconds": 0.002
+    },
+    {
+      "stage": "check_short_edges",
+      "seconds": 0.009
+    },
+    {
+      "stage": "check_thin_walls",
+      "seconds": 0.0
+    },
+    {
+      "stage": "check_small_features",
+      "seconds": 0.043
+    },
+    {
+      "stage": "check_small_fillets",
+      "seconds": 0.002
+    },
+    {
+      "stage": "check_duplicate_body_heuristic",
+      "seconds": 0.0
+    },
+    {
+      "stage": "check_thin_solid",
+      "seconds": 0.001
+    },
+    {
+      "stage": "check_duplicate_face_heuristic",
+      "seconds": 0.002
+    },
+    {
+      "stage": "check_orientation_nuance",
+      "seconds": 0.0
+    },
+    {
+      "stage": "check_sharp_edges",
+      "seconds": 0.001
+    },
+    {
+      "stage": "check_self_intersection",
+      "timeout": true,
+      "wall": 90.03
+    },
+    {
+      "stage": "graph",
+      "seconds": 0.086
+    },
+    {
+      "stage": "ml",
+      "seconds": 3.843
+    }
+  ],
+  "C:\\Users\\suman\\Desktop\\Docs\\Job\\Projects\\Mech\\SimReady\\tests\\data\\real_eval\\44685K321_Low-Pressure 304-304L Stainless Steel Forged Pipe Flange.STEP": [
+    {
+      "stage": "load",
+      "seconds": 0.606
+    },
+    {
+      "stage": "validate",
+      "seconds": 0.147
+    },
+    {
+      "stage": "heal",
+      "seconds": 0.453
+    },
+    {
+      "stage": "parse",
+      "seconds": 0.001
+    },
+    {
+      "stage": "check_degenerate_geometry",
+      "seconds": 0.01
+    },
+    {
+      "stage": "check_non_manifold_edges",
+      "seconds": 0.002
+    },
+    {
+      "stage": "check_open_boundaries",
+      "seconds": 0.002
+    },
+    {
+      "stage": "check_short_edges",
+      "seconds": 0.015
+    },
+    {
+      "stage": "check_thin_walls",
+      "seconds": 0.0
+    },
+    {
+      "stage": "check_small_features",
+      "seconds": 0.06
+    },
+    {
+      "stage": "check_small_fillets",
+      "seconds": 0.002
+    },
+    {
+      "stage": "check_duplicate_body_heuristic",
+      "seconds": 0.0
+    },
+    {
+      "stage": "check_thin_solid",
+      "seconds": 0.001
+    },
+    {
+      "stage": "check_duplicate_face_heuristic",
+      "seconds": 0.002
+    },
+    {
+      "stage": "check_orientation_nuance",
+      "seconds": 0.0
+    },
+    {
+      "stage": "check_sharp_edges",
+      "seconds": 0.004
+    },
+    {
+      "stage": "check_self_intersection",
+      "timeout": true,
+      "wall": 90.02
+    },
+    {
+      "stage": "graph",
+      "seconds": 0.086
+    },
+    {
+      "stage": "ml",
+      "seconds": 3.124
+    }
+  ],
+  "C:\\Users\\suman\\Desktop\\Docs\\Job\\Projects\\Mech\\SimReady\\tests\\data\\real_eval\\4519N12_Bracket for Composite T-Slotted Framing.STEP": [
+    {
+      "stage": "load",
+      "seconds": 1.574
+    },
+    {
+      "stage": "validate",
+      "seconds": 0.204
+    },
+    {
+      "stage": "heal",
+      "seconds": 0.734
+    },
+    {
+      "stage": "parse",
+      "seconds": 0.009
+    },
+    {
+      "stage": "check_degenerate_geometry",
+      "seconds": 0.04
+    },
+    {
+      "stage": "check_non_manifold_edges",
+      "seconds": 0.011
+    },
+    {
+      "stage": "check_open_boundaries",
+      "seconds": 0.012
+    },
+    {
+      "stage": "check_short_edges",
+      "seconds": 0.044
+    },
+    {
+      "stage": "check_thin_walls",
+      "seconds": 0.0
+    },
+    {
+      "stage": "check_small_features",
+      "seconds": 0.394
+    },
+    {
+      "stage": "check_small_fillets",
+      "seconds": 0.016
+    },
+    {
+      "stage": "check_duplicate_body_heuristic",
+      "seconds": 0.006
+    },
+    {
+      "stage": "check_thin_solid",
+      "seconds": 0.007
+    },
+    {
+      "stage": "check_duplicate_face_heuristic",
+      "seconds": 0.014
+    },
+    {
+      "stage": "check_orientation_nuance",
+      "seconds": 0.0
+    },
+    {
+      "stage": "check_sharp_edges",
+      "seconds": 0.012
+    },
+    {
+      "stage": "check_self_intersection",
+      "seconds": 0.001
+    },
+    {
+      "stage": "graph",
+      "seconds": 0.802
+    },
+    {
+      "stage": "ml",
+      "seconds": 3.117
+    }
+  ]
+}
