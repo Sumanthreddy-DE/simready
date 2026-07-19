@@ -217,16 +217,21 @@ def analyze_file(filepath: str, export_healed_path: str | None = None, timeout: 
         return result_container[0]
 
     elapsed = time.perf_counter() - started
-    error_msg = str(error_container[0]) if error_container else f"Analysis timed out after {timeout}s"
+    if error_container:
+        return _error_report(filepath, str(error_container[0]), elapsed)
+    return _timeout_report(filepath, timeout, elapsed)
+
+
+def _failure_report(filepath: str, check: str, detail: str, elapsed: float) -> dict[str, Any]:
     report = build_report(
         filepath,
         SimpleNamespace(
             is_valid=False,
             errors=[
                 {
-                    "check": "AnalysisTimeout" if not error_container else "AnalysisError",
+                    "check": check,
                     "severity": "Critical",
-                    "detail": error_msg,
+                    "detail": detail,
                     "suggestion": "Try a simpler model, increase the timeout, or inspect the geometry manually.",
                 }
             ],
@@ -238,3 +243,99 @@ def analyze_file(filepath: str, export_healed_path: str | None = None, timeout: 
     )
     report["status"] = "InvalidInput"
     return report
+
+
+def _timeout_report(filepath: str, timeout: float, elapsed: float) -> dict[str, Any]:
+    return _failure_report(
+        filepath, "AnalysisTimeout", f"Analysis timed out after {timeout}s", elapsed
+    )
+
+
+def _error_report(filepath: str, message: str, elapsed: float) -> dict[str, Any]:
+    return _failure_report(filepath, "AnalysisError", message, elapsed)
+
+
+_INT_KEY_FIELDS = ("per_face_scores", "combined_per_face_scores")
+
+
+def _restore_int_keys(report: dict[str, Any]) -> dict[str, Any]:
+    """Undo JSON's int→str key coercion on per-face score dicts (in place)."""
+
+    def _fix(container: dict[str, Any]) -> None:
+        for field_name in _INT_KEY_FIELDS:
+            value = container.get(field_name)
+            if isinstance(value, dict):
+                container[field_name] = {int(k): v for k, v in value.items()}
+        ml = container.get("ml")
+        if isinstance(ml, dict) and isinstance(ml.get("per_face_scores"), dict):
+            ml["per_face_scores"] = {int(k): v for k, v in ml["per_face_scores"].items()}
+
+    _fix(report)
+    for body in report.get("bodies", []) or []:
+        if isinstance(body, dict):
+            _fix(body)
+    return report
+
+
+def analyze_file_safe(
+    filepath: str,
+    export_healed_path: str | None = None,
+    timeout: float = ANALYSIS_TIMEOUT_SECONDS,
+) -> dict[str, Any]:
+    """``analyze_file`` with a hard kill switch.
+
+    Runs the full analysis in a killable child via
+    ``python -m simready.pipeline_worker`` (plain ``subprocess``, NOT
+    ``multiprocessing`` — spawn re-executes the parent's ``__main__``
+    module, which breaks under Streamlit where the app script *is*
+    ``__main__``). Killing the child is the only reliable way to stop a
+    hung OCC C++ call: thread timeouts, including ``analyze_file``'s
+    own, cannot even wake while pythonocc holds the GIL (see
+    docs/validation/occ_hang_diagnosis.md).
+
+    Same report contract as ``analyze_file``; a timeout yields the
+    standard AnalysisTimeout report. Cost: interpreter + torch import
+    add ~5-25 s per call over the in-process path — entry points facing
+    unknown CAD (copilot tool, Streamlit UIs, CLI) accept that for hang
+    immunity; batch callers managing their own guards may keep using
+    ``analyze_file``.
+    """
+    import json
+    import os
+    import subprocess
+    import sys
+    import tempfile
+    from pathlib import Path
+
+    started = time.perf_counter()
+    repo_root = str(Path(__file__).resolve().parents[1])
+    env = dict(os.environ)
+    env["PYTHONPATH"] = repo_root + os.pathsep + env.get("PYTHONPATH", "")
+
+    with tempfile.TemporaryDirectory(prefix="simready_safe_") as tmpdir:
+        out_json = Path(tmpdir) / "report.json"
+        cmd = [sys.executable, "-m", "simready.pipeline_worker", filepath, str(out_json)]
+        if export_healed_path:
+            cmd.append(export_healed_path)
+        proc = subprocess.Popen(
+            cmd,
+            env=env,
+            cwd=repo_root,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        try:
+            proc.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(5)
+            return _timeout_report(filepath, timeout, time.perf_counter() - started)
+        if proc.returncode != 0 or not out_json.exists():
+            return _error_report(
+                filepath,
+                f"Analysis subprocess exited with code {proc.returncode} without a result.",
+                time.perf_counter() - started,
+            )
+        with out_json.open(encoding="utf-8") as handle:
+            report = json.load(handle)
+    return _restore_int_keys(report)

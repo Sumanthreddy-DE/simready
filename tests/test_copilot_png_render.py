@@ -83,7 +83,7 @@ def test_analyze_geometry_attaches_image_path(monkeypatch, tmp_path: Path) -> No
         assert per_face_scores == {0: 0.1, 1: 0.5, 2: 0.9}
         return fake_png
 
-    monkeypatch.setattr(tools, "analyze_file", _fake_analyze)
+    monkeypatch.setattr(tools, "analyze_file_safe", _fake_analyze)
     monkeypatch.setattr(png_render, "render_face_score_png", _fake_render)
     # tools._maybe_render_png imports render lazily — patch the symbol it imports.
     monkeypatch.setattr(
@@ -112,7 +112,7 @@ def test_analyze_geometry_render_disabled(monkeypatch, tmp_path: Path) -> None:
             "elapsed_seconds": 0.0,
         }
 
-    monkeypatch.setattr(tools, "analyze_file", _fake_analyze)
+    monkeypatch.setattr(tools, "analyze_file_safe", _fake_analyze)
     result = tools.analyze_geometry(str(step), render_image=False)
     assert "image_path" not in result
 
@@ -135,7 +135,7 @@ def test_analyze_geometry_render_missing_silently(monkeypatch, tmp_path: Path) -
             "elapsed_seconds": 0.0,
         }
 
-    monkeypatch.setattr(tools, "analyze_file", _fake_analyze)
+    monkeypatch.setattr(tools, "analyze_file_safe", _fake_analyze)
     monkeypatch.setattr(
         "simready.copilot.png_render.render_face_score_png",
         lambda **kw: None,

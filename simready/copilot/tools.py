@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from simready.pipeline import analyze_file
+from simready.pipeline import analyze_file_safe
 from simready.copilot import rag
 
 logger = logging.getLogger(__name__)
@@ -188,7 +188,9 @@ def analyze_geometry(
             "step_path": str(resolved),
             "message": f"No CAD file at {resolved}.",
         }
-    full_report = analyze_file(str(resolved), timeout=timeout_seconds)
+    # Subprocess-isolated: a hung OCC C++ call on real CAD gets hard-killed
+    # instead of freezing the agent/UI (real_eval.md §3).
+    full_report = analyze_file_safe(str(resolved), timeout=timeout_seconds)
     summary = _summarize_report(full_report, str(resolved), findings_limit=findings_limit)
     if render_image:
         png_path = _maybe_render_png(str(resolved), full_report)

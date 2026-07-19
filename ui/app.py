@@ -9,7 +9,7 @@ from pathlib import Path
 import streamlit as st
 
 from simready.html_report import render_html_report
-from simready.pipeline import analyze_file
+from simready.pipeline import analyze_file_safe
 from simready.ui.viz import build_face_overlay_payload
 
 
@@ -71,7 +71,7 @@ if uploaded is not None:
         healed_path = Path(tmpdir) / f"{input_path.stem}_healed.step"
 
         with st.spinner("Analyzing geometry..."):
-            report = analyze_file(str(input_path), export_healed_path=str(healed_path), timeout=timeout)
+            report = analyze_file_safe(str(input_path), export_healed_path=str(healed_path), timeout=timeout)
 
         score = report.get("score", {})
         status = report.get("status", "Unknown")

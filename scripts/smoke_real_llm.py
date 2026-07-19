@@ -25,7 +25,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Stub analyze_file BEFORE the agent imports it — module-global swap.
+# Stub analyze_file_safe BEFORE the agent imports it — module-global swap.
 import simready.copilot.tools as tools
 
 CANNED_REPORT: dict[str, Any] = {
@@ -74,7 +74,7 @@ def _stub_analyze_file(path: str, timeout: int = 120) -> dict[str, Any]:
     return CANNED_REPORT
 
 
-tools.analyze_file = _stub_analyze_file
+tools.analyze_file_safe = _stub_analyze_file
 
 from simready.copilot.agent import CopilotAgent  # noqa: E402  (after monkeypatch)
 
