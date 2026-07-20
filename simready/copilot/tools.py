@@ -132,7 +132,9 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
                 "the user asks you to CREATE a part (not to analyze an existing one). "
                 "The spec is a list of ops drawn from a tiny grammar: box(dx, dy, dz, at), "
                 "cyl(r, h, at) [axis is +Z], fuse(a, b), cut(a, b). 'a' and 'b' are "
-                "0-based indices into earlier steps. The last step is the part returned. "
+                "0-based indices into earlier steps. The last step is the part returned; "
+                "every other step MUST be referenced by a later fuse/cut, so multi-primitive "
+                "parts always end with the boolean op that combines them. "
                 "After calling this, ALWAYS call analyze_geometry on the returned step_path "
                 "to validate it before describing the result to the user."
             ),

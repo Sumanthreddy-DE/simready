@@ -122,6 +122,22 @@ def test_agent_no_tool_call_returns_direct_text(fake_openai: type[_FakeClient]) 
     assert response.model == "test-model"
 
 
+def test_agent_requests_sequential_tool_calls(fake_openai: type[_FakeClient]) -> None:
+    # NIM's Llama chat template 500s when history contains an assistant
+    # message with >1 tool_calls, so the agent must ask the model to emit
+    # at most one tool call per turn.
+    agent = CopilotAgent(model="test-model")
+    agent._client.chat.completions.responses = [
+        _FakeCompletion(
+            choices=[_FakeChoice(message=_FakeMessage(content="hi"))],
+            usage=_FakeUsage(),
+        )
+    ]
+    agent.run("Hi.")
+    call = agent._client.chat.completions.calls[0]
+    assert call["parallel_tool_calls"] is False
+
+
 def test_agent_with_tool_call_executes_and_summarizes(fake_openai: type[_FakeClient]) -> None:
     agent = CopilotAgent(model="test-model")
     agent._client.chat.completions.responses = [

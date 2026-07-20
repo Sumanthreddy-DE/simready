@@ -311,6 +311,11 @@ class CopilotAgent:
                     messages=messages,
                     tools=TOOL_SCHEMAS,
                     tool_choice="auto",
+                    # NIM's Llama chat template rejects assistant messages
+                    # carrying >1 tool_calls ("This model only supports single
+                    # tool-calls at once!", HTTP 500), so ask for at most one
+                    # tool call per turn.
+                    parallel_tool_calls=False,
                 )
             except (RateLimitError, APIConnectionError, APITimeoutError) as exc:
                 last_exc = exc

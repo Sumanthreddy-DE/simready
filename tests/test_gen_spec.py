@@ -170,3 +170,96 @@ def test_cut_ref_same_step_rejects():
                 ]
             }
         )
+
+
+# ----------------------------------------------------------------------------
+# Orphan-step rule: every non-final step must be referenced downstream
+# ----------------------------------------------------------------------------
+
+
+def test_orphan_two_primitives_no_boolean_rejects():
+    # Llama l_bracket failure shape: two boxes, fuse omitted — build would
+    # silently return the lone second box.
+    with pytest.raises(ValidationError):
+        PartSpec.model_validate(
+            {
+                "steps": [
+                    {"op": "box", "dx": 60, "dy": 60, "dz": 10},
+                    {"op": "box", "dx": 10, "dy": 60, "dz": 50, "at": [0, -30, 10]},
+                ]
+            }
+        )
+
+
+def test_orphan_box_plus_cyl_no_cut_rejects():
+    # Llama small_feature_box failure shape: box + pin, cut omitted — build
+    # would return the bare 1 mm pin.
+    with pytest.raises(ValidationError):
+        PartSpec.model_validate(
+            {
+                "steps": [
+                    {"op": "box", "dx": 60, "dy": 60, "dz": 30},
+                    {"op": "cyl", "r": 0.5, "h": 30, "at": [30, 30, 0]},
+                ]
+            }
+        )
+
+
+def test_orphan_intermediate_boolean_rejects():
+    # cut(0,1) is built then discarded — final step is an unrelated box.
+    with pytest.raises(ValidationError):
+        PartSpec.model_validate(
+            {
+                "steps": [
+                    {"op": "box", "dx": 80, "dy": 60, "dz": 10},
+                    {"op": "cyl", "r": 5, "h": 10, "at": [40, 30, 0]},
+                    {"op": "cut", "a": 0, "b": 1},
+                    {"op": "box", "dx": 20, "dy": 20, "dz": 20},
+                ]
+            }
+        )
+
+
+def test_orphan_error_message_is_actionable():
+    with pytest.raises(ValidationError) as excinfo:
+        PartSpec.model_validate(
+            {
+                "steps": [
+                    {"op": "box", "dx": 60, "dy": 60, "dz": 10},
+                    {"op": "box", "dx": 60, "dy": 10, "dz": 50},
+                ]
+            }
+        )
+    msg = str(excinfo.value)
+    assert "steps[0]" in msg
+    assert "never referenced" in msg
+
+
+def test_chained_booleans_all_referenced_accepts():
+    # Diamond: two primitives fused, then a hole cut from the fusion.
+    spec = PartSpec.model_validate(
+        {
+            "steps": [
+                {"op": "box", "dx": 60, "dy": 60, "dz": 10},
+                {"op": "box", "dx": 60, "dy": 10, "dz": 50, "at": [0, 0, 10]},
+                {"op": "fuse", "a": 0, "b": 1},
+                {"op": "cyl", "r": 5, "h": 60, "at": [30, 30, 0]},
+                {"op": "cut", "a": 2, "b": 3},
+            ]
+        }
+    )
+    assert len(spec.steps) == 5
+
+
+def test_step_referenced_twice_accepts():
+    spec = PartSpec.model_validate(
+        {
+            "steps": [
+                {"op": "box", "dx": 60, "dy": 60, "dz": 10},
+                {"op": "cyl", "r": 5, "h": 10, "at": [10, 10, 0]},
+                {"op": "cut", "a": 0, "b": 1},
+                {"op": "fuse", "a": 2, "b": 1},
+            ]
+        }
+    )
+    assert len(spec.steps) == 4

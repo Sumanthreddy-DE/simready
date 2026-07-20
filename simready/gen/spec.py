@@ -12,7 +12,10 @@ on dims keep the LLM's output inside the parametric distribution the
 BRepSAGE checkpoint was trained on (20–100 mm typical, allowing 0–1000 mm
 for valid edge cases).
 
-The last step in ``steps`` is the part returned by ``build_shape``.
+The last step in ``steps`` is the part returned by ``build_shape``. Every
+non-final step must be referenced by a later ``fuse``/``cut`` — an orphan
+step would be built and silently discarded, which is exactly the observed
+LLM failure mode (primitives emitted, final boolean omitted).
 """
 
 from __future__ import annotations
@@ -114,4 +117,28 @@ class PartSpec(BaseModel):
                     raise ValueError(
                         f"steps[{i}] cannot reference the same step on both sides ({step.a})"
                     )
+        return self
+
+    @model_validator(mode="after")
+    def _check_orphans(self) -> "PartSpec":
+        """Every non-final step must be referenced by a later fuse/cut.
+
+        ``build_shape`` returns only the last step, so an unreferenced step is
+        built and silently discarded — the LLM failure mode where primitives
+        are emitted but the final boolean is omitted (see
+        docs/validation/geometry_gen_eval.md §2).
+        """
+        referenced = {
+            ref
+            for step in self.steps
+            if isinstance(step, (FuseOp, CutOp))
+            for ref in (step.a, step.b)
+        }
+        for i, step in enumerate(self.steps[:-1]):
+            if i not in referenced:
+                raise ValueError(
+                    f"steps[{i}] ({step.op}) is never referenced by a later fuse/cut; "
+                    f"only the final step is returned as the part, so this step would "
+                    f"be discarded — add a fuse/cut that uses it, or remove it"
+                )
         return self

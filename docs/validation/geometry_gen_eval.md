@@ -46,3 +46,49 @@ Both Llama failures have the same shape: the model emits the correct primitives,
 ### 3. Latency is 40–143 s per prompt — over the 60 s regression line on 8 of 10 gate runs
 
 The exec plan budgeted ~60 s wall per prompt and flagged anything above as a regression: 8/10 first-run prompts exceeded it (Llama mean ≈ 95 s, GLM mean ≈ 92 s; range 39.8–142.9 s). The stack-up per prompt is: 2–4 NIM round-trips against a long system prompt, a spawn-subprocess OCC build (~5–10 s, by design per the hang-protection decision), and — the biggest avoidable chunk — a full in-process `analyze_file` with BRepSAGE inference, PNG render, and best-effort STEP heal on a 6-face box, including first-call torch + sentence-transformers model loads inside the test process. None of this is new regression in the build path; it is the analyze path doing demo-grade work in an eval loop. Fixes, in leverage order: a persistent build worker (already noted in the v1 plan risks), a `render_image=False` / slim mode for eval callers of `analyze_geometry`, and the open `analyze-file-occ-hang-per-check` S2 item whose subprocess isolation would also amortize model loads. Flagged here per the plan; not gated on.
+
+## v2.1 — Llama re-run after orphan-step rule + sequential tool calls (2026-07-19)
+
+Three changes landed between the runs above and this one:
+
+1. **Orphan-step rule** (`PartSpec._check_orphans`): every non-final step must be
+   referenced by a later `fuse`/`cut`, else the spec is rejected with an
+   actionable error. Directly targets §2's dropped-boolean failure mode.
+2. **Tool description states the rule up front**: `build_part`'s schema now says
+   "every other step MUST be referenced by a later fuse/cut, so multi-primitive
+   parts always end with the boolean op that combines them."
+3. **`parallel_tool_calls=False`** in the agent's completion call. Required: with
+   the updated description, Llama started packing `build_part` + `analyze_geometry`
+   into one turn as parallel tool calls, and NIM's Llama chat template 500s on any
+   history containing an assistant message with >1 tool_calls (`"This model only
+   supports single tool-calls at once!"`) — reproduced 2/2 before the flag, gone
+   after. GLM was never observed to emit parallel calls.
+
+### Leg 3 — `meta/llama-3.3-70b-instruct` (NIM), post-fix — **5/5**
+
+| Prompt | Turns | Final spec (steps) | occ_valid | Faces (expect) | Wall s | Gate |
+|---|--:|---|---|---|--:|---|
+| normal_box | 4 | `box(60,40,30)` | ✅ | 6 ([6,6]) | 62.8 | ✅ |
+| thin_plate | 3 | `box(100,80,0.5)` | ✅ | 6 ([6,6]) | 417.3 | ✅ |
+| l_bracket | 4 | `box(60,60,10)`, `box(10,60,50,at[0,30,10])`, `fuse(0,1)` | ✅ | 12 ([10,18]) | 157.0 | ✅ |
+| bracket_with_hole | 4 | `box(80,60,10)`, `cyl(5,10,at[40,30,0])`, `cut(0,1)` | ✅ | 7 ([6,10]) | 111.7 | ✅ |
+| small_feature_box | 3 | `box(60,60,30)`, `cyl(0.5,30,at[30,30,0])`, `cut(0,1)` | ✅ | 7 ([6,10]) | 119.9 | ✅ |
+
+**Honest attribution:** every run made exactly one `build_part` call — no spec was
+ever bounced by the new validator. The observable fix is therefore the *tool
+description* (Llama emitted the final boolean first try on both previously-failing
+prompts, including the systematic l_bracket omission), with the Pydantic rule as an
+untriggered backstop that would catch a regression to the old behavior inside the
+agent loop. Claiming "the validator fixed it" would overstate; "stating the
+constraint in the schema fixed it, and the validator now enforces it" is what the
+data shows.
+
+**Still broken: verdict prose.** bracket_with_hole's final text hallucinated
+"148 faces, 1 body", three open boundaries, and a NAFEMS citation on a clean
+7-face part whose analyze result said none of that. The gate correctly scores
+artifacts (STEP on disk, OCC validity, face count), not prose — Llama's verdict
+text remains unreliable even when its tool use is flawless.
+
+**Latency regressed further:** 62.8–417.3 s per prompt (thin_plate outlier
+suggests NIM-side queueing), all five over the 60 s line — reinforces the open
+S3 `gen-eval-latency` item; still not gated on.
