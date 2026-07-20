@@ -6,10 +6,11 @@ and explains the findings through a multi-turn LLM agent.
 
 **Scope: analysis and validation, plus early constrained generation.** SimReady reads
 geometry and reports on it (healing is a best-effort OCC ShapeFix pass, not a design
-edit). Generation exists as a v1 MVP: the agent's `build_part` tool materializes a typed
+edit). Generation is live: the agent's `build_part` tool materializes a typed
 box/cyl/fuse/cut spec into a STEP file (no LLM code is executed — see
-`docs/adr/0001-geometry-gen-dsl-over-codegen.md`). The end-to-end generate→analyze loop
-has not yet been evaluated against a live LLM.
+`docs/adr/0001-geometry-gen-dsl-over-codegen.md`), and the end-to-end generate→analyze
+loop is evaluated against two hosted LLMs — 5/5 grammar-valid parts each after the
+orphan-step spec rule (`docs/validation/geometry_gen_eval.md`).
 
 ## Capabilities
 
@@ -33,8 +34,9 @@ has not yet been evaluated against a live LLM.
 - **Eval discipline.** A 6-metric copilot harness (tool-call exact/partial/order, format,
   sections, theme hit-rate) scored against a **50-example hand-written gold set** held out
   of all training data. The GNN ships with a real-CAD validation gate that *documents where
-  it fails* instead of hiding it (see Results). — `scripts/eval_finetune.py`,
-  `tests/data/gold_traces.jsonl`, `docs/validation/`
+  it fails* instead of hiding it (see Results), and CI runs both a fast spec job and the
+  full OCC suite in a micromamba env. — `scripts/eval_finetune.py`,
+  `tests/data/gold_traces.jsonl`, `docs/validation/`, `.github/workflows/`
 - Rule layer: ~12 OCC geometry checks (manifoldness, zero-length/short edges, sliver faces,
   thin solids, self-intersection, small features/fillets) fused with the GNN into one 0–100
   score + complexity tier. Self-intersection check hardened against OCC pathologies
@@ -160,6 +162,26 @@ the rule layer (overall 37.5 / 36.6 / 61.0; latency 7.45 / 2.22 / 2.87 s wall-cl
 pipeline — OCC parse + heal + ~12 checks + GNN). That gap is the point of the gate: it's
 documented, not hidden.
 
+On a larger real-CAD probe (12 McMaster-Carr STEPs — brackets, flanges, bearings, housings)
+the pipeline now analyzes **11/12** parts with zero hangs (freeform-face precheck +
+subprocess-isolated `analyze_file_safe`; one part skipped at 854 faces), but the **defect head
+false-positives on all 11** — synthetic box/cyl training can't cover real surface types
+(B-splines, cones, tori). A feature-randomization retrain (2272 graphs) did not move that
+number; recorded as an honest negative rather than retried
+(`docs/validation/real_eval_v2.md`, `defect_classifier.md`, `occ_hang_diagnosis.md`).
+
+### Geometry generation — live E_grammar eval (5 held-out prompts × 2 models)
+
+| Model | Grammar-valid parts | Notes |
+|---|--:|---|
+| `z-ai/glm-5.2` (NIM) | 5/5 | first attempt |
+| `meta/llama-3.3-70b-instruct` (NIM) | 3/5 → **5/5** | dropped-final-boolean failure fixed by an orphan-step spec rule + single-tool-call turns |
+
+Every generated spec is validated (Pydantic DSL), built by the trusted executor, then run
+through the full analysis pipeline. The failure mode itself became a validator: a spec whose
+non-final step is never consumed by a later boolean now fails fast and bounces back into the
+agent loop (`docs/validation/geometry_gen_eval.md`).
+
 ### Copilot eval — gold set (n=50)
 
 Reference run only: `meta/llama-3.3-70b-instruct` as teacher/ceiling. **No fine-tuned model
@@ -174,13 +196,19 @@ has been trained** (see Roadmap), so the base and LoRA columns are empty by desi
 - The **refinement head label is still circular** (`rule_per_face>0.5`); only the defect head
   has a non-circular label. No external/non-circular *refinement* target yet; no labeled
   real-CAD test set.
+- The **defect head does not generalize to real CAD** — 11/11 false positives on analyzed
+  McMaster parts; the gap is the surface-type vocabulary, not data volume (see honest
+  negative above).
 - Fine-tuning is a **pipeline + eval harness**, not a trained model — no Base-vs-LoRA result.
-- 198 tests pass, but the LLM-facing tests mock the client — test count is not an ML-quality
-  signal.
-- Self-intersection check skipped above 150 faces (OCC `BOPAlgo` scaling). Validated only on
-  single-body parts <200 faces; assemblies untested.
-- Geometry generation is v1-only (4-op DSL, no live-LLM eval yet, no refine loop). No
-  mesher hook, no CI.
+- 227 tests pass, but the LLM-facing tests mock the client (5 live-LLM tests are opt-in) —
+  test count is not an ML-quality signal.
+- Self-intersection check skipped above 150 faces and on freeform (B-spline) faces — OCC
+  `BOPAlgo` can hang indefinitely there, and Python-side watchdogs cannot interrupt it
+  (`docs/validation/occ_hang_diagnosis.md`); UI/CLI entry points run analysis in a
+  killable subprocess instead. Assemblies untested.
+- Geometry generation is single-shot (4-op DSL, no refine loop) and slow per eval call
+  (40–420 s incl. full analysis). No mesher hook — scores are heuristic screening, not
+  correlated against mesher outcomes.
 
 ## Roadmap
 
@@ -193,10 +221,10 @@ has been trained** (see Roadmap), so the base and LoRA columns are empty by desi
 2. **Labeled real-CAD test set** (SimJEB / GrabCAD) as a true generalization probe against the
    >0.50 recall exit criterion — currently only an unlabeled gate exists.
 3. **Finish one QLoRA run** to fill the Base-vs-LoRA comparison, then stop — keep the harness.
-4. **Geometry-generation: prove the live loop.** v1 (typed DSL + `build_part` tool +
-   subprocess-isolated executor) is shipped; next is the live-LLM E_grammar eval
-   (generate → analyze on 5 held-out prompts) and then a refine loop.
-5. CI; mesher (Gmsh) hook.
+4. **Geometry-generation: close the loop.** v1 (typed DSL + `build_part` tool) and v2
+   (live dual-model E_grammar eval, 5/5 both models) are shipped; next is a refine loop
+   (feed analysis findings back into a spec revision) and a CLI/Streamlit gen panel.
+5. Mesher (Gmsh) hook — correlate the 0–100 score with actual meshability.
 
 ## Project layout
 
@@ -207,7 +235,7 @@ simready/        cli · pipeline · validator · healer · checks · occ_utils �
 ui/              app.py (analysis) · copilot_app.py (agent chat)
 scripts/         train · evaluate · auto_label · generate_parametric_steps · generate_degraded_steps
                  · prep_finetune_dataset · eval_finetune · scrape_fea_docs · index_fea_docs · …
-tests/           198 tests
+tests/           227 tests (5 live-LLM opt-in)
 weights/         brepnet.pt (16 KB) · metrics.json · brepnet_meta.json · eval_fixtures.json  (tracked)
 docs/            validation/ · impl/ · exec-plans/ · sample_output/ (committed CLI output) · img/
                  CONTEXT.md = domain glossary

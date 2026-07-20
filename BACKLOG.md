@@ -29,7 +29,8 @@ committed seed RAG index (`lookup_standard` now live on fresh clones), CI
 - `finish-or-relabel-finetune` — DECIDED 2026-07-19: RUN one Colab QLoRA collaboratively
   (user + assistant), then stop investing regardless of result.
 - `real-eval-set-grow` (S3) — user downloads 20–30 STEPs.
-- `gmsh-calibration` (S2) — do-or-drop decision still open.
+- `gmsh-calibration` (S2) — DECIDED 2026-07-20: deferred to interview prep, off the active backlog.
+- **APPLY DECISION 2026-07-20: GO** — user sends; README refreshed + narrative drafted same day.
 - NIM key: rotated (user confirmed 2026-07-19).
 - [x] **S3 · ci-full-suite-promote** — CLOSED same day. First run: env resolved on
   linux-64, 190 passed / 2 failed / 4 skipped in 14.6 s. Both failures were
@@ -91,7 +92,6 @@ committed seed RAG index (`lookup_standard` now live on fresh clones), CI
 - [ ] **S2 · defect-head-real-cad-augmentation** *(fillet/chamfer attempt FAILED 2026-07-19 — synthetic augmentation exhausted)* — non-circular defect head still false-positives on **11/11** analyzed real McMaster parts after the combined-v2 retrain (2272 graphs incl. 1172 fillet/chamfer-featured; val 0.686 on the harder featured val; open_shell 0.571→0.856 but real-CAD FP unchanged). Finding: the gap is the **surface-type vocabulary** — box/cyl grammar has no B-splines/cones/tori/revolves, so no amount of feature randomization on it covers real CAD. Remaining levers: (a) small hand-labelled real-CAD positive set, (b) clean real parts as negatives in training, (c) grammar extension to revolved/swept surfaces. self_intersection class (0.212) needs an interference feature, not data. *Opened 2026-05-28; attempt recorded 2026-07-19. See `docs/validation/defect_classifier.md` v2 section + `real_eval_v2.md`.*
 - [ ] **S2 · finish-or-relabel-finetune** *(user runs Colab)* — notebook never ran (0 executed cells); table columns empty. Either run the QLoRA notebook once to fill the table (upload train/val.jsonl to Drive, T4, Run All) OR relabel everything "pipeline, not result" and stop investing. *Opened 2026-05-26. Rank 3.*
 - [ ] **S2 · grabcad-scrape-blocked** *(DOWNGRADED 2026-05-26)* — `download_grabcad_samples.py` is a manual stub w/ anti-bot walls. **No longer blocks day-9 recall** — recall fix is self-unblockable via the degraded generator (see `break-circular-label` + `degraded-to-200-retrain`). GrabCAD/SimJEB STEPs now only needed for `real-cad-eval-set` (held-out eval, not training). *Opened 2026-05-14 (wk-1 Q2).*
-- [ ] **S2 · gmsh-calibration** *(user task)* — Run 10-15 STEPs from `tests/data/` through Gmsh at 2mm target: `gmsh part.step -3 -clmax 2 -o part.msh`. Record pass/fail + worst element quality. Correlate with SimReady score. Even rough correlation makes every score claim on the resume defensible. Requires: download Gmsh from https://gmsh.info (~100 MB, free). *Opened 2026-05-19.*
 
 ---
 
@@ -113,6 +113,7 @@ _(items currently being worked — move from Open when started, back to Open if 
 
 ## Done this session
 
+- **gmsh-calibration** (S2) — DECIDED 2026-07-20: deferred to interview prep, dropped from active backlog after 2 months untouched. Not blocking the apply; README now states scores are heuristic screening, not mesher-correlated. Revive only if MecAgent responds (command recipe preserved here: `gmsh part.step -3 -clmax 2 -o part.msh` on 10-15 `tests/data/` STEPs, record pass/fail + worst element quality, correlate with score). *(no code change)*
 - **gen-spec-orphan-step-rule** (S2) — `PartSpec._check_orphans`: every non-final step must be referenced by a later `fuse`/`cut` (orphan = built then silently discarded — the Llama dropped-boolean failure mode). TDD, +6 spec tests; `build_part` tool description now states the rule up front. Live Llama re-run: **3/5 → 5/5** (clean single-config leg). Honest attribution: no spec ever bounced off the validator — the *description* fixed the emissions; validator is the enforced backstop. Bonus fix en route: with the new description Llama packed build+analyze as parallel tool calls and NIM's Llama template 500s on multi-tool_call history ("This model only supports single tool-calls at once!", 2/2 reproduced) → agent now sends `parallel_tool_calls=False` (+1 agent test). Latency worse (62.8–417.3 s/prompt, thin_plate outlier) → reinforces S3 `gen-eval-latency`. Verdict-prose hallucination persists (bracket_with_hole claimed 148 faces + NAFEMS citation on a clean 7-face part) — gate scores artifacts, not prose. Full record: `docs/validation/geometry_gen_eval.md` v2.1 section. *(SHA: `8304c1b`)*
 
 ---

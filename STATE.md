@@ -3,10 +3,10 @@
 <!-- Machine-maintained by save-session Step 6b. Hand-edit 2026-07-19 authorized by user (triage session). -->
 
 Status: active
-Last touched: 2026-07-19
+Last touched: 2026-07-20
 
 ## What
-MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processing. LLM copilot over B-rep analysis pipeline + BRepSAGE (3-head GraphSAGE) defect classifier + geometry-generation DSL (`build_part` tool). **Application NEVER sent** (`v0.4.0-apply` was prep only — corrected 2026-07-19); apply AFTER project substantial. Strategy doc: docs/strategy/mecagent-gap-and-drift-2026-05-26.md; wave plan: BACKLOG.md "Triage 2026-07-19".
+MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processing. LLM copilot over B-rep analysis pipeline + BRepSAGE (3-head GraphSAGE) defect classifier + geometry-generation DSL (`build_part` tool). **APPLY DECISION: GO (2026-07-20)** — user is sending the application; only the user's confirmation counts as "sent" (per lessons_verification-claims). History: never sent before this (`v0.4.0-apply` was prep only — corrected 2026-07-19). Strategy doc: docs/strategy/mecagent-gap-and-drift-2026-05-26.md; wave plan: BACKLOG.md "Triage 2026-07-19".
 
 ## Done
 - Full pipeline + copilot, 202 tests green in sr env
@@ -30,7 +30,7 @@ MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processi
 - CI proven 2026-07-19: full-suite ran 190/192 on linux first try; 2 local-data tests now skip-if-absent; continue-on-error dropped (ci-full-suite-promote CLOSED)
 
 ## Resume here
-Stream D in progress (2026-07-19). Item A DONE: orphan-step rule + parallel_tool_calls fix, Llama 5/5. Remaining: B Colab QLoRA once → C real-eval growth → D gmsh do-or-drop → **E THE APPLY DECISION** (main event, with user).
+Stream D (2026-07-20): A DONE + committed (`8304c1b`). E decided **GO** — README refreshed (gen eval, real_eval v2, 227 tests, CI), narrative drafted (`docs/strategy/mecagent-apply-narrative-2026-07-20.md`); user sends. D decided: gmsh deferred to interview prep (off backlog). B in progress: Colab QLoRA run (notebook eval_strategy fix `1732f0a`; data validated 951/39). Remaining: capture QLoRA numbers into docs/finetune_results.md; C (real-eval growth) open, user-paced. **Confirm with user whether application was actually sent before recording it.**
 
 ## Landmines
 - Memory + old BACKLOG claimed "applied to MecAgent 2026-05-18" — FALSE, never applied (corrected 2026-07-19; memory + BACKLOG fixed)
