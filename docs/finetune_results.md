@@ -1,7 +1,8 @@
 # Fine-Tune Eval Results
 
-**Model:** Qwen2.5-3B-Instruct + QLoRA (r=16, alpha=32, all-linear)  
-**Base for comparison:** Qwen2.5-3B-Instruct (unquantized, via API)  
+**Model:** Qwen2.5-3B-Instruct + QLoRA (r=16, alpha=32, q/k/v/o/gate/up/down proj)  
+**Base for comparison:** Qwen2.5-3B-Instruct q8_0 GGUF — served through the *same* local
+llama-server stack as the LoRA column, so the comparison isolates the fine-tune  
 **Paid-model reference:** meta/llama-3.3-70b-instruct (trace generator)  
 **Fine-tune data:** ~5 000 synthetic tool-call traces (Day 15) + 50 gold traces (Day 12, held out)  
 **Eval script:** `scripts/eval_finetune.py`
@@ -13,20 +14,34 @@
 Each `## Run:` block below is appended by `eval_finetune.py` after a model run.
 Fill the **Gap Analysis** sections manually after comparing runs.
 
-Run the eval:
+Run the eval (recipe as of 2026-07-20 — GGUF + local llama-server; the agent loop and
+OCC tools run locally, only token generation is served):
 ```powershell
-# Paid reference model (baseline ceiling)
+# One-time setup:
+#  1. Notebook section 9b exports the merged LoRA as q8_0 GGUF to MyDrive/simready/
+#     — download it (~3.2 GB) to weights/gguf/ (gitignored).
+#  2. Base column: download qwen2.5-3b-instruct-q8_0.gguf from
+#     https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF to the same folder.
+#  3. llama-server: prebuilt Windows zip from https://github.com/ggml-org/llama.cpp/releases
+#     (llama-*-bin-win-*-x64.zip, no install). --jinja uses the GGUF's embedded chat
+#     template, which is what makes Qwen tool-calling work.
+
+# Terminal 1 — serve (swap the -m path for base vs LoRA):
+llama-server -m weights/gguf/<model>.gguf --jinja -c 8192 --port 8080
+
+# Terminal 2 — eval (sr env):
 $env:PYTHONPATH = "C:\Users\suman\Desktop\Docs\Job\Projects\Mech\SimReady"
+$env:OPENAI_BASE_URL = "http://localhost:8080/v1"
+$env:OPENAI_API_KEY = "local"
+C:\mm\sr\python.exe scripts/eval_finetune.py --dataset gold --model-tag "Qwen2.5-3B-LoRA-q8"
+C:\mm\sr\python.exe scripts/eval_finetune.py --dataset gold --model-tag "Qwen2.5-3B-base-q8"   # after swapping -m
+
+# Paid reference model (baseline ceiling, NIM):
 C:\mm\sr\python.exe scripts/eval_finetune.py --model-tag "Llama-70B-ref" --model meta/llama-3.3-70b-instruct
-
-# Base 3B (floor — what fine-tuning improves from)
-# Run in Colab after Day 17, or via NIM if 3B is available on NIM
-# python scripts/eval_finetune.py --model-tag "Qwen2.5-3B-base" --model ...
-
-# Fine-tuned LoRA 3B (the target)
-# Run in Colab Day 20 via local backend once adapter is saved
-# python scripts/eval_finetune.py --model-tag "Qwen2.5-3B-LoRA" --backend local --adapter ...
 ```
+Caveats: q8_0 quantization deviates slightly from the fp16 training result — acceptable
+because both columns go through the identical quant + server; CPU generation is slow
+(expect roughly 1–2 h for the 50-trace gold set per column — leave it running).
 
 ---
 
