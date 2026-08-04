@@ -190,7 +190,7 @@ Caveman mode ON (chat terse; code/commits normal).
 
 ## Stream D — Wave 3: user-gated closures + apply decision
 
-- **Status:** Ready to paste (drafted 2026-07-19, after wave-2 completion `b62fc9e..2e04391`).
+- **Status:** MOSTLY CONSUMED 2026-07-20 (`8304c1b..d94cc25`). A done (orphan-step rule, Llama 5/5). D decided (gmsh → interview prep). **E decided GO** — README refreshed, narrative at `docs/strategy/mecagent-apply-narrative-2026-07-20.md`; **NOT SENT as of 2026-08-04 (user confirmed) — sending is the #1 next action.** B training DONE (adapter + loss_curve.png on Drive, confirmed 2026-08-04 — remaining: loss from `checkpoints/*/trainer_state.json`, GGUF export via fresh Colab loading adapter from Drive, dual gold-set eval per `docs/finetune_results.md` recipe). C (real-eval growth) untouched, user-paced. Do NOT re-execute A/D/E.
 - **Predecessor:** wave-2 session of 2026-07-19 (gen v2 dual-model eval, OCC-hang diagnosis+fix, defect-head augmentation honest negative). Suite 220/220 sr + 5 live deselected; CI green; all pushed.
 - **Why next:** BACKLOG "Triage 2026-07-19" wave 3. Everything left is either user-gated (Colab, downloads, decisions) or small dev polish. The strategic question wave 3 must answer: the project is now arguably substantial — **decide on applying to MecAgent and, if go, actually send it.**
 
