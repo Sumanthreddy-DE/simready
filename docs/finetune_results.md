@@ -4,7 +4,7 @@
 **Base for comparison:** Qwen2.5-3B-Instruct q8_0 GGUF — served through the *same* local
 llama-server stack as the LoRA column, so the comparison isolates the fine-tune  
 **Paid-model reference:** meta/llama-3.3-70b-instruct (trace generator)  
-**Fine-tune data:** ~5 000 synthetic tool-call traces (Day 15) + 50 gold traces (Day 12, held out)  
+**Fine-tune data:** 951 train / 39 val synthetic tool-call traces (Llama-70B teacher runs through the real agent loop, `scripts/synth_tool_traces.py`) + 50 gold traces (Day 12, held out)  
 **Eval script:** `scripts/eval_finetune.py`
 
 ---
@@ -57,6 +57,23 @@ because both columns go through the identical quant + server; CPU generation is 
 | **theme_hit_rate** | Fraction of expected answer themes found in output (gold traces only) |
 
 ---
+
+## Training run (recovered 2026-09-23 from `checkpoint-180/trainer_state.json`)
+
+Colab, Unsloth, base `unsloth/qwen2.5-3b-instruct-unsloth-bnb-4bit`, LoRA r=16 / alpha=32 /
+dropout 0, all attn + MLP projections. 3 epochs, 180 steps, batch 2. Final adapter ==
+checkpoint-180 adapter (byte-identical). Local copy: `weights/qlora/` (gitignored).
+
+| Step | Epoch | Train loss | Val loss |
+|---|---|---|---|
+| 50 | 0.84 | 0.697 | — |
+| 100 | 1.67 | 0.160 | — |
+| 150 | 2.50 | 0.107 | — |
+| 180 | 3.00 | — | 0.150 |
+
+Caveats: `eval_steps=200 > max_steps=180`, so val loss exists only at the end: no val
+curve, no overfitting check. Low loss on teacher-generated traces means the student imitates
+the teacher's format; it says nothing about tool-use quality. That is the gold-set eval below.
 
 ## Summary comparison table
 *(Llama-70B ref = gold n=50, 2026-05-24. Base/LoRA columns filled after Day 17/18.)*

@@ -71,3 +71,6 @@ logs/
 
 # Local agent harness scratch
 .claude/
+
+# Job descriptions: local only (public repo)
+docs/jobs/
