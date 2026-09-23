@@ -184,8 +184,9 @@ agent loop (`docs/validation/geometry_gen_eval.md`).
 
 ### Copilot eval — gold set (n=50)
 
-Reference run only: `meta/llama-3.3-70b-instruct` as teacher/ceiling. **No fine-tuned model
-has been trained** (see Roadmap), so the base and LoRA columns are empty by design.
+Reference run only: `meta/llama-3.3-70b-instruct` as teacher/ceiling. A QLoRA adapter
+(Qwen2.5-3B, 951 traces, 3 epochs) is trained but **not yet evaluated** on this gold set, so
+the base and LoRA columns are still empty (`docs/finetune_results.md`).
 
 | tool_call_exact | partial | order_ok | format_ok | sections_ok | theme_hit |
 |--:|--:|--:|--:|--:|--:|
@@ -199,7 +200,8 @@ has been trained** (see Roadmap), so the base and LoRA columns are empty by desi
 - The **defect head does not generalize to real CAD** — 11/11 false positives on analyzed
   McMaster parts; the gap is the surface-type vocabulary, not data volume (see honest
   negative above).
-- Fine-tuning is a **pipeline + eval harness**, not a trained model — no Base-vs-LoRA result.
+- Fine-tuning: one QLoRA run is trained (loss in `docs/finetune_results.md`), but there is
+  **no Base-vs-LoRA result yet** — no claim about the fine-tuned model until that eval runs.
 - 227 tests pass, but the LLM-facing tests mock the client (5 live-LLM tests are opt-in) —
   test count is not an ML-quality signal.
 - Self-intersection check skipped above 150 faces and on freeform (B-spline) faces — OCC
@@ -220,7 +222,7 @@ has been trained** (see Roadmap), so the base and LoRA columns are empty by desi
    information.
 2. **Labeled real-CAD test set** (SimJEB / GrabCAD) as a true generalization probe against the
    >0.50 recall exit criterion — currently only an unlabeled gate exists.
-3. **Finish one QLoRA run** to fill the Base-vs-LoRA comparison, then stop — keep the harness.
+3. **Evaluate the trained QLoRA adapter** to fill the Base-vs-LoRA comparison, then stop — keep the harness.
 4. **Geometry-generation: close the loop.** v1 (typed DSL + `build_part` tool) and v2
    (live dual-model E_grammar eval, 5/5 both models) are shipped; next is a refine loop
    (feed analysis findings back into a spec revision) and a CLI/Streamlit gen panel.
