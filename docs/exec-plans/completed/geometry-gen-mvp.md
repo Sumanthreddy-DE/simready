@@ -1,6 +1,9 @@
 # Geometry-Gen MVP — Plan
 
-**Status:** scoping locked 2026-05-28 (Brainstorm A) → build in progress.
+**Status:** done
+**Last verified:** 2026-09-07
+**Status evidence:** SimReady STATE.md Done: 'geometry-gen-mvp v1: typed Pydantic DSL + trusted executor (ADR 0001) + build_part tool'
+
 **Owning backlog item:** `S1 · geometry-gen-mvp` (BACKLOG.md).
 **Strategy context:** rank 5 of `docs/strategy/mecagent-gap-and-drift-2026-05-26.md` — closes the JD's first bullet ("geometry generation"), currently zero coverage.
 
@@ -26,7 +29,7 @@ The MecAgent JD's headline ask is generation, not analysis. SimReady is analysis
 
 ```
 docs/
-  exec-plans/geometry-gen-mvp.md     (this file)
+  exec-plans/completed/geometry-gen-mvp.md     (this file)
   adr/0001-geometry-gen-dsl-over-codegen.md
 simready/
   gen/

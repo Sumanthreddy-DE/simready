@@ -36,7 +36,7 @@ If none apply: do not touch it. Stale claims are worse than missing ones.
 
 ## 4. Plan progress
 
-In `docs/exec-plans/path-c-4week.md`:
+In `docs/exec-plans/completed/path-c-4week.md`:
 
 - [ ] Tick the right `[ ]` → `[x]` for any day that shipped.
 - [ ] Update the **`Status:`** line at the top if the wk-by-wk position moved.

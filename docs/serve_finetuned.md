@@ -8,7 +8,7 @@ so the **existing** agent, eval script, and Streamlit UI use it unchanged.
 > We deliberately do **not** ship an in-process transformers backend. Instead we
 > serve the model with vLLM's OpenAI server and point `OPENAI_BASE_URL` at it.
 > Zero new agent code; the fine-tuned model drops in behind the same interface
-> as GPT-4o / NIM. See `docs/exec-plans/path-c-4week.md` day 20 for the rationale.
+> as GPT-4o / NIM. See `docs/exec-plans/completed/path-c-4week.md` day 20 for the rationale.
 
 ---
 

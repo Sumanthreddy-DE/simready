@@ -1,7 +1,7 @@
 # ADR 0002 — Copilot: OpenAI-Compatible SDK over Anthropic-Native
 
 - **Status:** Accepted (retro-documented 2026-07-20; decision made 2026-05-13, Path C wk-1)
-- **Related:** `simready/copilot/agent.py`, `docs/exec-plans/path-c-4week.md`
+- **Related:** `simready/copilot/agent.py`, `docs/exec-plans/completed/path-c-4week.md`
 
 ## Context
 

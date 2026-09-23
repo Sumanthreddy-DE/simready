@@ -1,8 +1,13 @@
 # Path C — 4-Week Execution Plan
 
+**Status:** superseded
+**Last verified:** 2026-09-23
+**Status evidence:** own original status line, restored below; replaced by BACKLOG.md wave plan (Triage 2026-07-19)
+
 **Author:** SimReady team
 **Created:** 2026-05-13
-**Status:** SUPERSEDED by the wave plan (`BACKLOG.md` "Triage 2026-07-19") — kept as historical wk-1..3 record. **CORRECTION 2026-07-19: application was NEVER sent; `v0.4.0-apply` (`34a93e7`) tagged application *prep* only** (this line previously claimed otherwise — the same false record corrected in BACKLOG/memory on 2026-07-19; this copy was missed until the wave-2 wrap). Wk-1 + wk-2 shipped as described below; wk-3 fine-tune scaffolding landed but the QLoRA run never executed (now Stream D item B, one run then stop). Post-plan work (gen-mvp v1/v2, real-CAD eval, OCC-hang fix, defect-head v2) is tracked in BACKLOG + `docs/session-prompts.md`, not here.
+**Superseded note:** SUPERSEDED by the wave plan (`BACKLOG.md` "Triage 2026-07-19") — kept as historical wk-1..3 record. **CORRECTION 2026-07-19: application was NEVER sent; `v0.4.0-apply` (`34a93e7`) tagged application *prep* only** (this line previously claimed otherwise — the same false record corrected in BACKLOG/memory on 2026-07-19; this copy was missed until the wave-2 wrap). Wk-1 + wk-2 shipped as described below; wk-3 fine-tune scaffolding landed but the QLoRA run never executed (now Stream D item B, one run then stop). Post-plan work (gen-mvp v1/v2, real-CAD eval, OCC-hang fix, defect-head v2) is tracked in BACKLOG + `docs/session-prompts.md`, not here.
+
 **Target:** MecAgent ML/AI Founding Engineer application + interview-ready demo
 
 ## Progress

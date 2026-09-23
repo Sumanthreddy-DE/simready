@@ -389,7 +389,7 @@ def build_part(spec: dict[str, Any], timeout_seconds: float = 15.0) -> dict[str,
 
     Returns a dict shaped for the LLM's next turn: ``{step_path, schema_valid,
     occ_valid, faces, bbox_mm, ...}`` on success, or ``{schema_valid, occ_valid,
-    error}`` on failure. See ``docs/exec-plans/geometry-gen-mvp.md``.
+    error}`` on failure. See ``docs/exec-plans/completed/geometry-gen-mvp.md``.
     """
     from simready.gen.build import build_part as _build_part
 

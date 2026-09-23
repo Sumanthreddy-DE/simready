@@ -32,7 +32,7 @@ E_grammar runner that proves the generate → analyze loop end-to-end on
 First read (in this order):
 1. BACKLOG.md — S1 geometry-gen-mvp stamp (v1 SHIPPED, v2/v3 still Open) +
    open S2/S3 (don't touch unless v2 blocks)
-2. docs/exec-plans/geometry-gen-mvp.md — full plan; v2 scope = the
+2. docs/exec-plans/completed/geometry-gen-mvp.md — full plan; v2 scope = the
    "## Test plan" → tests/test_gen_e2e.py block, and the
    "## Ship sequence" → Commit 2 row
 3. docs/adr/0001-geometry-gen-dsl-over-codegen.md — exec-model decision
@@ -124,7 +124,7 @@ Baseline: suite 202/202 sr green at b5d4070.
 First read (in this order):
 1. BACKLOG.md — "Triage 2026-07-19" wave plan + S1 geometry-gen-mvp stamp
    (v1 SHIPPED; v2 = this session; v3 CLI/Streamlit stays deferred)
-2. docs/exec-plans/geometry-gen-mvp.md — v2 scope = "## Test plan" →
+2. docs/exec-plans/completed/geometry-gen-mvp.md — v2 scope = "## Test plan" →
    tests/test_gen_e2e.py block + "## Ship sequence" → Commit 2 row
 3. docs/adr/0001-geometry-gen-dsl-over-codegen.md — LLM emits PartSpec via
    build_part tool call; no LLM code is ever exec'd (non-negotiable)
@@ -325,7 +325,7 @@ Quick wins still open in BACKLOG (S2/S3 — do not duplicate the closed three):
 - S3 base-vs-env-marker-split
 - S3 adr-backlog
 
-Before anything else: read BACKLOG.md (S1 first), docs/exec-plans/path-c-4week.md,
+Before anything else: read BACKLOG.md (S1 first), docs/exec-plans/completed/path-c-4week.md,
 memory project_simready.md CURRENT STATE block, and
 docs/strategy/mecagent-gap-and-drift-2026-05-26.md (rank 5 + contrarian "do it
 constrained" warning) for the geometry-gen scoping context.

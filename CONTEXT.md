@@ -79,7 +79,7 @@ Canonical terms for this codebase. Read this before writing or reviewing code so
 ## Live source-of-truth files
 
 - `BACKLOG.md` (repo root) — open issues by severity.
-- `docs/exec-plans/path-c-4week.md` — full plan + progress.
+- `docs/exec-plans/completed/path-c-4week.md` — full plan + progress.
 - `docs/validation/` — synth + real-CAD validation tables.
 - `docs/impl/brepnet-implementation-notes.md` — BRepSAGE model + dataset notes.
 - `BACKLOG.md` Strategic Context section — wk-3 priorities, contrarian review summary, gaps vs JD table.

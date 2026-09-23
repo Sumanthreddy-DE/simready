@@ -1,5 +1,9 @@
 # Wave-2 Items 2+3: OCC Hang Guard + Defect-Head Real-CAD Augmentation
 
+**Status:** done
+**Last verified:** 2026-09-07
+**Status evidence:** in completed/; SimReady STATE.md Done: OCC-hang guard + defect-head augmentation 2026-07-19
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** (A) `analyze_file` can no longer freeze a UI/tool caller on real CAD — culprit check identified, guarded, and all entry points subprocess-isolated; (B) the defect head's 100 % FP rate on real McMaster parts is attacked with feature-rich (filleted/chamfered) training data and honestly re-measured.

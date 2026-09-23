@@ -3,7 +3,7 @@
 **Date:** 2026-05-26
 **Trigger:** Hiring-manager-lens review of the whole repo (MecAgent ML/AI Founding Engineer JD), followed by a strategy discussion.
 **Status:** Decisions below supersede the wk-3 fine-tune emphasis. The 4-week plan
-(`docs/exec-plans/path-c-4week.md`) is now partially redirected — see "Re-prioritized plan".
+(`docs/exec-plans/completed/path-c-4week.md`) is now partially redirected — see "Re-prioritized plan".
 
 This file is the **canonical** record. Memory holds only a pointer
 (`project_simready.md`, `project_simready-contrarian.md`).
@@ -148,7 +148,7 @@ product. Evidence cited as `file:line` against the repo at commit `a719db0`.
    `data/fine_tune/traces.jsonl`; `scripts/prep_finetune_dataset.py`;
    `scripts/eval_finetune.py`; `docs/finetune_results.md:33-43`. (Phrase as *pipeline*, not result.)
 5. **Eval-first data discipline** — 50 hand-written gold traces, never mixed into train.
-   `tests/data/gold_traces.jsonl`; `docs/exec-plans/path-c-4week.md:181`.
+   `tests/data/gold_traces.jsonl`; `docs/exec-plans/completed/path-c-4week.md:181`.
 6. **Real-CAD validation gate that honestly exposes the model's failure** — ML aggregate
    0.30-0.34 vs rule 0.67-0.88. `docs/validation/grabcad.md:16-18`, `:66-83`.
 7. **CAD robustness under OCC pathologies** — self-intersection check hardened >10 min → 6.3 s

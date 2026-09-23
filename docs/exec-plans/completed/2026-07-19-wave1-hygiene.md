@@ -1,5 +1,9 @@
 # Wave 1 Hygiene Batch Implementation Plan
 
+**Status:** done
+**Last verified:** 2026-09-07
+**Status evidence:** SimReady STATE.md Done: 'Wave-1 hygiene (2026-07-19, 1d5a80a..)'
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Close the six wave-1 bottlenecks from the 2026-07-19 triage: truth-sweep stale docstrings + system prompt, rename the `render`/`renderer` module collision, anchor cwd-dependent paths to repo root, ship a committed seed RAG index, add CI, and record waves 2/3 in BACKLOG.md.
@@ -163,7 +167,6 @@ def test_resolve_output_dir_ignores_cwd(tmp_path, monkeypatch):
     assert str(tmp_path) not in str(resolved)
     assert resolved.parts[-2:] == ("data", "gen_parts")
 
-
 def test_resolve_output_dir_explicit_wins(tmp_path):
     from simready.gen.build import resolve_output_dir
 
@@ -184,7 +187,6 @@ Below `DEFAULT_OUTPUT_DIR` add:
 # Anchor generated parts to the repo root regardless of process cwd —
 # Streamlit / installed-package launches don't run from the repo root.
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-
 
 def resolve_output_dir(
     output_dir: str | os.PathLike[str] | None,

@@ -3,7 +3,7 @@
 - **Status:** Accepted (2026-05-28)
 - **Owners:** SimReady / Path C
 - **Supersedes:** N/A
-- **Related:** `docs/exec-plans/geometry-gen-mvp.md`, `docs/strategy/mecagent-gap-and-drift-2026-05-26.md` (rank 5 + contrarian "do it constrained"), `BACKLOG.md` (S1 `geometry-gen-mvp`).
+- **Related:** `docs/exec-plans/completed/geometry-gen-mvp.md`, `docs/strategy/mecagent-gap-and-drift-2026-05-26.md` (rank 5 + contrarian "do it constrained"), `BACKLOG.md` (S1 `geometry-gen-mvp`).
 
 ## Context
 
