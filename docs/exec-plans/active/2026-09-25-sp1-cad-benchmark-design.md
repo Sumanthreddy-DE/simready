@@ -105,7 +105,63 @@ starts from the stored failures; the single-shot run is never repeated. Tracked 
 **Why commit the official logs:** "every attempt is replayable" is only checkable if the logs
 are public; a reviewer can re-grade the run themselves.
 
+## Design §1: Concept format and checker (approved 2026-09-25)
+
+One JSONL line per concept: `concept_id`, `name`, `in_vocab`, `prompts{explicit, engineer,
+intent}`, `checks{explicit, engineer, intent}` (list per phrasing), `sources` (standards the
+ranges come from, e.g. "NEMA 17 pattern 31.0 mm; ISO 273 M3 clearance 3.2–3.6").
+
+Checker rules:
+1. **Validity gate first** (after text-to-cad): BRep valid, closed shell, positive volume,
+   expected solid count (default 1). Gate fail ⇒ attempt fails, no further checks. Blocks
+   empty-shell-with-right-envelope cheats.
+2. **Placement-invariant:** extents compared sorted (`bbox_sorted`); hole patterns compared by
+   pairwise centre distances. Orientation checked only when the prompt states it.
+3. **Tolerances:** explicit ±0.1 mm on stated numbers; engineer = the standard's own range;
+   intent = wide ranges + `any_of` alternatives.
+4. Each check returns `pass` / `fail` / `not_checked`. Attempt passes iff gate passes and all
+   checks pass. Partial score (fraction passed) is logged for analysis and the SP3 reward.
+5. v1 check types: `bbox_sorted`, `bbox_min_dim`, `volume`, `hole_set` (count, diameter,
+   through/blind, pattern), `bore` (diameter + min depth), `boss`, `solid_count`. Minimum wall
+   thickness deferred to v1.1: `not_checked` beats an untrusted check.
+6. ~10 of 50 concepts need fillet/chamfer/true revolve → `in_vocab: false`, reported
+   **separately** (the SP2 gap), never mixed into the main pass rate. Tubes, spacers and flanges
+   (stacked cylinders + cuts) count as in-vocab.
+
+## Design §2: Runner and replay log (approved 2026-09-25)
+
+Pipeline per attempt: model API → parse → Pydantic validate → build STEP → checker → log line.
+Validate/build/check run in a killable subprocess with a 60 s timeout.
+
+- Same system prompt for all models: the `build_part` DSL schema + rules from the product's tool
+  description, versioned by hash.
+- Accepts a tool call **or** JSON in text; logs which (`via: tool|text`), so provider
+  tool-calling differences show up separately.
+- Temperature 0.7, fixed max tokens, seed where supported; all params logged.
+- Checker only, not the full analysis pipeline (40–420 s/part) ⇒ runs take hours, not days.
+- 4 workers per model; configurable requests/min per provider; 429 ⇒ exponential backoff; clean
+  stop when the daily quota is exhausted.
+- Resume: (model, prompt, attempt_idx) already logged ⇒ skipped. `--limit N` for smoke tests.
+- Log line: run id, model, params, prompt-file hash, checker version, concept, phrasing,
+  attempt idx, raw response, token usage, latency, parsed spec, schema errors, build error, STEP
+  sha256, gate + every check result, partial score, pass, failure class. **API keys never logged**
+  (base URL only).
+- STEP files are not stored: the executor is deterministic; `replay` rebuilds and verifies the hash.
+
+### Commands (must appear in the README, "Reproduce the benchmark"; requested by user 2026-09-25)
+
+| Command | What it does | Needs API keys? |
+|---|---|---|
+| `python -m simready.bench run --model <id> --k 5 [--limit N]` | run the benchmark | yes |
+| `python -m simready.bench regrade <run>` | re-run the current checker on logged specs | no |
+| `python -m simready.bench replay <run> <attempt_id>` | rebuild one attempt, verify STEP hash | no |
+| `python -m simready.bench report <runs...>` | produce the `bench_v1.md` tables | no |
+
+**README requirement:** a recruiter with no API keys must be able to reproduce every published
+number with `regrade` + `report` on the committed official logs (D7), and spot-check any attempt
+with `replay`. The section states the environment needed (OCC env) and the exact commands, and
+is verified by actually running them on a clean clone before it ships.
+
 ## Open questions (to decide next)
 
-- Constraint schema and tolerance conventions.
-- How concepts needing ops outside the 4-op DSL (revolve, fillet) are tagged and reported.
+- Design §3: report tables and failure classes.
