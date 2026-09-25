@@ -92,8 +92,20 @@ point, not an SP3 input. Building it now enlarges SP1 without serving SP3.
 **Why deferring is free:** every failed attempt is logged with its error, so a later repair run
 starts from the stored failures; the single-shot run is never repeated. Tracked in BACKLOG.
 
+### D7. Layout (approved by user 2026-09-25)
+
+| What | Where | Tracked |
+|---|---|---|
+| Checker, runner, report code | `simready/bench/` (new subpackage) | yes |
+| Prompts + constraints | `simready/bench/prompts/concepts_v1.jsonl` | yes |
+| Working run output (STEPs, scratch) | `data/bench_runs/` | no (gitignored, like `data/gen_eval/`) |
+| Report + headline numbers | `docs/validation/bench_v1.md` | yes |
+| Replay logs of the official run | `docs/validation/bench_v1/runs-<model>.jsonl.gz` (~1–2 MB) | yes |
+
+**Why commit the official logs:** "every attempt is replayable" is only checkable if the logs
+are public; a reviewer can re-grade the run themselves.
+
 ## Open questions (to decide next)
 
 - Constraint schema and tolerance conventions.
-- Where the code lives (new package directory needs explicit approval).
 - How concepts needing ops outside the 4-op DSL (revolve, fillet) are tagged and reported.
