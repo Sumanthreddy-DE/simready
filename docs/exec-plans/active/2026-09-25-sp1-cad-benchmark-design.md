@@ -2,12 +2,29 @@
 
 **Status:** active
 **Last verified:** 2026-09-25
-**Stage:** design in progress (brainstorming). Decisions below are locked; open questions at the end.
+**Stage:** design complete, awaiting user review of this spec. Next: implementation plan.
 
 **Context:** First of three sub-projects (SP1 benchmark + harness → SP2 generation vocabulary v2 →
 SP3 post-training with checker reward). Informed by `earthtojake/text-to-cad` (MIT: validity
 checks, repair-loop failure taxonomy) and `Adam-CAD/CADAM` (GPL-3: nothing copied; prompt style
 only). Neither repo scores its output; this benchmark is the piece they lack.
+
+## Goal
+
+Measure single-shot text-to-CAD generation with code-checkable constraints, so that "is model A
+better than B" and (in SP3) "did training help" have defensible numbers. Deliverables: 50-concept
+prompt file, checker, runner with replayable logs, `bench_v1.md` report for GLM-5.3, DeepSeek V4.1
+Flash and Qwen2.5-3B base.
+
+## Done when
+
+1. `concepts_v1.jsonl` has 50 concepts × 3 phrasings, proofread by the user, and its hash is frozen.
+2. Every check type has unit tests on hand-built STEP parts (known pass and known fail per type).
+3. Official runs are complete for GLM-5.3 and DeepSeek V4.1 Flash (Qwen follows once installed; SP1
+   may close with Qwen pending only if the install is the blocker, recorded in BACKLOG).
+4. `bench_v1.md` has all §3 tables; official logs committed per D7.
+5. The README "Reproduce the benchmark" commands have been run on a clean clone and give the
+   published numbers.
 
 ## Locked decisions
 
@@ -144,9 +161,15 @@ Validate/build/check run in a killable subprocess with a 60 s timeout.
 - Resume: (model, prompt, attempt_idx) already logged ⇒ skipped. `--limit N` for smoke tests.
 - Log line: run id, model, params, prompt-file hash, checker version, concept, phrasing,
   attempt idx, raw response, token usage, latency, parsed spec, schema errors, build error, STEP
-  sha256, gate + every check result, partial score, pass, failure class. **API keys never logged**
+  fingerprint, gate + every check result, partial score, pass, failure class. **API keys never logged**
   (base URL only).
-- STEP files are not stored: the executor is deterministic; `replay` rebuilds and verifies the hash.
+- STEP files are not stored: the executor is deterministic, so `replay` rebuilds from the logged
+  spec and verifies a **geometric fingerprint** (volume, surface area, bbox, face/edge counts,
+  rounded), **not** the STEP file hash. STEP headers carry a timestamp, so byte hashes differ on
+  every rebuild.
+- **Official run:** uses the frozen prompt-file hash and a tagged checker version, both in the log
+  header. A checker fix after the run goes through `regrade` and bumps the report version; logged
+  specs are never edited.
 
 ### Commands (must appear in the README, "Reproduce the benchmark"; requested by user 2026-09-25)
 
@@ -157,11 +180,50 @@ Validate/build/check run in a killable subprocess with a 60 s timeout.
 | `python -m simready.bench replay <run> <attempt_id>` | rebuild one attempt, verify STEP hash | no |
 | `python -m simready.bench report <runs...>` | produce the `bench_v1.md` tables | no |
 
-**README requirement:** a recruiter with no API keys must be able to reproduce every published
-number with `regrade` + `report` on the committed official logs (D7), and spot-check any attempt
-with `replay`. The section states the environment needed (OCC env) and the exact commands, and
-is verified by actually running them on a clean clone before it ships.
+**README requirement:** a recruiter with no API keys can reproduce every published number from
+the committed official logs (D7). Two paths, both stated in the README with exact commands:
+- **Quick path:** `report` only. Plain Python, no OCC; reads logged results; about a minute.
+- **Full path:** set up the OCC conda env (~10–15 min), then `regrade` (re-grades every logged spec
+  with the checker) and `replay` (rebuilds any attempt and verifies its fingerprint).
+Both paths are verified by running them on a clean clone before the section ships.
 
-## Open questions (to decide next)
+## Design §3: Failure classes and report (approved 2026-09-25)
 
-- Design §3: report tables and failure classes.
+One **primary** failure class per failed attempt (first failing stage); all check results are
+still logged.
+
+| Class | Stage | Example |
+|---|---|---|
+| F1 `no_parse` | answer | no tool call and no parseable JSON |
+| F2 `schema` | validation | negative dimension, unknown field |
+| F3 `reference` | validation | boolean refers to a later step; orphan step |
+| F4 `build_error` | kernel | OCC raises during build |
+| F5 `invalid_solid` | gate | open shell, negative volume, wrong solid count |
+| F6 `dimension_miss` | checks | envelope, bore or boss out of range |
+| F7 `feature_miss` | checks | hole count, diameter or pattern wrong |
+| F8 `timeout` | subprocess | build/check over 60 s |
+| F9 `out_of_vocab` | answer | uses an op the DSL lacks (e.g. `fillet`) |
+
+**`infra_error`** (API failure after retries: 5xx, network) is excluded from scoring and retried on
+resume. A provider outage must never count as a model failure.
+
+**Metrics:** pass@1 = mean success over all attempts of a prompt; pass@5 = share of prompts with at
+least one passing attempt (n = k = 5, so exact). Mechanical-reasoning gap = pass@1 (explicit) −
+pass@1 (engineer), per model, on in-vocab concepts.
+
+**`bench_v1.md` tables:**
+1. Setup: exact model ids, run dates, params, prompt-file hash, checker version; note that numbers
+   are not comparable to `geometry_gen_eval.md` (D5).
+2. Headline: pass@1 and pass@5 per model on in-vocab prompts, 95% CI by bootstrap **over
+   concepts** (the 15 attempts per concept are not independent).
+3. By phrasing: explicit / engineer / intent pass@1 per model + mechanical-reasoning gap with a
+   paired bootstrap CI.
+4. Failure-class distribution per model × phrasing.
+5. Out-of-vocab concepts, separately: admits it can't (F9) vs fakes the feature.
+6. Cost: tokens, median latency, calls.
+7. Three annotated failures with renders, picked from the **most frequent** failure classes.
+8. Known limits: count of `not_checked`, no wall-thickness check, author-chosen tolerances,
+   single author + single proofreader.
+
+**Honesty rules:** the report is published whatever the numbers are; models are not dropped after
+seeing results; SP3's metric stays the one fixed in D6.
