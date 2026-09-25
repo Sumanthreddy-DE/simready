@@ -80,9 +80,20 @@ extension, not a rewrite. v1.1 lands before SP3 starts.
   different setup (different models, prompts and metric) and must not be compared to benchmark
   numbers.
 
+### D6. Single-shot only; repair mode deferred (decided 2026-09-25)
+
+SP1 measures single-shot generation only: one answer per attempt, graded as-is.
+**SP3's metric is fixed now: single-shot pass@1 on held-out prompts, before vs after training.**
+No other number may be substituted after the results are in.
+
+**Why repair mode (validator/checker error → model retries) is not in SP1:** raised by the user.
+It answers a different question (how much the feedback loop helps), which is a harness talking
+point, not an SP3 input. Building it now enlarges SP1 without serving SP3.
+**Why deferring is free:** every failed attempt is logged with its error, so a later repair run
+starts from the stored failures; the single-shot run is never repeated. Tracked in BACKLOG.
+
 ## Open questions (to decide next)
 
-- Single-shot only, or also a repair mode (validator feedback → retry)? Affects call budget.
 - Constraint schema and tolerance conventions.
 - Where the code lives (new package directory needs explicit approval).
 - How concepts needing ops outside the 4-op DSL (revolve, fillet) are tagged and reported.

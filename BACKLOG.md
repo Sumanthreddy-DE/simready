@@ -95,6 +95,8 @@ committed seed RAG index (`lookup_standard` now live on fresh clones), CI
 
 ---
 
+- [ ] **S2 · sp1-repair-mode** — Deferred from SP1 (design D6). After the single-shot benchmark runs, add a repair pass that starts from the *logged* failed attempts: send the validator/checker error back, allow up to 2 retries, report "feedback loop lifts pass rate X → Y". Never re-runs single-shot; never replaces SP3's metric (single-shot pass@1). *Opened 2026-09-25. See `docs/exec-plans/active/2026-09-25-sp1-cad-benchmark-design.md` D6.*
+
 ## Open — S3 (tech debt, deprecations, low-impact polish)
 
 - [ ] **S3 · real-eval-set-grow** — n=7 (post-skip / post-timeout) is too small for a defensible held-out metric. Add 20–30 more real STEPs that survive the analyze guard (avoid dense flange / bearing NURBS for now, or wait for `analyze-file-occ-hang-per-check`). Use defect-head FP-rate as the primary held-out metric, not "accuracy" (no labels). *Opened 2026-05-28. See `docs/validation/real_eval.md` §4.*
