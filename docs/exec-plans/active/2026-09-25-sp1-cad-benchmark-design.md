@@ -62,9 +62,27 @@ SP3 eval. v1 results decide *which* concepts to add (e.g. harder parts rather th
 **Constraint:** concept IDs are stable and the prompt file is append-only, so v1.1 is an
 extension, not a rewrite. v1.1 lands before SP3 starts.
 
+### D5. Models and attempts (decided 2026-09-25)
+
+- **Reference models (API, user's keys, ~2,000 requests/day each):** GLM-5.3 (full, not Flash)
+  and DeepSeek V4.1 Flash. They are graded only, never trained: they set the ceiling that gives
+  the SP3 result a scale.
+- **Baseline:** Qwen2.5-3B-Instruct base (GGUF via local llama-server), run *after* the two API
+  models. Not on disk as of 2026-09-25; the user installs llama-server and downloads the GGUF when
+  the API runs finish (assistant supplies the commands). This is the before-number for SP3.
+- **k = 5 attempts per prompt:** reports pass@1 (reliability) and pass@5 (capability). The gap
+  on Qwen-3B predicts whether SP3's RL can help (RL raises pass@1 toward pass@k; it rarely
+  creates capability where pass@k is ~0).
+- **Budget:** 150 prompts × 5 = 750 calls per model per single-shot run, under one day per model.
+  Raw outputs are logged, so re-grading after a checker fix costs no API calls.
+- **Llama-3.3-70B dropped.** Report must state that earlier numbers
+  (`docs/validation/geometry_gen_eval.md`: GLM 5.2 / Llama-3.3-70B, 5 prompts) come from a
+  different setup (different models, prompts and metric) and must not be compared to benchmark
+  numbers.
+
 ## Open questions (to decide next)
 
-- Attempts per prompt (k) and which models for the first run.
+- Single-shot only, or also a repair mode (validator feedback → retry)? Affects call budget.
 - Constraint schema and tolerance conventions.
 - Where the code lives (new package directory needs explicit approval).
 - How concepts needing ops outside the 4-op DSL (revolve, fillet) are tagged and reported.
