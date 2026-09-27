@@ -3,7 +3,7 @@
 <!-- Machine-maintained by save-session Step 6b. Hand-edit 2026-07-19 authorized by user (triage session). -->
 
 Status: active
-Last touched: 2026-08-04
+Last touched: 2026-09-27
 
 ## What
 MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processing. LLM copilot over B-rep analysis pipeline + BRepSAGE (3-head GraphSAGE) defect classifier + geometry-generation DSL (`build_part` tool). **APPLY DECISION: GO (2026-07-20) — NOT YET SENT as of 2026-08-04 (user confirmed).** Everything is ready (README refreshed, narrative drafted, CI green) — **sending is the #1 open action, ahead of all dev work.** History: never sent before either (`v0.4.0-apply` was prep only — corrected 2026-07-19). Strategy doc: docs/strategy/mecagent-gap-and-drift-2026-05-26.md; wave plan: BACKLOG.md "Triage 2026-07-19".
@@ -19,10 +19,12 @@ MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processi
 - **defect-head augmentation attempt (2026-07-19):** combined-v2 retrain (2272 graphs w/ fillet/chamfer randomization) — val 0.686 harder-val, fixtures refinement 0.853/0.895, but **real-CAD FP still 11/11**. Honest negative; synthetic-augmentation lever exhausted. Item stays Open w/ findings.
 - **gen v2.1 (2026-07-19, wave 3):** orphan-step Pydantic rule + rule stated in `build_part` tool description + `parallel_tool_calls=False` (NIM Llama template 500s on multi-tool_call history) — Llama leg **3/5 → 5/5** clean re-run. Attribution honest: description fixed emissions, validator = backstop. geometry_gen_eval.md v2.1. Committed `8304c1b` (2026-07-20; had sat uncommitted). Suite 227 sr.
 - **Wave-3 decisions + apply package (2026-07-20, `d88ec31..d94cc25`):** APPLY = GO (README wave-2/3 refresh + apply narrative doc); gmsh deferred to interview prep; ADRs 0002-0004 (adr-backlog closed); QLoRA notebook live-debugged (4 fix commits) + GGUF/llama-server eval recipe.
+- **2026-09-23..27 repositioning session (`9ece3e8..b51f6af`):** QLoRA adapter recovered (byte-identical to checkpoint-180), loss 0.697→0.107 / val 0.150 recorded; README + finetune_results truth fixes; plan files closed out to `completed/`; JDs saved local-only (`docs/jobs/`, gitignored — public repo); studied text-to-cad (MIT) + CADAM (GPL-3), neither scores output; SP1 design spec D1–D7 + §1–§3 written.
 
 ## Doing
-- **SEND THE APPLICATION** — GO decided 2026-07-20, still unsent at 2026-08-04 wrap-up. This is the drift pattern (decide, then polish instead of send). Narrative: `docs/strategy/mecagent-apply-narrative-2026-07-20.md` §1+§4.
-- QLoRA (Stream D item B): **training COMPLETE** — `lora_adapter/` + `loss_curve.png` on MyDrive/simready/ (user confirmed 2026-08-04). Remaining: (a) recover loss numbers from `checkpoints/checkpoint-*/trainer_state.json` (cell-8 printout died with the Colab session), (b) GGUF export via SHORT FRESH Colab session — load adapter from Drive (`FastLanguageModel.from_pretrained(ADAPTER_DIR)`) then run section 9b; original cell assumed model still in memory, (c) download GGUF → dual gold-set eval (`docs/finetune_results.md` recipe) → close item regardless of result
+- **SEND THE APPLICATION** — GO since 2026-07-20, still unsent 2026-09-27. User's reason: feels not done enough for the JD. Position recorded: apply now to MecAgent + Faber (agent-harness); SP1–3 are follow-up evidence. Sentence bank: `docs/jobs/simready-transformation-and-pitch-bank.md` (local only).
+- **SP1 checker-scored text-to-CAD benchmark** — design complete, awaiting user review: `docs/exec-plans/active/2026-09-25-sp1-cad-benchmark-design.md` (D1–D7, §1–§3). Then SP2 (DSL v2) → SP3 (GRPO, checker reward).
+- QLoRA chat-SFT: adapter recovered to `weights/qlora/` (gitignored), loss recorded in `docs/finetune_results.md`; one gold-set eval (GGUF + llama-server), then close. Low priority vs SP1.
 
 ## Pipeline
 - re-probe kimi-k2.6 on NIM (S3)
@@ -32,7 +34,7 @@ MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processi
 - CI proven 2026-07-19: full-suite ran 190/192 on linux first try; 2 local-data tests now skip-if-absent; continue-on-error dropped (ci-full-suite-promote CLOSED)
 
 ## Resume here
-**1) SEND the MecAgent application** — GO decided 2026-07-20, confirmed NOT sent as of 2026-08-04; repo/narrative/CI all ready, nothing blocks it. 2) Push check: 7 commits (`8304c1b..a88be9e`) were unpushed at 2026-08-04 wrap-up. 3) QLoRA (item B): **training DONE** (adapter + loss_curve.png on Drive, confirmed 2026-08-04) — recover loss from `checkpoints/*/trainer_state.json`, GGUF export via fresh Colab (load adapter from Drive first — section 9b assumed model in memory), then dual gold-set eval per `docs/finetune_results.md`, close regardless of result. 4) C (real-eval growth) open, user-paced.
+1) User reviews SP1 spec (flag done-criterion 3: may SP1 close with Qwen baseline pending?) → superpowers:writing-plans into `docs/exec-plans/active/` → first task: assistant writes 50 concepts (`simready/bench/prompts/concepts_v1.jsonl`), user proofreads. 2) Send applications (MecAgent, Faber harness) — nothing blocks it. 3) QLoRA chat-SFT: one eval then close.
 
 ## Landmines
 - Memory + old BACKLOG claimed "applied to MecAgent 2026-05-18" — FALSE, never applied (corrected 2026-07-19; memory + BACKLOG fixed)
