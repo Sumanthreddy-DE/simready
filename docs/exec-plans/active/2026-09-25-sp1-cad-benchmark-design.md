@@ -1,8 +1,8 @@
 # SP1: Checker-scored text-to-CAD benchmark + harness (design)
 
 **Status:** active
-**Last verified:** 2026-09-25
-**Stage:** design complete, awaiting user review of this spec. Next: implementation plan.
+**Last verified:** 2026-10-04
+**Stage:** reviewed by user 2026-10-04 (changes folded in below). Next: implementation plan.
 
 **Context:** First of three sub-projects (SP1 benchmark + harness → SP2 generation vocabulary v2 →
 SP3 post-training with checker reward). Informed by `earthtojake/text-to-cad` (MIT: validity
@@ -13,15 +13,17 @@ only). Neither repo scores its output; this benchmark is the piece they lack.
 
 Measure single-shot text-to-CAD generation with code-checkable constraints, so that "is model A
 better than B" and (in SP3) "did training help" have defensible numbers. Deliverables: 50-concept
-prompt file, checker, runner with replayable logs, `bench_v1.md` report for GLM-5.3, DeepSeek V4.1
-Flash and Qwen2.5-3B base.
+prompt file, checker, runner with replayable logs, `bench_v1.md` report for GLM-5.3 and DeepSeek V4.1
+Flash. The small-model baseline is run at the start of SP3 (D5).
 
 ## Done when
 
 1. `concepts_v1.jsonl` has 50 concepts × 3 phrasings, proofread by the user, and its hash is frozen.
+   Every in-vocab concept carries a hand-built `reference_spec` that builds and passes all of its
+   own checks (§1 rule 7).
 2. Every check type has unit tests on hand-built STEP parts (known pass and known fail per type).
-3. Official runs are complete for GLM-5.3 and DeepSeek V4.1 Flash (Qwen follows once installed; SP1
-   may close with Qwen pending only if the install is the blocker, recorded in BACKLOG).
+3. Official runs are complete for GLM-5.3 and DeepSeek V4.1 Flash. The small-model baseline run is
+   **not** an SP1 criterion: it is SP3's first task and SP3's entry gate (decided 2026-10-04).
 4. `bench_v1.md` has all §3 tables; official logs committed per D7.
 5. The README "Reproduce the benchmark" commands have been run on a clean clone and give the
    published numbers.
@@ -74,8 +76,9 @@ could not build the geometry.
 and those are cheaper to fix across 150 prompts than 300. User proofreading (~2–3 h vs ~5–6 h)
 is the bottleneck, and a long review before any result invites stalling. Runtime ~5 h vs ~10 h
 at k=5 × 3 models. Pairing already reduces variance.
-**Why grow to 100:** ±14 pp → ±10 pp confidence per phrasing, and more held-out concepts for the
-SP3 eval. v1 results decide *which* concepts to add (e.g. harder parts rather than more plates).
+**Why grow to 100:** roughly ±15–16 pp → ±11 pp confidence per phrasing on the in-vocab subset
+(~40 of 50 concepts in v1; the earlier ±14 pp → ±10 pp figure assumed all concepts count), and
+more held-out concepts for the SP3 eval. v1 results decide *which* concepts to add (e.g. harder parts rather than more plates).
 **Constraint:** concept IDs are stable and the prompt file is append-only, so v1.1 is an
 extension, not a rewrite. v1.1 lands before SP3 starts.
 
@@ -84,9 +87,16 @@ extension, not a rewrite. v1.1 lands before SP3 starts.
 - **Reference models (API, user's keys, ~2,000 requests/day each):** GLM-5.3 (full, not Flash)
   and DeepSeek V4.1 Flash. They are graded only, never trained: they set the ceiling that gives
   the SP3 result a scale.
-- **Baseline:** Qwen2.5-3B-Instruct base (GGUF via local llama-server), run *after* the two API
-  models. Not on disk as of 2026-09-25; the user installs llama-server and downloads the GGUF when
-  the API runs finish (assistant supplies the commands). This is the before-number for SP3.
+- **Model IDs:** the exact API ids, base URLs and tool-calling support of both reference models are
+  verified with a live list-models / one-call smoke test before the prompt file is frozen; the
+  verified ids go into the report setup table.
+- **Baseline:** Qwen2.5-3B-Instruct base (GGUF via local llama-server) is the working choice, run
+  *after* the two API models as SP3's first task (not an SP1 criterion, decided 2026-10-04).
+  **Open (user, 2026-10-04):** before SP3 locks, check newer ~3–4B instruct models with Unsloth GRPO
+  + GGUF support and propose one; Qwen2.5-3B is kept only if nothing newer fits (continuity with
+  the existing QLoRA notebook is the argument for it). Not on disk as of 2026-09-25; the user
+  installs llama-server and downloads the GGUF when the API runs finish (assistant supplies the
+  commands). This is the before-number for SP3.
 - **k = 5 attempts per prompt:** reports pass@1 (reliability) and pass@5 (capability). The gap
   on Qwen-3B predicts whether SP3's RL can help (RL raises pass@1 toward pass@k; it rarely
   creates capability where pass@k is ~0).
@@ -141,9 +151,19 @@ Checker rules:
 5. v1 check types: `bbox_sorted`, `bbox_min_dim`, `volume`, `hole_set` (count, diameter,
    through/blind, pattern), `bore` (diameter + min depth), `boss`, `solid_count`. Minimum wall
    thickness deferred to v1.1: `not_checked` beats an untrusted check.
-6. ~10 of 50 concepts need fillet/chamfer/true revolve → `in_vocab: false`, reported
-   **separately** (the SP2 gap), never mixed into the main pass rate. Tubes, spacers and flanges
-   (stacked cylinders + cuts) count as in-vocab.
+6. **In-vocab** means buildable in the current DSL as it actually is (`simready/gen/spec.py`):
+   axis-aligned boxes, cylinders along **+Z only** (no rotation op), `fuse`/`cut`, and **at most 16
+   steps**. So fillets/chamfers/true revolves are out, and so are holes on two non-parallel faces
+   (L-bracket with holes in both legs, cross-drilled shaft) and parts that need >16 steps (e.g. a
+   6-hole bolt-circle flange is ~17). Out-of-vocab concepts get `in_vocab: false` and are reported
+   **separately** (the SP2 gap), never mixed into the main pass rate. Expect more than ~10 of 50
+   to land here; the count is whatever the reference specs show. Tubes, spacers and simple flanges
+   (stacked cylinders + cuts within 16 steps) count as in-vocab.
+7. **Reference spec (added 2026-10-04):** every in-vocab concept carries a hand-built
+   `reference_spec` per phrasing family; the test suite builds it and asserts it passes every
+   check of the explicit and engineer phrasings. This proves the concept is buildable and gives
+   each check a known-good positive control, so an unsatisfiable check is caught before any API
+   call.
 
 ## Design §2: Runner and replay log (approved 2026-09-25)
 
@@ -177,7 +197,7 @@ Validate/build/check run in a killable subprocess with a 60 s timeout.
 |---|---|---|
 | `python -m simready.bench run --model <id> --k 5 [--limit N]` | run the benchmark | yes |
 | `python -m simready.bench regrade <run>` | re-run the current checker on logged specs | no |
-| `python -m simready.bench replay <run> <attempt_id>` | rebuild one attempt, verify STEP hash | no |
+| `python -m simready.bench replay <run> <attempt_id>` | rebuild one attempt, verify its geometric fingerprint | no |
 | `python -m simready.bench report <runs...>` | produce the `bench_v1.md` tables | no |
 
 **README requirement:** a recruiter with no API keys can reproduce every published number from
@@ -203,6 +223,10 @@ still logged.
 | F7 `feature_miss` | checks | hole count, diameter or pattern wrong |
 | F8 `timeout` | subprocess | build/check over 60 s |
 | F9 `out_of_vocab` | answer | uses an op the DSL lacks (e.g. `fillet`) |
+
+**F9 precedence:** the DSL forbids unknown fields and discriminates on `op`, so `{"op": "fillet"}`
+would otherwise fail schema validation and be classed F2. The runner therefore checks every
+step's `op` name against the known set **before** Pydantic validation; any unknown op ⇒ F9.
 
 **`infra_error`** (API failure after retries: 5xx, network) is excluded from scoring and retried on
 resume. A provider outage must never count as a model failure.
