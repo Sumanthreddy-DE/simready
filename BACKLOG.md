@@ -96,6 +96,8 @@ committed seed RAG index (`lookup_standard` now live on fresh clones), CI
 ---
 
 - [ ] **S2 · sp1-repair-mode** — Deferred from SP1 (design D6). After the single-shot benchmark runs, add a repair pass that starts from the *logged* failed attempts: send the validator/checker error back, allow up to 2 retries, report "feedback loop lifts pass rate X → Y". Never re-runs single-shot; never replaces SP3's metric (single-shot pass@1). *Opened 2026-09-25. See `docs/exec-plans/active/2026-09-25-sp1-cad-benchmark-design.md` D6.*
+- [ ] **S2 · gencad-vlm-track** — Run MecAgent's own task shape on `CADCODER/GenCAD-Code` (~147k image→CadQuery pairs): base vs QLoRA-tuned vision-language model (Qwen2.5-VL-3B or Gemma-3-4B, Unsloth, Colab) on a held-out split, scored by valid-syntax rate, best IoU, and SimReady's construction checker. First: user decides order vs SP1 (assistant recommends GenCAD first); verify `pip install cadquery` on Colab. Context: `docs/jobs/2026-10-04-mecagent-and-text-to-cad-scan.md` (local only); CV wording in `Myself/CV/_strategy/simready-work.md` §3. *(found 2026-10-04, claude-lab session)*
+- [ ] **S2 · sp3-base-model-choice** — When writing the SP3 spec, decide whether GRPO post-trains the text-only Qwen2.5-3B (SP1 prompts) or the GenCAD vision-language model, and whether the reward combines IoU with the checker. Couples with spec §7.4 (reward must run in Colab: pythonOCC vs build123d/OCP/CadQuery). *(found 2026-10-04, claude-lab session)*
 
 ## Open — S3 (tech debt, deprecations, low-impact polish)
 
