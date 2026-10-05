@@ -1698,6 +1698,8 @@ git commit -m "feat(bench): attempt pipeline - reply parsing, F1-F9 classes, kil
 - Create: `simready/bench/__main__.py` (with `smoke`; later tasks add subcommands)
 - Create: `tests/test_bench_providers.py`
 
+**Split (user decision 2026-10-05):** steps 1–5, 7 and 8 run now ("Task 6-code"). Step 6 (live key and model-id verification) runs after Task 9 ("Task 6-live"), once the user gives the provider's base URL. The key is from a provider the user calls "D Labs"; nothing about it may be assumed.
+
 **Interfaces:**
 - Consumes: `simready.copilot.tools.TOOL_SCHEMAS`; `parse_reply`, `classify_spec`.
 - Produces: `SYSTEM_PROMPT: str`; `BUILD_PART_TOOL: dict`; `build_messages(prompt) -> list[dict]`; `system_prompt_sha256() -> str`. `Provider` dataclass (`alias, base_url, model, key_env, rpm, max_tokens, supports_seed, extra_body`); `load_providers(path=PROVIDERS_JSON) -> dict[str, Provider]`; `resolve_key(provider, env=os.environ, dotenv_path=...) -> str`; `RateLimiter(rpm, clock, sleep).wait()`; `InfraError`, `QuotaExhausted`; `ModelClient(provider, client=None, sleep=time.sleep, max_retries=6, initial_backoff=2.0, max_backoff=120.0).complete(messages, tools, temperature, seed=None) -> dict` with keys `tool_calls, content, finish_reason, model_returned, usage, latency_s`. CLI `main(argv) -> int`.
@@ -1835,6 +1837,7 @@ def test_bench_tool_drops_agent_only_instructions():
     assert len(system_prompt_sha256()) == 64
 
 
+@pytest.mark.live_llm  # deselected by default until Task 6-live fills in verified values
 def test_providers_json_is_complete():
     providers = load_providers(PROVIDERS_JSON)
     assert {"glm-5.3", "deepseek-v4.1-flash"} <= set(providers)
@@ -2179,7 +2182,8 @@ Expected end state: both smokes exit 0 with `pre_build_class: null`.
 - [ ] **Step 7: Run the tests**
 
 Run: `C:/mm/sr/python.exe -m pytest tests/test_bench_providers.py -v`
-Expected: 10 passed, including `test_providers_json_is_complete` now that the markers are gone.
+Expected: 9 passed, 1 deselected (`test_providers_json_is_complete` is `live_llm`).
+After Task 6-live (step 6), also run `C:/mm/sr/python.exe -m pytest tests/test_bench_providers.py -m live_llm -v`; expected: 1 passed.
 
 - [ ] **Step 8: Commit**
 
