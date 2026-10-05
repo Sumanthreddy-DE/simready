@@ -92,3 +92,58 @@ text remains unreliable even when its tool use is flawless.
 **Latency regressed further:** 62.8–417.3 s per prompt (thin_plate outlier
 suggests NIM-side queueing), all five over the 60 s line — reinforces the open
 S3 `gen-eval-latency` item; still not gated on.
+
+## v2.2 — GLM 5.3 and DeepSeek V4.1 Flash on Vultr (2026-10-05)
+
+Same harness, prompts and ship gate as above (`tests/test_gen_e2e.py`, 5 prompts, full
+`CopilotAgent` loop, zero code changes). Model and provider swapped via env only:
+`OPENAI_BASE_URL=https://api.vultrinference.com/v1`, `OPENAI_MODEL=<id>`,
+`OPENAI_API_KEY_VAR=VULTR_API_KEY`. One run per model, no retries, no cherry-picking.
+
+**Provider choice.** Both models were first probed on D Labs (`api.dlabkeys.com`), an
+OpenAI-compatible proxy. There, `build_part` tool-call arguments came back corrupted for
+every model tried, GLM 5.3 included (digits, quotes and colons dropped, invalid JSON in
+3/3 calls per model), while plain-text replies were intact and the same models on Vultr
+returned valid arguments 3/3. A D Labs run would have scored the proxy, not the model, so
+both legs ran on Vultr.
+
+### Leg 4 — `glm-5.3` (Vultr) — **5/5**
+
+| Prompt | Turns | Final spec (steps) | occ_valid | Faces (expect) | Wall s | Gate |
+|---|--:|---|---|---|--:|---|
+| normal_box | 3 | `box(60,40,30)` | ✅ | 6 ([6,6]) | 31.8 | ✅ |
+| thin_plate | 4 | `box(100,80,0.5)` | ✅ | 6 ([6,6]) | 16.1 | ✅ |
+| l_bracket | 4 | `box(60,60,10)`, `box(60,10,50,at[0,0,10])`, `fuse(0,1)` | ✅ | 11 ([10,18]) | 17.3 | ✅ |
+| bracket_with_hole | 4 | `box(80,60,10)`, `cyl(5,12,at[40,30,-1])`, `cut(0,1)` | ✅ | 7 ([6,10]) | 14.8 | ✅ |
+| small_feature_box | 4 | `box(60,60,30)`, `cyl(0.5,32,at[30,30,-1])`, `cut(0,1)` | ✅ | 7 ([6,10]) | 18.5 | ✅ |
+
+### Leg 5 — `deepseek-v4.1-flash` (Vultr) — **5/5**
+
+| Prompt | Turns | Final spec (steps) | occ_valid | Faces (expect) | Wall s | Gate |
+|---|--:|---|---|---|--:|---|
+| normal_box | 3 | `box(60,40,30)` | ✅ | 6 ([6,6]) | 10.1 | ✅ |
+| thin_plate | 5 | `box(100,80,0.5)` | ✅ | 6 ([6,6]) | 27.5 | ✅ |
+| l_bracket | 4 | `box(60,60,10)`, `box(60,10,50,at[0,0,10])`, `fuse(0,1)` | ✅ | 11 ([10,18]) | 10.8 | ✅ |
+| bracket_with_hole | 4 | `box(80,60,10)`, `cyl(5,10,at[40,30,0])`, `cut(0,1)` | ✅ | 7 ([6,10]) | 10.7 | ✅ |
+| small_feature_box | 4 | `box(60,60,30)`, `cyl(0.5,30,at[30,30,0])`, `cut(0,1)` | ✅ | 7 ([6,10]) | 11.0 | ✅ |
+
+Every run made exactly one `build_part` and one `analyze_geometry` call; no spec was
+bounced by the validator. Beyond the gate, the specs were read by hand: every hole is
+centred where the prompt says (the face-count gate alone would also pass an off-centre
+hole), and GLM made its cutters 2 mm taller than the solid, the cleaner way to cut
+through.
+
+### Llama re-run: not possible
+
+`meta/llama-3.3-70b-instruct` was retired on NIM: every call returns `410 Gone`, end of life
+2026-08-26. Legs 1 and 3 above stay as the historical record; there is no current Llama row.
+
+### What this does and does not show
+
+- **The 5-prompt gate is saturated.** GLM 5.2, GLM 5.3, DeepSeek V4.1 Flash and post-fix
+  Llama all score 5/5, so this eval no longer separates models. That is the reason for the
+  checker-scored benchmark in `docs/exec-plans/active/2026-09-25-sp1-cad-benchmark-design.md`
+  (150 prompts, range checks on holes, bores and patterns, pass@k).
+- **Wall times are not comparable to legs 1–3.** They mix provider (Vultr vs NIM) and model;
+  the 5–10× drop says more about the endpoint than about the models.
+- **Verdict prose was not assessed** in this run; the gate scores artifacts only.
