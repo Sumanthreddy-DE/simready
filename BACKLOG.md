@@ -85,7 +85,6 @@ committed seed RAG index (`lookup_standard` now live on fresh clones), CI
 
 ## Open — S1 (blocker / broken demo)
 
-- [ ] **S1 · apply-gen-eval-glm53-deepseek** *(due week of 2026-10-12)* — Extend the live gen eval (`tests/test_gen_e2e.py`, `-m live_llm`) from GLM 5.2 + Llama-3.3-70B to **GLM 5.3 and DeepSeek V4.1 Flash** via `OPENAI_MODEL` / `OPENAI_BASE_URL` (Llama leg re-run same day). Add a dated section to `docs/validation/geometry_gen_eval.md` with one table: model · pass/fail per prompt · failure class. Report whatever comes out. *Opened 2026-10-05.*
 - [ ] **S1 · apply-gencad-vlm-track** *(first model due 2026-10-11)* — Promoted from S2; GenCAD now goes **before** SP1 (user decision 2026-10-05). On `CADCODER/GenCAD-Code` (~147k image→CadQuery pairs) fine-tune **both Qwen2.5-VL-3B and Gemma-3-4B** (QLoRA, Unsloth, Colab), each compared with its **untuned** base on a held-out split, scored by **valid-syntax rate and best IoU**. Qwen first, Gemma second. **Decide before starting: branch.** This item was committed on `sp1-bench` (11fb5e1), but GenCAD goes before SP1, so start it either from `sp1-bench` (carries the SP1 bench work) or from a fresh branch off `main` (clean, but this backlog update reaches `main` only when `sp1-bench` merges, so cherry-pick 11fb5e1 + this commit). First step after that: verify `pip install cadquery` on Colab. Context: `docs/jobs/2026-10-04-mecagent-and-text-to-cad-scan.md` (local only). *(found 2026-10-04, promoted 2026-10-05)*
 - [ ] **S1 · apply-gencad-checker-bridge** — Score every GenCAD-generated part with SimReady's own checker as a third measure next to VSR and IoU. Today the checker runs on STEP (`analyze_file_safe`), not CadQuery: CadQuery program → execute → export STEP → `analyze_file_safe` → checker verdict/score column. Decide where it runs (pythonOCC on Colab, or export STEPs and score locally). Couples with `sp3-base-model-choice` (same scorer can become the reward). *Opened 2026-10-05.*
 - [ ] **S1 · apply-call-walkthrough** *(week of 2026-10-12)* — Walkthrough-ready package: one results table (base vs tuned, VSR / IoU / checker, per model), 3-4 generated examples incl. failures, the gen-eval model table, and a SimReady demo that works on a fresh clone (Streamlit chat + `build_part`). *Opened 2026-10-05.*
@@ -102,7 +101,7 @@ committed seed RAG index (`lookup_standard` now live on fresh clones), CI
 ---
 
 - [ ] **S2 · sp1-repair-mode** — Deferred from SP1 (design D6). After the single-shot benchmark runs, add a repair pass that starts from the *logged* failed attempts: send the validator/checker error back, allow up to 2 retries, report "feedback loop lifts pass rate X → Y". Never re-runs single-shot; never replaces SP3's metric (single-shot pass@1). *Opened 2026-09-25. See `docs/exec-plans/active/2026-09-25-sp1-cad-benchmark-design.md` D6.*
-- [ ] **S2 · apply-readme-cv-alignment** — README reflects current work: name the models actually evaluated (after `apply-gen-eval-glm53-deepseek`), mention the GenCAD vision track as in progress, keep the honest-negatives section. No headline numbers that would not survive a follow-up question. *Opened 2026-10-05.*
+- [ ] **S2 · apply-readme-cv-alignment** *(models part DONE `b30e212`: eval table names GLM 5.3 + DeepSeek V4.1 Flash on Vultr, Llama marked retired; remaining: GenCAD mention, CV)* — README reflects current work: name the models actually evaluated (after `apply-gen-eval-glm53-deepseek`), mention the GenCAD vision track as in progress, keep the honest-negatives section. No headline numbers that would not survive a follow-up question. *Opened 2026-10-05.*
 - [ ] **S2 · sp3-base-model-choice** — When writing the SP3 spec, decide whether GRPO post-trains the text-only Qwen2.5-3B (SP1 prompts) or the GenCAD vision-language model, and whether the reward combines IoU with the checker. Couples with spec §7.4 (reward must run in Colab: pythonOCC vs build123d/OCP/CadQuery). *(found 2026-10-04, claude-lab session)*
 
 ## Open — S3 (tech debt, deprecations, low-impact polish)
@@ -122,7 +121,7 @@ _(items currently being worked — move from Open when started, back to Open if 
 
 ## Done this session
 
-_(empty — swept 2026-07-20)_
+- [x] **S1 · apply-gen-eval-glm53-deepseek** — closed 2026-10-05, `b3f7cc4` (eval doc v2.2) + `b30e212` (README table). GLM 5.3 **5/5**, DeepSeek V4.1 Flash **5/5**, both on Vultr (`api.vultrinference.com/v1`), one run each, no retries; specs hand-checked (holes centred). D Labs not used: it corrupts tool-call arguments for every model (provider facts in memory `reference_llm-providers.md`). **Llama leg impossible: NIM retired `meta/llama-3.3-70b-instruct` on 2026-08-26 (410 Gone).** Finding: the 5-prompt gate is saturated (all models 5/5) — SP1 is the discriminating benchmark. Copilot default in `.env` moved to Vultr `glm-5.3` (old NIM key kept as `NIM_API_KEY`); demo smoke-tested (build → analyze → verdict, 21 s).
 
 ---
 
