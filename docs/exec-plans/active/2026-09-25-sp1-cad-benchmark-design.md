@@ -251,3 +251,10 @@ pass@1 (engineer), per model, on in-vocab concepts.
 
 **Honesty rules:** the report is published whatever the numbers are; models are not dropped after
 seeing results; SP3's metric stays the one fixed in D6.
+
+### Implementation deviations (plan 2026-10-04, reported per Rule 2)
+
+1. `solid_count` is the gate's `Concept.solids` parameter, not a separate check type (it would grade the gate twice).
+2. The checker grades the in-memory shape; no STEP is written per attempt (STEPs are not stored; replay uses the fingerprint).
+3. New excluded class `checker_error`: a crash in our checker is excluded from scoring like `infra_error` and fixed via `regrade`.
+4. The system prompt allows a refusal ("say so instead of calling the tool"), which gives table 5 its "admits it can't" path.

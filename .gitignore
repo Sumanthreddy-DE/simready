@@ -74,3 +74,6 @@ logs/
 
 # Job descriptions: local only (public repo)
 docs/jobs/
+
+# SP1 benchmark working runs (official logs are copied, gzipped, to docs/validation/bench_v1/)
+data/bench_runs/
