@@ -109,7 +109,7 @@ with `python scripts/ui_screenshots.py` against a running UI.
 ![SimReady analysis dashboard](docs/img/streamlit-analysis.png)
 
 Provider config (`.env`): `OPENAI_API_KEY` (required), `OPENAI_BASE_URL`
-(blank = OpenAI · NIM `https://integrate.api.nvidia.com/v1` · OpenRouter
+(blank = OpenAI · Vultr `https://api.vultrinference.com/v1` · NIM `https://integrate.api.nvidia.com/v1` · OpenRouter
 `https://openrouter.ai/api/v1` · Ollama `http://localhost:11434/v1`), `OPENAI_MODEL`.
 
 Optional FEA-standards index for `lookup_standard` (the tool returns `no_index` until built):
@@ -170,12 +170,18 @@ false-positives on all 11** — synthetic box/cyl training can't cover real surf
 number; recorded as an honest negative rather than retried
 (`docs/validation/real_eval_v2.md`, `defect_classifier.md`, `occ_hang_diagnosis.md`).
 
-### Geometry generation — live E_grammar eval (5 held-out prompts × 2 models)
+### Geometry generation — live E_grammar eval (5 held-out prompts)
 
-| Model | Grammar-valid parts | Notes |
+| Model (provider, date) | Grammar-valid parts | Notes |
 |---|--:|---|
-| `z-ai/glm-5.2` (NIM) | 5/5 | first attempt |
-| `meta/llama-3.3-70b-instruct` (NIM) | 3/5 → **5/5** | dropped-final-boolean failure fixed by an orphan-step spec rule + single-tool-call turns |
+| `glm-5.3` (Vultr, 2026-10-05) | 5/5 | one run, no retries |
+| `deepseek-v4.1-flash` (Vultr, 2026-10-05) | 5/5 | one run, no retries |
+| `z-ai/glm-5.2` (NIM, 2026-07-19) | 5/5 | first attempt |
+| `meta/llama-3.3-70b-instruct` (NIM, 2026-07-19) | 3/5 → **5/5** | dropped-final-boolean failure fixed by an orphan-step spec rule + single-tool-call turns; model since retired on NIM |
+
+Every model now passes all five prompts, so this gate no longer separates models; a
+checker-scored benchmark with range checks on holes, bores and patterns is in progress
+(`docs/exec-plans/active/2026-09-25-sp1-cad-benchmark-design.md`).
 
 Every generated spec is validated (Pydantic DSL), built by the trusted executor, then run
 through the full analysis pipeline. The failure mode itself became a validator: a spec whose
@@ -184,7 +190,7 @@ agent loop (`docs/validation/geometry_gen_eval.md`).
 
 ### Copilot eval — gold set (n=50)
 
-Reference run only: `meta/llama-3.3-70b-instruct` as teacher/ceiling. A QLoRA adapter
+Reference run only: `meta/llama-3.3-70b-instruct` as teacher/ceiling (2026-07; the model has since been retired on NIM). A QLoRA adapter
 (Qwen2.5-3B, 951 traces, 3 epochs) is trained but **not yet evaluated** on this gold set, so
 the base and LoRA columns are still empty (`docs/finetune_results.md`).
 
