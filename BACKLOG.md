@@ -6,6 +6,8 @@ Living list of open issues, deferred work, and known caveats. Updated each sessi
 
 ## Triage 2026-07-19 — wave plan (current strategic context)
 
+**NEXT SESSION START HERE (2026-10-07):** work in the worktree `Mech/SimReady-gencad`, branch `gencad`. Qwen GenCAD model done (VSR 0 → 0.88; record `docs/validation/gencad_eval.md`). In order: (1) `apply-call-walkthrough` package for the week of 2026-10-12 — results table, 3-4 examples incl. a truncation failure and idx 5699 (good IoU, self-intersecting), the surface-vs-filled IoU finding; (2) `gencad-stop-problem`; (3) `gencad-strong-baseline`; (4) Gemma-3-4B (`apply-gencad-vlm-track`). SP1 stays paused (`sp1-resume`).
+
 **UPDATE 2026-10-05: application SENT.** Open commitments = the `apply-*` items in S1/S2. Mapping to the documents: `docs/jobs/2026-10-05-application-commitments.md` (local only). History below kept as written.
 
 **Application to MecAgent NEVER sent** (`v0.4.0-apply` = prep tag; older lines below/in
