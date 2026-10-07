@@ -142,6 +142,19 @@ Order: `gencad_reference.py` (sr env) → `gencad_analyse.py` → `gencad_iou_fi
 `gencad_export_reference_steps.py` (a venv with cadquery + trimesh) → `gencad_checker_bridge.py
 generated|reference` (sr env). Caches go to `data/gencad/` (gitignored).
 
+## Running on free Colab (practical notes)
+
+- **Each Google profile has its own Drive.** An adapter trained in one profile is invisible to a
+  notebook in another (`Can't find 'adapter_config.json'`). Decide which profile runs the eval
+  before training, or copy `MyDrive/gencad/qwen_lora_adapter/` across (Drive download → folder
+  upload; check `adapter_config.json` sits directly inside, not in a nested folder).
+- **The free tier's daily GPU limit hit after ~3.5 h** (the training run). The eval then had to run
+  in a second profile. Generation and training resume from Drive after a disconnect.
+- **Estimate eval time from the reference program length, not from the baseline run.** The
+  untuned base answers with short JSON (100 rows in 34 min); the tuned model writes ~470-token
+  programs at ~81 s per row on a T4 with the 4-bit LoRA (2 h 15 min). Runaway rows that hit
+  `max_new_tokens` take 4–6 min each.
+
 ## Next steps (from this evidence)
 
 1. **Stopping problem:** all 12 failures are runaway generations. Try a stop rule or repetition

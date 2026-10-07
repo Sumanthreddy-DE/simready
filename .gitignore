@@ -78,3 +78,6 @@ docs/jobs/
 # GenCAD eval caches (scripts/gencad_*.py); regenerable
 data/gencad/
 .venv-gencad/
+
+# Local-only notes (lessons, tooling, vendor issues); never pushed
+.local/
