@@ -3,7 +3,7 @@
 <!-- Machine-maintained by save-session Step 6b. Hand-edit 2026-07-19 authorized by user (triage session). -->
 
 Status: active
-Last touched: 2026-10-05
+Last touched: 2026-10-07
 
 ## What
 MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processing. LLM copilot over B-rep analysis pipeline + BRepSAGE (3-head GraphSAGE) defect classifier + geometry-generation DSL (`build_part` tool). **APPLICATION SENT 2026-10-05 (user confirmed).** Open follow-up work = the `apply-*` items in BACKLOG S1/S2, GenCAD VLM track first. History: `v0.4.0-apply` (2026-05) was prep only, not a send. Strategy doc: docs/strategy/mecagent-gap-and-drift-2026-05-26.md; wave plan: BACKLOG.md "Triage 2026-07-19".
@@ -20,13 +20,14 @@ MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processi
 - **gen v2.1 (2026-07-19, wave 3):** orphan-step Pydantic rule + rule stated in `build_part` tool description + `parallel_tool_calls=False` (NIM Llama template 500s on multi-tool_call history) — Llama leg **3/5 → 5/5** clean re-run. Attribution honest: description fixed emissions, validator = backstop. geometry_gen_eval.md v2.1. Committed `8304c1b` (2026-07-20; had sat uncommitted). Suite 227 sr.
 - **Wave-3 decisions + apply package (2026-07-20, `d88ec31..d94cc25`):** APPLY = GO (README wave-2/3 refresh + apply narrative doc); gmsh deferred to interview prep; ADRs 0002-0004 (adr-backlog closed); QLoRA notebook live-debugged (4 fix commits) + GGUF/llama-server eval recipe.
 - **2026-09-23..27 repositioning session (`9ece3e8..b51f6af`):** QLoRA adapter recovered (byte-identical to checkpoint-180), loss 0.697→0.107 / val 0.150 recorded; README + finetune_results truth fixes; plan files closed out to `completed/`; JDs saved local-only (`docs/jobs/`, gitignored — public repo); studied text-to-cad (MIT) + CADAM (GPL-3), neither scores output; SP1 design spec D1–D7 + §1–§3 written.
+- **2026-10-05..07 GenCAD track (branch `gencad`, `6ae290e..ea4bdf3`):** Qwen2.5-VL-3B on MecAgent's GenCAD-Code test, dataset `hundred_subset`: untuned VSR 0/100 (answers in JSON) → QLoRA (6k ex, 1 epoch, free T4) VSR 0.88, IoU_best 0.256 (MecAgent surface-voxel metric) / 0.563 filled; all 12 failures runaway generations; checker bridge on 88 generated + 88 reference parts (model-introduced: 1 invalid solid, 3 self-intersections). Record `docs/validation/gencad_eval.md`, results `docs/validation/gencad/`, scripts `scripts/gencad_*.py`.
 - **2026-10-05:** application sent; follow-up commitments filed as BACKLOG `apply-*` items (`11fb5e1`, `3822d3b`), GenCAD promoted to S1 ahead of SP1.
 
 ## Doing
-- **GenCAD VLM track (BACKLOG `apply-gencad-vlm-track`, S1)** — image→CadQuery on `CADCODER/GenCAD-Code`, Qwen2.5-VL-3B then Gemma-3-4B, each vs untuned base, VSR + best IoU + SimReady checker (`apply-gencad-checker-bridge`). First model due 2026-10-11. Branch not decided yet (`sp1-bench` vs fresh off `main`).
-- **Gen eval on GLM 5.3 + DeepSeek V4.1 Flash** (`apply-gen-eval-glm53-deepseek`, S1), then walkthrough package for week of 2026-10-12 (`apply-call-walkthrough`).
-- **SP1 checker-scored text-to-CAD benchmark** — paused behind GenCAD (decided 2026-10-05); design complete, awaiting user review: `docs/exec-plans/active/2026-09-25-sp1-cad-benchmark-design.md` (D1–D7, §1–§3). Then SP2 (DSL v2) → SP3 (GRPO, checker reward).
-- QLoRA chat-SFT: adapter recovered to `weights/qlora/` (gitignored), loss recorded in `docs/finetune_results.md`; one gold-set eval (GGUF + llama-server), then close. Low priority vs SP1.
+- **GenCAD walkthrough package** (BACKLOG `apply-call-walkthrough`, week of 2026-10-12): results table + 3-4 examples + surface-vs-filled IoU finding, from `docs/validation/gencad_eval.md`. Work in worktree `Mech/SimReady-gencad`, branch `gencad`.
+- **GenCAD follow-ups:** `gencad-stop-problem` (all 12 failures are runaway generations), `gencad-strong-baseline` (one-shot prompt), Gemma-3-4B (`apply-gencad-vlm-track`).
+- **SP1 checker-scored text-to-CAD benchmark** — paused behind GenCAD (`sp1-resume`, branch `sp1-bench`).
+- QLoRA chat-SFT gold-set eval (GGUF + llama-server), then close. Low priority.
 
 ## Pipeline
 - re-probe kimi-k2.6 on NIM (S3)
@@ -36,11 +37,4 @@ MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processi
 - CI proven 2026-07-19: full-suite ran 190/192 on linux first try; 2 local-data tests now skip-if-absent; continue-on-error dropped (ci-full-suite-promote CLOSED)
 
 ## Resume here
-1) Decide GenCAD branch (`sp1-bench` or fresh off `main`, cherry-pick `11fb5e1` + `3822d3b`). 2) Colab: install cadquery + Unsloth, load GenCAD-Code, held-out split, score untuned Qwen2.5-VL-3B on VSR + IoU (baseline), then QLoRA. 3) GLM 5.3 / DeepSeek V4.1 Flash gen eval. 4) SP1 resumes after.  Session: `sessions/2026-10-05-mecagent-sent-session.tmp`.
-
-## Landmines
-- Memory + old BACKLOG claimed "applied to MecAgent 2026-05-18" — FALSE, never applied (corrected 2026-07-19; memory + BACKLOG fixed)
-- OCC C++ hangs are immune to Python thread timeouts — only multiprocessing Process.terminate() kills (12 h lost on a 58-face flange)
-- Defect head fires >0.95 confidence on clean real CAD — do NOT trust ML scores on real parts until augmentation done
-- tests/data/real_eval/ is gitignored (IP/size) — don't try to commit it
-- torch_geometric is NOT in requirements.txt/environment.yml (Windows wheel gotcha) — CI installs it pip-side; sr env has it manually
+Open Claude in `Mech/SimReady-gencad` (branch `gencad`): build the MecAgent walkthrough package — results table (base vs tuned: VSR, MecAgent IoU, filled IoU, checker), examples (IoU-1.0 plate, a truncation failure, idx 5699 self-intersecting with good IoU, tube idx 4836), the IoU finding. Then `gencad-stop-problem` → `gencad-strong-baseline` → Gemma. Session: `sessions/2026-10-07-gencad-qwen-results-session.tmp`.
