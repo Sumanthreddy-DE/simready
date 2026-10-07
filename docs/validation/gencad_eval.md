@@ -54,13 +54,28 @@ disconnect at 37/100).
   | 3 | 12 | 0.58 | 0.147 | 2/12 |
   | 4–8 | 13 | 0.69 | 0.10 | 4/13 |
 
-- **Open question on the metric (not yet verified):** some near-identical pairs score very
-  low. idx 4836: reference tube outer r 0.138 / inner r 0.055 / length 0.734, prediction
-  0.182 / 0.079 / 0.75, same construction, IoU_best 0.010. MecAgent's `best_iou.py` calls
-  `trimesh.voxelized(pitch)`, which in trimesh is a surface voxelization unless `.fill()` is
-  called; if so, the metric compares one-voxel shells, which would explain near-zero scores for
-  chunky parts and IoU 1.0 for thin plates. To be checked by re-scoring with filled voxels.
-  Until then the IoU numbers are reported as MecAgent's metric computes them, nothing else.
+- **MecAgent's IoU compares surface shells, not volumes (verified 2026-10-07).**
+  `best_iou.py` calls `mesh.voxelized(pitch)` without `.fill()`; trimesh then returns surface
+  voxels only. Check: a 1×1×1 cube at pitch 0.05 gives 2,402 voxels from `voxelized()` and
+  9,261 after `.fill()`. Two shells overlap only where the surfaces coincide within one voxel,
+  so near-identical solid parts score near zero, while thin plates (shell ≈ solid) score high.
+  Example idx 4836: reference tube outer r 0.138 / inner r 0.055 / length 0.734, prediction
+  0.182 / 0.079 / 0.75, same construction: shell IoU 0.010, filled IoU 0.588.
+
+  Re-scored all 88 runnable programs locally with MecAgent's file unchanged, plus a copy whose
+  only change is `.fill()` on both voxel grids (cadquery 2.8.0, trimesh, Windows). The local
+  shell scores reproduce the Colab scores (max abs. difference 4e-4 over 88; mean and median
+  identical).
+
+  | IoU variant (88 runnable) | mean | median | < 0.1 | ≥ 0.5 | ≥ 0.8 | mean over 100 (invalid = 0) |
+  |---|---|---|---|---|---|---|
+  | MecAgent metric (surface shells) | 0.256 | 0.047 | 50 | 22 | 10 | 0.225 |
+  | Same, filled voxels | 0.563 | 0.580 | 4 | 50 | 22 | 0.495 |
+
+  Both are reported. The headline stays MecAgent's own metric, because that is the task's
+  stated metric; the filled variant shows that most low scores are a property of the metric,
+  not of the parts. Both variants are scale-invariant (radius-of-gyration normalization), so
+  neither measures absolute dimensions.
 - **Scale-invariance:** the metric normalizes by radius of gyration, so a plate twice the size
   of the reference scores 1.0 (idx 400). Absolute dimensions are not measured.
 - **Scale of the run:** 6k of 147k training examples (4 %), 1 epoch, programs over 1,500
