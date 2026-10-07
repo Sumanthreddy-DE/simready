@@ -97,6 +97,62 @@ A scoring bug was found and fixed before this number was recorded: the fence str
 handled only ```` ```python ````, so ```` ```json ```` fences stayed in. Re-scored from the
 saved raw outputs after the fix (`c27b18e`); the result stayed 0/100.
 
+## SimReady checker on the generated parts (checker bridge)
+
+CadQuery program → STEP (Colab, cell 5) → scale so the largest bounding-box side is 100 mm →
+`analyze_file_safe`. Scaling is needed because GenCAD parts are normalized to ~1.5 units and
+the checker's thresholds are in mm; unscaled, every part fails ThinWalls/SmallFeatures. The
+100 mm size is an assumption, not the parts' real size. The 88 matching reference parts were
+scored the same way as the comparison.
+
+| | Generated (88) | Reference (same 88 rows) |
+|---|---|---|
+| Mean overall score | 86.9 | 84.9 |
+| SimulationReady / ReviewRecommended / NeedsAttention / InvalidInput | 37 / 40 / 10 / 1 | 27 / 48 / 12 / 1 |
+| Same status as the reference | 60 / 88 | — |
+
+- **The checker does not measure fidelity.** Generated parts score slightly higher because they
+  are simpler than the references (fewer sketches, so fewer ShortEdges/SmallFeatures flags).
+- **Its value is the defects the model introduced.** Flags on a generated part that its
+  reference does not have: ThinWalls 6, SelfIntersection 3, SmallFilletsOrHoles 2,
+  ThinSolid 1, SmallFeatures 1; plus idx 2097, an invalid solid (OCC BRepCheck fails) whose
+  reference is valid.
+- **IoU cannot see these.** idx 5699: IoU 0.830 (shell) / 0.893 (filled), but the generated
+  part self-intersects (NeedsAttention, 47.5); the reference does not. idx 720: IoU 0.555 /
+  0.716, also self-intersecting. Two cases out of 88: an example, not a rate.
+
+## Files and how to reproduce
+
+Results in `docs/validation/gencad/` (committed):
+
+| File | Made by | Content |
+|---|---|---|
+| `gen_qwen25vl3b_qlora.jsonl` | `notebooks/gencad_baseline.ipynb` cell 4 | raw + stripped output per eval row |
+| `scores_qwen25vl3b_{base,qlora}.json` | same notebook, cell 5 | MecAgent metric per row (valid, iou, err) |
+| `steps/*.step` | same notebook, cell 5 | 88 generated solids, original GenCAD scale |
+| `per_row_analysis.json` | `scripts/gencad_analyse.py` | sketch counts, lengths, features per row |
+| `iou_shell_vs_filled.json` | `scripts/gencad_iou_filled.py` | MecAgent IoU vs filled-voxel IoU per row |
+| `checker_{generated,reference}.jsonl` | `scripts/gencad_checker_bridge.py` | checker status, score, findings per part |
+
+The baseline's raw generations stayed on Colab Drive (all 100 are JSON, see above); its scores
+file is here. The QLoRA adapter (~130 MB) is on Google Drive (`MyDrive/gencad/qwen_lora_adapter`),
+not in git.
+
+Order: `gencad_reference.py` (sr env) → `gencad_analyse.py` → `gencad_iou_filled.py` and
+`gencad_export_reference_steps.py` (a venv with cadquery + trimesh) → `gencad_checker_bridge.py
+generated|reference` (sr env). Caches go to `data/gencad/` (gitignored).
+
+## Next steps (from this evidence)
+
+1. **Stopping problem:** all 12 failures are runaway generations. Try a stop rule or repetition
+   penalty at inference (no retraining) and re-score; expected to lift VSR toward the
+   single-sketch rate.
+2. **Stronger baseline:** untuned model with one example program in the prompt, so the
+   0 → 0.88 comparison is not against a model that answers in JSON.
+3. **Gemma-3-4B:** same notebooks, second model.
+4. **More data / longer training:** 6k of 147k examples, 1 epoch; accuracy on 2+ sketch parts
+   is the gap.
+
 ## Training run (Qwen2.5-VL-3B QLoRA)
 
 Notebook `notebooks/gencad_train_qwen.ipynb`. Base `unsloth/Qwen2.5-VL-3B-Instruct-bnb-4bit`,

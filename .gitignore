@@ -74,3 +74,7 @@ logs/
 
 # Job descriptions: local only (public repo)
 docs/jobs/
+
+# GenCAD eval caches (scripts/gencad_*.py); regenerable
+data/gencad/
+.venv-gencad/
