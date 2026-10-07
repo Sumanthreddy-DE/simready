@@ -26,7 +26,22 @@ with invalid programs counted as 0.
 | Model | VSR | IoU_best (valid only) | IoU_best (invalid = 0) |
 |---|---|---|---|
 | Qwen2.5-VL-3B-Instruct, untuned (4-bit) | 0.00 (0/100) | — | 0.000 |
-| Qwen2.5-VL-3B + QLoRA (6k examples, 1 epoch) | pending | pending | pending |
+| Qwen2.5-VL-3B + QLoRA (6k examples, 1 epoch) | **0.88 (88/100)** | 0.256 | 0.225 |
+
+Run 2026-10-07, T4, ~81 s per example on average (2 h 15 min for 100; resumed once after a
+disconnect at 37/100).
+
+## Tuned model: reading the numbers
+
+- **VSR 0 → 0.88 is mostly format.** The tuned model writes Python in GenCAD's own style
+  (`cq.Workplane(cq.Plane(...))`, `moveTo/lineTo/close`, `extrude`) instead of JSON.
+- **Geometry is the weak part.** Mean IoU_best over the 88 runnable programs is 0.256. The two
+  IoU = 1.0 examples are a single rectangular plate (idx 400) and a single disc (idx 2440), the
+  simplest parts in the set. IoU distribution by part complexity: not yet analysed.
+- **Failures (12):** at least 2 are truncated programs (`'(' was never closed`, idx 350 and 862):
+  the output hit `max_new_tokens` = 1825 mid-line. Breakdown of the other 10: not yet analysed.
+- **Scale of the run:** 6k of 147k training examples (4 %), 1 epoch, programs over 1,500
+  tokens excluded from training. Any comparison with published GenCAD-Code results must say so.
 
 ## Baseline: why 0/100
 
