@@ -81,3 +81,6 @@ data/gencad/
 
 # Local-only notes (lessons, tooling, vendor issues); never pushed
 .local/
+
+# Claude Code session dumps: local only (public repo)
+Archive/sessions/*.tmp
