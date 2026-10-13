@@ -11,7 +11,8 @@ Archive/
 ├── phase-3/           # Phase 3 plan + checklist (demo hardening; merged 2026-05-13, plan file partly aspirational)
 ├── brainstorming/     # Early exploration docs (deep-research, brainstorm session)
 ├── memory/            # Deprecated auto-memory files (open-questions migrated to BACKLOG.md)
-├── sessions/          # Stale `/save-session` .tmp files from old skill output location (~/.claude/session-data/)
+├── sessions/          # Local only since 2026-10-10 (gitignored); see below
+├── gencad-colab-download-2026-10-07/   # Local only; raw Colab download of the GenCAD results
 ├── ChaGPT-deep-research-report-2.md   # Pre-existing deep-research artefacts
 └── ChatGPT-deep-research-report-1.md
 ```
@@ -38,7 +39,10 @@ Archive/
 - `project_open-questions-wk2.md` — Wk-1 → wk-2 transition questions. All items migrated to `BACKLOG.md` at repo root on 2026-05-17. Kept for history.
 
 ### `sessions/`
-- `2026-04-21-SimReady-session.tmp` … `2026-04-24-SimReady-session.tmp` — Stale `.tmp` files from old `/save-session` skill version that wrote to `~/.claude/session-data/`. Current skill writes per-project to `~/.claude/projects/<slug>/sessions/` instead. Moved here so the global session-data dir is not cluttered with cross-project files.
+- `2026-04-21-SimReady-session.tmp` … `2026-04-24-SimReady-session.tmp` — Stale `.tmp` files from old `/save-session` skill version that wrote to `~/.claude/session-data/`. Current skill writes per-project to `~/.claude/projects/<slug>/sessions/` instead. Moved here so the global session-data dir is not cluttered with cross-project files. Untracked from the public repo on 2026-10-10 (`6e0a938`, `Archive/sessions/*.tmp` gitignored); backups in `Projects/_archive/SimReady-sessions-2026-04/`.
+
+### `gencad-colab-download-2026-10-07/` (local only, not in git)
+- Raw Colab/Drive download of the first GenCAD eval: generations, both score files, and the 88 generated STEPs as a zip. Verified 2026-10-13 to match the committed copy in `docs/validation/gencad/` (JSON content identical; all 88 STEPs identical apart from line endings). Kept only as the original download; the committed copy is canonical. Excluded locally via `.git/info/exclude`.
 
 ### `planning/`
 - `next-iteration-notes.md` — End-of-wk-2 contrarian review (2026-05-18). All action items migrated to `BACKLOG.md` Strategic Context section on 2026-05-19. Kept for full narrative.
