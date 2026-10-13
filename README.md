@@ -1,16 +1,40 @@
 # SimReady
 
-An AI copilot for FEA pre-processing. Point it at a STEP file; it analyzes B-Rep
-geometry for meshing/manufacturability problems, scores simulation-readiness 0–100,
-and explains the findings through a multi-turn LLM agent.
+An AI copilot for FEA pre-processing, and a geometry checker used to score AI-generated
+CAD. Point it at a STEP file; it analyzes B-Rep geometry for meshing/manufacturability
+problems, scores simulation-readiness 0–100, and explains the findings through a
+multi-turn LLM agent.
 
-**Scope: analysis and validation, plus early constrained generation.** SimReady reads
-geometry and reports on it (healing is a best-effort OCC ShapeFix pass, not a design
-edit). Generation is live: the agent's `build_part` tool materializes a typed
-box/cyl/fuse/cut spec into a STEP file (no LLM code is executed — see
+**Scope: analysis and validation, plus constrained generation.** SimReady reads geometry
+and reports on it (healing is a best-effort OCC ShapeFix pass, not a design edit).
+Generation is live: the agent's `build_part` tool materializes a typed box/cyl/fuse/cut
+spec into a STEP file (no LLM code is executed — see
 `docs/adr/0001-geometry-gen-dsl-over-codegen.md`), and the end-to-end generate→analyze
-loop is evaluated against two hosted LLMs — 5/5 grammar-valid parts each after the
-orphan-step spec rule (`docs/validation/geometry_gen_eval.md`).
+loop passes 5/5 held-out prompts on every hosted model tested
+(`docs/validation/geometry_gen_eval.md`).
+
+## Direction: from checking CAD to scoring CAD generation
+
+The project started as an analysis tool. It is now moving toward **generating CAD and
+measuring whether the generation is any good**, with SimReady's checker as one of the
+measures. Two tracks, in this order:
+
+1. **Image → CadQuery (GenCAD-Code), first model done.** Qwen2.5-VL-3B fine-tuned with
+   QLoRA on `CADCODER/GenCAD-Code`, scored with MecAgent's own metric code on the dataset's
+   100-row test subset: valid-syntax rate **0/100 untuned → 88/100 tuned**, IoU_best 0.256.
+   Every generated part is also run through the SimReady checker, which catches defects
+   IoU cannot see (a part with IoU 0.83 that self-intersects). Results below;
+   full record in `docs/validation/gencad_eval.md`.
+2. **Text → CAD with a checker-scored benchmark (SP1 → SP2 → SP3), planned and started.**
+   The current generation gate (5 prompts, every model 5/5) no longer separates models.
+   SP1 replaces it with a 50-concept × 3-phrasing benchmark whose constraints are checked in
+   code (hole clearances, bore sizes, patterns, wall thickness), SP2 widens the generation
+   vocabulary, and SP3 post-trains a small model with the checker as the reward. See
+   [Roadmap](#roadmap).
+
+The common thread: a generated part that compiles and looks right can still be unusable
+for simulation or manufacturing. SimReady's rule checks are the part of the stack that says
+so, which makes them useful as an evaluation metric and, later, as a training reward.
 
 ## Capabilities
 
@@ -37,6 +61,11 @@ orphan-step spec rule (`docs/validation/geometry_gen_eval.md`).
   it fails* instead of hiding it (see Results), and CI runs both a fast spec job and the
   full OCC suite in a micromamba env. — `scripts/eval_finetune.py`,
   `tests/data/gold_traces.jsonl`, `docs/validation/`, `.github/workflows/`
+- **Vision-language fine-tune for CAD code (GenCAD track).** QLoRA on Qwen2.5-VL-3B
+  (Unsloth, free Colab T4, resumable from Drive) for image → CadQuery, an eval notebook that
+  calls MecAgent's metric code unchanged, and a **checker bridge**: CadQuery program → STEP →
+  `analyze_file_safe` → checker verdict next to VSR and IoU, for both the generated and the
+  reference part. — `notebooks/gencad_*.ipynb`, `scripts/gencad_*.py`
 - Rule layer: ~12 OCC geometry checks (manifoldness, zero-length/short edges, sliver faces,
   thin solids, self-intersection, small features/fillets) fused with the GNN into one 0–100
   score + complexity tier. Self-intersection check hardened against OCC pathologies
@@ -170,6 +199,40 @@ false-positives on all 11** — synthetic box/cyl training can't cover real surf
 number; recorded as an honest negative rather than retried
 (`docs/validation/real_eval_v2.md`, `defect_classifier.md`, `occ_hang_diagnosis.md`).
 
+### Image → CadQuery — GenCAD-Code (MecAgent technical test)
+
+Task and metric are MecAgent's public technical test: generate CadQuery code from a render
+on `CADCODER/GenCAD-Code`, scored by `metrics/best_iou.py` called unchanged. Eval set: the
+dataset's `hundred_subset` of the test split (100 of 7,355 rows), its own prompt, greedy
+decoding. VSR = program runs and yields a solid.
+
+| Model | VSR | IoU_best (valid only) | IoU_best (invalid = 0) |
+|---|--:|--:|--:|
+| Qwen2.5-VL-3B-Instruct, untuned (4-bit) | 0/100 | — | 0.000 |
+| Qwen2.5-VL-3B + QLoRA (6k examples, 1 epoch, T4) | **88/100** | 0.256 | 0.225 |
+
+How to read it:
+
+- **0 → 88 is mostly format.** The untuned model answers in invented JSON; the tuned one
+  writes runnable GenCAD-style CadQuery. A stronger one-shot-prompt baseline is planned so
+  the comparison is not against a model that never writes Python.
+- **All 12 failures are runaway generations** (output hits the token limit mid-line, usually
+  after more sketches than the reference). No CadQuery API errors.
+- **Geometry is the weak part, and it falls with complexity.** IoU is bimodal (median 0.047,
+  22 of 88 at ≥ 0.5). Single-sketch parts: VSR 1.00, mean IoU 0.31; 4–8 sketches: VSR 0.69,
+  mean IoU 0.10.
+- **The metric compares surface shells, not volumes.** `best_iou.py` voxelizes without
+  `.fill()`, so two near-identical solids can score near zero (a tube: 0.010 shell vs 0.588
+  filled). Re-scored with only `.fill()` added: mean 0.563. The headline stays MecAgent's
+  metric; the filled number is reported beside it.
+- **The checker sees what IoU cannot.** Defects present on the generated part but not on its
+  reference: 3 self-intersections, 6 thin walls, 1 invalid solid. One self-intersecting part
+  scores IoU 0.83. The checker does not measure fidelity (generated parts score slightly
+  higher because they are simpler), so it is a third column, not a replacement for IoU.
+- **Scale:** 4 % of the training split, 1 epoch. Not comparable to published GenCAD numbers
+  without saying so. Adapter (~130 MB) lives on Google Drive, not in git; per-row outputs,
+  scores, generated STEPs and checker results are committed under `docs/validation/gencad/`.
+
 ### Geometry generation — live E_grammar eval (5 held-out prompts)
 
 | Model (provider, date) | Grammar-valid parts | Notes |
@@ -181,7 +244,7 @@ number; recorded as an honest negative rather than retried
 
 Every model now passes all five prompts, so this gate no longer separates models; a
 checker-scored benchmark with range checks on holes, bores and patterns is in progress
-(`docs/exec-plans/active/2026-09-25-sp1-cad-benchmark-design.md`).
+(SP1, see [Roadmap](#roadmap)).
 
 Every generated spec is validated (Pydantic DSL), built by the trusted executor, then run
 through the full analysis pipeline. The failure mode itself became a validator: a spec whose
@@ -206,8 +269,12 @@ the base and LoRA columns are still empty (`docs/finetune_results.md`).
 - The **defect head does not generalize to real CAD** — 11/11 false positives on analyzed
   McMaster parts; the gap is the surface-type vocabulary, not data volume (see honest
   negative above).
-- Fine-tuning: one QLoRA run is trained (loss in `docs/finetune_results.md`), but there is
-  **no Base-vs-LoRA result yet** — no claim about the fine-tuned model until that eval runs.
+- Copilot fine-tune: one chat-SFT QLoRA run (Qwen2.5-3B) is trained (loss in
+  `docs/finetune_results.md`), but there is **no Base-vs-LoRA result yet** — no claim about
+  that model until the gold-set eval runs. (Separate from the GenCAD model, which is evaluated.)
+- GenCAD: one model, one training run, 100 eval rows, against a baseline that answers in
+  JSON. The checker-bridge numbers assume every part is 100 mm on its longest side, because
+  GenCAD parts are unit-normalized and the checker's thresholds are in mm.
 - 227 tests pass, but the LLM-facing tests mock the client (5 live-LLM tests are opt-in) —
   test count is not an ML-quality signal.
 - Self-intersection check skipped above 150 faces and on freeform (B-spline) faces — OCC
@@ -220,19 +287,55 @@ the base and LoRA columns are still empty (`docs/finetune_results.md`).
 
 ## Roadmap
 
-1. **A non-circular refinement target.** Done so far: a graph-level defect head trained on
-   injected ground-truth tags (non-circular), and a retrain on parametric+degraded that lifted
-   held-out-fixtures recall 0.23 → 0.69. Still open: the per-face *refinement* head learns
-   `rule_per_face>0.5`. Replace that with a label the rule layer doesn't already produce
-   (downstream meshing-failure outcomes, or hand-labeled faces) so the per-face score adds
-   information.
-2. **Labeled real-CAD test set** (SimJEB / GrabCAD) as a true generalization probe against the
-   >0.50 recall exit criterion — currently only an unlabeled gate exists.
-3. **Evaluate the trained QLoRA adapter** to fill the Base-vs-LoRA comparison, then stop — keep the harness.
-4. **Geometry-generation: close the loop.** v1 (typed DSL + `build_part` tool) and v2
-   (live dual-model E_grammar eval, 5/5 both models) are shipped; next is a refine loop
-   (feed analysis findings back into a spec revision) and a CLI/Streamlit gen panel.
-5. Mesher (Gmsh) hook — correlate the 0–100 score with actual meshability.
+The order is deliberate: generation work comes first, and every step has to end in a number
+that can be checked.
+
+**Done**
+
+- Analysis pipeline, rule checks, BRepSAGE (3 heads), copilot agent with four tools, CI.
+- Typed-DSL generation (`build_part`, ADR 0001) and the 5-prompt gate: 5/5 on GLM 5.3,
+  DeepSeek V4.1 Flash, GLM 5.2 and Llama 3.3 70B.
+- GenCAD image → CadQuery, first model: Qwen2.5-VL-3B QLoRA, VSR 0 → 88/100, plus the
+  checker bridge and the shell-vs-filled IoU finding.
+
+**Now — GenCAD follow-ups** (`docs/validation/gencad_eval.md`, "Next steps")
+
+1. **Stopping problem:** all 12 failures are runaway generations. Try a stop rule or
+   repetition penalty at inference, no retraining, and re-score the same 100 rows.
+2. **Stronger baseline:** the same untuned model with one example program in the prompt.
+3. **Second model:** Gemma-3-4B with the same two notebooks, against its own untuned base.
+
+**Next — text → CAD, in three sub-projects**
+
+1. **SP1: checker-scored text-to-CAD benchmark.** 50 part concepts, each phrased three ways:
+   *explicit* (every dimension given), *engineer-style* ("NEMA 17 mount, 5 mm plate") and
+   *intent-only*. Constraints come from standards and engineering logic (ISO 273 clearance
+   holes, NEMA patterns, bearing bores, minimum walls) and are checked in code as ranges;
+   anything genuinely free is marked `not_checked`, never silently passed. Headline metric:
+   the **mechanical-reasoning gap**, pass rate (explicit) − pass rate (engineer-style) on the
+   same parts. First runs: GLM 5.3 and DeepSeek V4.1 Flash. Status: design reviewed,
+   13-task plan written, tasks 1–2 (concept schema + loader, 50-concept draft) on branch
+   `sp1-bench`, paused behind the GenCAD work.
+   (`docs/exec-plans/active/2026-09-25-sp1-cad-benchmark-design.md`,
+   `docs/exec-plans/active/2026-10-04-sp1-bench-implementation.md`)
+2. **SP2: generation vocabulary v2.** Extend the 4-op DSL where SP1 shows concepts it cannot
+   express. Then compare the DSL against free-form build123d code on the same benchmark, so
+   "DSL vs code" becomes a measurement, not an opinion. A repair pass (feed checker errors
+   back, up to 2 retries, starting from SP1's logged failures) is reported separately from
+   single-shot.
+3. **SP3: post-training with the checker as reward.** GRPO on a small open model; the metric
+   is fixed now: single-shot pass@1 on held-out prompts, before vs after training. Open
+   decision: post-train the text-only Qwen2.5-3B or the GenCAD vision model, and whether
+   the reward combines IoU with the checker.
+
+**Later — analysis side**
+
+- A non-circular target for the per-face *refinement* head (meshing-failure outcomes or
+  hand-labelled faces), and a labelled real-CAD test set (SimJEB / GrabCAD).
+- Defect head on real CAD: hand-labelled real positives and clean real negatives in
+  training; synthetic augmentation is exhausted.
+- Evaluate the copilot chat-SFT adapter on the gold set once, then stop.
+- Mesher (Gmsh) hook — correlate the 0–100 score with actual meshability.
 
 ## Project layout
 
@@ -243,6 +346,8 @@ simready/        cli · pipeline · validator · healer · checks · occ_utils �
 ui/              app.py (analysis) · copilot_app.py (agent chat)
 scripts/         train · evaluate · auto_label · generate_parametric_steps · generate_degraded_steps
                  · prep_finetune_dataset · eval_finetune · scrape_fea_docs · index_fea_docs · …
+                 · gencad_{reference,analyse,iou_filled,export_reference_steps,checker_bridge}
+notebooks/       gencad_baseline · gencad_train_qwen · finetune_copilot (+ _executed)   (Colab)
 tests/           227 tests (5 live-LLM opt-in)
 weights/         brepnet.pt (16 KB) · metrics.json · brepnet_meta.json · eval_fixtures.json  (tracked)
 docs/            validation/ · impl/ · exec-plans/ · sample_output/ (committed CLI output) · img/

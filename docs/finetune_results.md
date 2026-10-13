@@ -71,6 +71,12 @@ checkpoint-180 adapter (byte-identical). Local copy: `weights/qlora/` (gitignore
 | 150 | 2.50 | 0.107 | — |
 | 180 | 3.00 | — | 0.150 |
 
+Executed notebook with outputs (downloaded from Colab 2026-10-05):
+`notebooks/finetune_copilot_executed.ipynb`. It adds: 951 train / 39 val traces; token
+lengths p50 1548, p95 2070, max 2463, so 65 traces were truncated at 2048; runtime 7232 s
+(2.0 h) on a T4; mean train loss over the run 0.2848. Its code is the training-time version;
+`notebooks/finetune_copilot.ipynb` is newer (adds the GGUF export cells).
+
 Caveats: `eval_steps=200 > max_steps=180`, so val loss exists only at the end: no val
 curve, no overfitting check. Low loss on teacher-generated traces means the student imitates
 the teacher's format; it says nothing about tool-use quality. That is the gold-set eval below.

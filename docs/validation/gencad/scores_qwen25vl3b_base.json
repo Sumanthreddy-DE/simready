@@ -1,0 +1,602 @@
+[
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 37
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 102
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 116
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 176
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 350
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 400
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 445
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 601
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 720
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 761
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 862
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 870
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 875
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 902
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 978
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 992
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "Error executing script pred: name 'true' is not defined",
+  "idx": 1119
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "Error executing script pred: unterminated string literal (detected at line 2) (<string>, line 2)",
+  "idx": 1152
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 1243
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 1275
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 1349
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 1351
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 1446
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 1456
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 1520
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 1533
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "Error executing script pred: '[' was never closed (<string>, line 1)",
+  "idx": 1767
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "Error executing script pred: closing parenthesis ']' does not match opening parenthesis '{' on line 37 (<string>, line 43)",
+  "idx": 1811
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 2097
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 2113
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 2200
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "Error executing script pred: '[' was never closed (<string>, line 40)",
+  "idx": 2233
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "Error executing script pred: '[' was never closed (<string>, line 1)",
+  "idx": 2313
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 2384
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "Error executing script pred: '[' was never closed (<string>, line 1)",
+  "idx": 2425
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 2440
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "Error executing script pred: '[' was never closed (<string>, line 34)",
+  "idx": 2454
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 2557
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 2578
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 2586
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 2768
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 2932
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 2979
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 2982
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "Error executing script pred: unterminated string literal (detected at line 2) (<string>, line 2)",
+  "idx": 3005
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 3015
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 3222
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "Error executing script pred: '[' was never closed (<string>, line 1)",
+  "idx": 3267
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "Error executing script pred: unterminated string literal (detected at line 51) (<string>, line 51)",
+  "idx": 3270
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 3335
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 3391
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 3450
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 3564
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 3737
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 3748
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 3830
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 3903
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 3929
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 3942
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 3989
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 4066
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 4272
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 4342
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 4564
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 4644
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 4721
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 4836
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 4946
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 5057
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 5125
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 5175
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 5289
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 5609
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 5690
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 5699
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 5754
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 5812
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 5855
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 5861
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 5926
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 6080
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 6132
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 6188
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 6192
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 6193
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 6225
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 6420
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 6528
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 6742
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 6911
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 6945
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 6972
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 7017
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 7032
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "Error executing script pred: '{' was never closed (<string>, line 48)",
+  "idx": 7048
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 7087
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 7114
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 7182
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 7196
+ },
+ {
+  "valid": false,
+  "iou": 0.0,
+  "err": "No CadQuery objects (Workplane, Solid, or Compound) found in script pred",
+  "idx": 7321
+ }
+]

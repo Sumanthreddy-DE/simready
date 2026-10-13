@@ -77,3 +77,13 @@ docs/jobs/
 
 # SP1 benchmark working runs (official logs are copied, gzipped, to docs/validation/bench_v1/)
 data/bench_runs/
+
+# GenCAD eval caches (scripts/gencad_*.py); regenerable
+data/gencad/
+.venv-gencad/
+
+# Local-only notes (lessons, tooling, vendor issues); never pushed
+.local/
+
+# Claude Code session dumps: local only (public repo)
+Archive/sessions/*.tmp
