@@ -36,7 +36,7 @@ MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processi
 - defect head next levers (item Open): hand-labelled real-CAD positives / clean real negatives in training / grammar extension to revolved surfaces; self_int class needs interference feature
 - Wave 3 (user-gated): one collaborative Colab QLoRA run (DECIDED: run once then stop); grow real_eval set 20-30 STEPs; gmsh-calibration do-or-drop
 - gen v3 (CLI + Streamlit gen panel) deferred until v2 proves the loop
-- CI proven 2026-07-19: full-suite ran 190/192 on linux first try; 2 local-data tests now skip-if-absent; continue-on-error dropped (ci-full-suite-promote CLOSED)
+- ~~CI proven 2026-07-19: full-suite ran 190/192 on linux first try; 2 local-data tests now skip-if-absent; continue-on-error dropped (ci-full-suite-promote CLOSED)~~
 
 ## Resume here
 Launch Claude from `Mech/SimReady` (Citadel memory resolves there; the worktree path resolves to the projects-root router), then edit files in the worktree `Mech/SimReady-gencad` (branch `gencad`): finish the MecAgent walkthrough package — examples (IoU-1.0 plate idx 400, a truncation failure, idx 5699 self-intersecting with good IoU, tube idx 4836) + fresh-clone demo check (Streamlit chat + `build_part`); results table is in the README. Then `gencad-stop-problem` → `gencad-strong-baseline` → Gemma. Edit STATE/BACKLOG on `main` only; merge `main` into `sp1-bench` the same session. Session: `sessions/2026-10-13-readme-direction-branch-sync-session.tmp`.
