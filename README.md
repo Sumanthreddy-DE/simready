@@ -10,8 +10,8 @@ and reports on it (healing is a best-effort OCC ShapeFix pass, not a design edit
 Generation is live: the agent's `build_part` tool materializes a typed box/cyl/fuse/cut
 spec into a STEP file (no LLM code is executed — see
 `docs/adr/0001-geometry-gen-dsl-over-codegen.md`), and the end-to-end generate→analyze
-loop passes 5/5 held-out prompts on every hosted model tested
-(`docs/validation/geometry_gen_eval.md`).
+loop passes the strengthened mechanical/final-analysis gate on 5/5 prompts in a fresh GLM 5.3
+run (`docs/validation/geometry_gen_eval.md`).
 
 ## Direction: from checking CAD to scoring CAD generation
 
@@ -100,36 +100,77 @@ flowchart TD
 
 ## Quickstart
 
-pythonOCC needs conda:
+### 1. Create the environment
 
-```bash
-micromamba create -f environment.yml      # or: conda env create -f environment.yml
-micromamba activate simready
-pip install -r requirements.txt           # copilot/UI deps: openai, sentence-transformers, pypdf, streamlit
+Prerequisite: install [Miniforge](https://conda-forge.org/download/) (includes `conda`) or
+[micromamba](https://mamba.readthedocs.io/en/latest/installation/micromamba-installation.html),
+then restart the shell so the command is available. pythonOCC is installed from conda-forge;
+the project does not support a pip-only OCC install.
+
+Windows PowerShell, from the repository root:
+
+```powershell
+micromamba create -f environment.yml -y    # or: conda env create -f environment.yml
+micromamba activate simready               # conda: conda activate simready
+python -m pip install -r requirements.txt
+python -c "import OCC, torch_geometric, pydantic, streamlit; print('setup OK')"
 ```
 
-Analyze a part — no LLM, no API key:
+`requirements.txt` includes PyTorch Geometric and Pydantic directly. On Windows, install
+PyG after the conda PyTorch package as shown; if pip selects an incompatible wheel, use the
+[PyG installation guide](https://pytorch-geometric.readthedocs.io/en/latest/install/installation.html)
+for the shown torch/Python versions rather than mixing a second torch installation.
 
-```bash
-python -m simready.cli analyze tests/data/smoke_box.step           # pretty terminal report
-python -m simready.cli analyze part.step --json                    # machine-readable
-python -m simready.cli analyze part.step --html report.html        # shareable single file
-python -m simready.cli analyze part.step --export-healed out.step  # ShapeFix-healed STEP
+Linux/macOS: use the same create/install commands and your environment manager's normal
+`activate` command. CI exercises `environment.yml` + `requirements.txt` on Ubuntu.
+
+### 2. Analyze a part — no LLM or API key
+
+```powershell
+python -m simready.cli analyze tests/data/smoke_box.step
+python -m simready.cli analyze part.step --json
+python -m simready.cli analyze part.step --html report.html
+python -m simready.cli analyze part.step --export-healed out.step
 ```
 
-Run the copilot — needs an OpenAI-compatible endpoint:
+A missing dependency, invalid input, timeout, or failed analysis prints its validation error
+and exits nonzero. It never reports unanalyzed geometry as clean.
 
-```bash
-cp .env.example .env       # set OPENAI_API_KEY; OPENAI_BASE_URL for non-OpenAI providers
+### 3. Generate then analyze a part — no LLM or API key
+
+This deterministic demo exercises the same trusted `build_part` executor used by the agent.
+It writes a new STEP under `data/gen_parts/`, prints its path, then analyzes that exact artifact:
+
+```powershell
+$built = python -m simready.gen.build | Select-Object -Last 1 | ConvertFrom-Json
+python -m simready.cli analyze $built.step_path
+```
+
+Expected build evidence: `occ_valid: true`, 7 faces, bounding box 80 × 60 × 10 mm. The
+centered through-hole has diameter 10 mm. `data/gen_parts/` is Git-ignored, so repeated runs
+do not add generated artifacts to Git.
+
+For scripted mechanical checks, `simready.gen.verify.verify_part_spec` checks declared box
+dimensions and centered through-holes; `analyze_generated_part` rejects failed analysis rather
+than treating a tool call as proof of success.
+
+### 4. Run the copilot — needs an OpenAI-compatible endpoint
+
+```powershell
+Copy-Item .env.example .env
+# Edit .env: set OPENAI_API_KEY and OPENAI_MODEL. Leave OPENAI_BASE_URL blank for
+# OpenAI, or replace BOTH base URL and model for another provider.
 python -m simready.copilot.cli tests/data/smoke_box.step "What's wrong with this part and how do I fix it?"
+python -m streamlit run ui/copilot_app.py
+python -m streamlit run ui/app.py
 ```
 
-Streamlit UIs:
-
-```bash
-streamlit run ui/copilot_app.py   # agent chat + per-face score render + runtime backend selector
-streamlit run ui/app.py           # analysis-only dashboard (findings, score breakdown, downloads)
-```
+In the chat sidebar, **Demo CAD** includes the committed `tests/data/smoke_box.step` fixture
+on a fresh checkout. Select it and click **Analyze selected STEP**. To exercise generation in
+chat, ask: `Create an 80 x 60 x 10 mm plate with a centered 10 mm through-hole.` The agent
+should call `build_part`, then `analyze_geometry` on the returned `data/gen_parts/*.step` path.
+Provider availability, tool-call support and response prose still depend on the selected model.
+The analysis-only dashboard accepts STEP upload without an LLM key.
 
 Analysis dashboard (`ui/app.py`) on a ribbed-bracket fixture — findings, fused score
 breakdown, graph topology, and the per-face heatmap table (combined + ML scores). Regenerate
@@ -141,7 +182,8 @@ Provider config (`.env`): `OPENAI_API_KEY` (required), `OPENAI_BASE_URL`
 (blank = OpenAI · Vultr `https://api.vultrinference.com/v1` · NIM `https://integrate.api.nvidia.com/v1` · OpenRouter
 `https://openrouter.ai/api/v1` · Ollama `http://localhost:11434/v1`), `OPENAI_MODEL`.
 
-Optional FEA-standards index for `lookup_standard` (the tool returns `no_index` until built):
+Optional full FEA-standards index for `lookup_standard`. A small committed seed index works
+on fresh clones; build the full local index for broader coverage:
 
 ```bash
 # add public PDF URLs to data/fea_docs/sources.txt, then:
@@ -151,45 +193,56 @@ python scripts/index_fea_docs.py   # → data/fea_docs_index.json
 
 ## Results & Limitations
 
+Exact reproduction commands and evidence boundaries: `docs/validation/reproduce-results.md`.
+
 **Read the label-source column before the accuracy column.** The model's *refinement* head
 trains on `rule_per_face > 0.5` — a deterministic threshold on the *same* OCC features the GNN
 ingests (`scripts/auto_label.py`), so its accuracy measures "can a GraphSAGE re-learn my rule,"
 not agreement with external ground truth. The *defect* head is different: it trains on
 ground-truth defect tags injected by `scripts/generate_degraded_steps.py`, independent of the
-rule layer — a **non-circular** signal. All numbers below are committed and reproducible
-(`weights/brepnet.pt` 16 KB · `weights/metrics.json` · `weights/brepnet_meta.json` full
-per-epoch history · `weights/eval_fixtures.json`). Trained CPU-only (15 epochs / 25 s) on
-**1100 graphs** — 500 synthetic parametric + 600 degraded (200 bases × open-shell /
-sliver-face / self-intersection).
+rule layer — a **non-circular** signal.
 
-### Held-out validation (n=205 val graphs · source-grouped 80/20, leakage-free)
+The tables below describe the **combined-v2 experiment associated with the committed records**:
+**2,272 graphs**, source-grouped **1,801 train / 471 validation**, **30 epochs**, CPU-only
+(56.18 s in the recorded run). Sources: `weights/brepnet.pt`,
+`weights/brepnet_meta.json`, `weights/metrics.json`, and `weights/eval_fixtures.json`.
+The older 1,100-graph / 15-epoch v1 result is retained separately below, not presented as the
+current checkpoint's validation result.
 
-The 80/20 split is grouped by source part (`split_train_val_by_source`): every degraded
-variant of a base part stays on one side, so no part the model trained on reappears (degraded)
-in validation. That's why the split is 895/205 rather than the 880/220 a random split would
-give — a deliberate, leakage-free held-out set.
+### Held-out validation — combined-v2 (n=471 val graphs · source-grouped 80/20)
+
+Every degraded variant of a base part stays on one side of the split. This v2 validation set
+adds randomized fillet/chamfer features and is not directly comparable to the easier v1 split.
 
 | Head | Label | Metric | Value |
 |---|---|---|--:|
-| Refinement (per-face) | `rule_per_face>0.5` — **circular** | accuracy / precision / recall | 0.848 / 0.944 / 0.487 |
-| Defect (graph-level, 4-class) | injected tags — **non-circular** | accuracy | 0.756 |
+| Refinement (per-face) | `rule_per_face>0.5` — **circular** | accuracy / precision / recall | 0.825 / 0.929 / 0.609 |
+| Defect (graph-level, 4-class) | injected tags — **non-circular** | accuracy | 0.686 |
 
-Defect per-class accuracy: clean 0.87 · open_shell 0.57 · sliver_face 1.00 ·
-**self_intersection 0.37** — the hardest defect to read from topology features alone, and an
-honest weak spot rather than a hidden one.
+Defect per-class accuracy: clean 0.679 · open_shell 0.856 · sliver_face 1.00 ·
+**self_intersection 0.212** — a weak result, not a production-ready defect classifier.
 
-### Held-out generalization (refinement head)
+### Held-out fixtures — combined-v2 checkpoint
 
 | Eval set | n | Distribution | Acc | Prec | Recall |
-|---|---|---|--:|--:|--:|
-| Hand-built fixtures | 7 graphs / 51 faces | harder, hand-made (out-of-train) | 0.725 | 0.750 | 0.692 |
+|---|---|---|---|--:|--:|--:|
+| Hand-built fixtures | 27 graphs / 3,612 faces | harder, hand-made (out-of-train) | 0.853 | 0.920 | 0.895 |
 | Real GrabCAD (unlabeled) | 3 parts, 87 / 107 / 161 faces | real CAD imports | ML aggregate **0.37–0.45** vs rule mean 0.67–0.88 |||
 
-Adding the 600 degraded variants to training lifted held-out-fixtures recall from **0.23 → 0.69**
-over the earlier parametric-only checkpoint. On real GrabCAD the model still scores well below
-the rule layer (overall 37.5 / 36.6 / 61.0; latency 7.45 / 2.22 / 2.87 s wall-clock for the full
-pipeline — OCC parse + heal + ~12 checks + GNN). That gap is the point of the gate: it's
-documented, not hidden.
+**Fresh inference verification, 2026-10-24:** running
+`python scripts/evaluate.py data/labels_fixtures_v2 weights/brepnet.pt` with the project
+environment and `PYTHONPATH` set reproduced 27 graphs / 3,612 faces and
+accuracy .853 / precision .920 / recall .895 / F1 .908. This ties the committed checkpoint to
+the fixture metrics. It is not a fresh training run or independent validation of the labels.
+
+Historical v1 comparison: the earlier 1,100-graph checkpoint recorded validation refinement
+.848 / .944 / .487, defect accuracy .756, and 7-fixture / 51-face refinement .725 / .750 / .692.
+Those numbers belong to the v1 experiment and its easier validation/fixture setup; do not mix
+them with the combined-v2 rows above. Fixture defect accuracy is not a usable metric because
+the deliberately broken fixtures lack complete defect tags.
+
+On real GrabCAD the model still scores below the rule layer (overall 37.5 / 36.6 / 61.0;
+latency 7.45 / 2.22 / 2.87 s wall-clock for the full pipeline). That gap is documented, not hidden.
 
 On a larger real-CAD probe (12 McMaster-Carr STEPs — brackets, flanges, bearings, housings)
 the pipeline now analyzes **11/12** parts with zero hangs (freeform-face precheck +
@@ -233,7 +286,7 @@ How to read it:
   without saying so. Adapter (~130 MB) lives on Google Drive, not in git; per-row outputs,
   scores, generated STEPs and checker results are committed under `docs/validation/gencad/`.
 
-### Geometry generation — live E_grammar eval (5 held-out prompts)
+### Geometry generation — historical live E_grammar artifact gate (5 prompts)
 
 | Model (provider, date) | Grammar-valid parts | Notes |
 |---|--:|---|
@@ -247,13 +300,19 @@ checker-scored benchmark with range checks on holes, bores and patterns is in pr
 (SP1, see [Roadmap](#roadmap)).
 
 Every generated spec is validated (Pydantic DSL), built by the trusted executor, then run
-through the full analysis pipeline. The failure mode itself became a validator: a spec whose
-non-final step is never consumed by a later boolean now fails fast and bounces back into the
-agent loop (`docs/validation/geometry_gen_eval.md`).
+through the analysis pipeline. The 5/5 rows above are **historical artifact-gate results**:
+STEP existence, OCC validity and face-count range. They did not mechanically assert dimensions,
+hole placement, successful final analysis, or truthful verdict prose.
+
+The strengthened harness adds declared box dimensions and centered through-hole checks,
+successful analysis of the exact final artifact, and an assertion that the agent analyzed that
+path. **Fresh run 2026-10-24: Vultr GLM 5.3 passed 5/5** under this stronger gate, one run per
+prompt. Compact evidence: `docs/validation/generation_gate_2026-10-24.json`. Verdict prose
+remains outside the mechanical gate; it still sometimes overstates mesh readiness.
 
 ### Copilot eval — gold set (n=50)
 
-Reference run only: `meta/llama-3.3-70b-instruct` as teacher/ceiling (2026-07; the model has since been retired on NIM). A QLoRA adapter
+Reference run only: `meta/llama-3.3-70b-instruct` as teacher/ceiling (2026-05-24; the model has since been retired on NIM). A QLoRA adapter
 (Qwen2.5-3B, 951 traces, 3 epochs) is trained but **not yet evaluated** on this gold set, so
 the base and LoRA columns are still empty (`docs/finetune_results.md`).
 
@@ -275,8 +334,8 @@ the base and LoRA columns are still empty (`docs/finetune_results.md`).
 - GenCAD: one model, one training run, 100 eval rows, against a baseline that answers in
   JSON. The checker-bridge numbers assume every part is 100 mm on its longest side, because
   GenCAD parts are unit-normalized and the checker's thresholds are in mm.
-- 227 tests pass, but the LLM-facing tests mock the client (5 live-LLM tests are opt-in) —
-  test count is not an ML-quality signal.
+- The Python suite mocks LLM-facing clients (5 live-LLM tests are opt-in); test count is not
+  an ML-quality signal. Run `python -m pytest -q` for the current environment-specific count.
 - Self-intersection check skipped above 150 faces and on freeform (B-spline) faces — OCC
   `BOPAlgo` can hang indefinitely there, and Python-side watchdogs cannot interrupt it
   (`docs/validation/occ_hang_diagnosis.md`); UI/CLI entry points run analysis in a
@@ -293,8 +352,8 @@ that can be checked.
 **Done**
 
 - Analysis pipeline, rule checks, BRepSAGE (3 heads), copilot agent with four tools, CI.
-- Typed-DSL generation (`build_part`, ADR 0001) and the 5-prompt gate: 5/5 on GLM 5.3,
-  DeepSeek V4.1 Flash, GLM 5.2 and Llama 3.3 70B.
+- Typed-DSL generation (`build_part`, ADR 0001) and the historical 5-prompt artifact gate:
+  5/5 on GLM 5.3, DeepSeek V4.1 Flash, GLM 5.2 and Llama 3.3 70B.
 - GenCAD image → CadQuery, first model: Qwen2.5-VL-3B QLoRA, VSR 0 → 88/100, plus the
   checker bridge and the shell-vs-filled IoU finding.
 
@@ -348,7 +407,7 @@ scripts/         train · evaluate · auto_label · generate_parametric_steps ·
                  · prep_finetune_dataset · eval_finetune · scrape_fea_docs · index_fea_docs · …
                  · gencad_{reference,analyse,iou_filled,export_reference_steps,checker_bridge}
 notebooks/       gencad_baseline · gencad_train_qwen · finetune_copilot (+ _executed)   (Colab)
-tests/           227 tests (5 live-LLM opt-in)
+tests/           unit/integration/UI tests (5 live-LLM opt-in)
 weights/         brepnet.pt (16 KB) · metrics.json · brepnet_meta.json · eval_fixtures.json  (tracked)
 docs/            validation/ · impl/ · exec-plans/ · sample_output/ (committed CLI output) · img/
                  CONTEXT.md = domain glossary

@@ -147,3 +147,38 @@ through.
 - **Wall times are not comparable to legs 1–3.** They mix provider (Vultr vs NIM) and model;
   the 5–10× drop says more about the endpoint than about the models.
 - **Verdict prose was not assessed** in this run; the gate scores artifacts only.
+
+## v2.3 — strengthened mechanical + final-analysis gate (2026-10-24)
+
+The harness now requires, in addition to the historical artifact gate:
+
+- declared box dimensions (±0.1 mm) and centered through-hole diameter/full thickness;
+- `analyze_geometry` succeeds on the exact final generated STEP;
+- the agent's analyze call used that same final path.
+
+`simready/gen/verify.py` provides deterministic spec and final-analysis checks. Unit coverage:
+`tests/test_gen_verify.py`. This does not retroactively promote the historical runs above to the
+new gate.
+
+Fresh live run: Vultr `glm-5.3`, one run per prompt, no retries:
+`python -m pytest tests/test_gen_e2e.py -m live_llm -v` → **5 passed in 175.06 s**.
+All five had `occ_valid=true`, no mechanical errors, successful final analysis and matching
+final path after the selected build. Sum of per-prompt wall times: 116.20 s; no prompt crossed
+the 60 s slow flag. The L-bracket gate explicitly checks both boxes and upright placement;
+a failed final build invalidates the run rather than mixing an older artifact with a newer spec.
+
+| Prompt | Faces | Mechanical gate | Final analysis/path | Gate |
+|---|---:|---|---|---|
+| normal_box | 6 | 60 × 40 × 30 mm box | pass | pass |
+| thin_plate | 6 | 100 × 80 × 0.5 mm box | pass | pass |
+| l_bracket | 11 | base + upright + fuse | pass | pass |
+| bracket_with_hole | 7 | centered 10 mm through-hole | pass | pass |
+| small_feature_box | 7 | centered 1 mm through-hole | pass | pass |
+
+Compact provenance: `docs/validation/generation_gate_2026-10-24.json`. Raw local JSONL remains
+under `data/gen_eval/` and generated STEPs under `data/gen_parts/`, both ignored.
+
+**Evidence boundary:** one model/provider, one run per prompt. Verdict prose is not gated;
+`normal_box` still said "ready for meshing", which exceeds SimReady's heuristic evidence.
+The gate establishes mechanical spec conformance and successful analysis, not meshability or
+truthful prose.

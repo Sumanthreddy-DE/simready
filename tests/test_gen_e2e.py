@@ -5,7 +5,9 @@ in ``tests/data/gen_prompts.jsonl`` and asserts, per prompt, that:
 
 - the LLM produced a successful ``build_part`` call (schema_valid + occ_valid),
 - the final STEP file exists on disk,
-- the face count falls inside the prompt's ``expect.faces`` range.
+- the face count falls inside the prompt's ``expect.faces`` range,
+- declared box dimensions and centered through-holes match the spec,
+- ``analyze_geometry`` succeeds on that exact final STEP path.
 
 Marked ``live_llm`` (excluded from CI). Additionally the whole module skips
 unless BOTH ``OPENAI_BASE_URL`` and ``OPENAI_MODEL`` are set in the process
@@ -35,6 +37,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+
+from simready.gen.verify import analyze_generated_part, select_final_build, verify_part_spec
 
 pytestmark = pytest.mark.live_llm
 
@@ -128,26 +132,50 @@ def test_gen_e2e(agent, case):
         e for e in events
         if e["type"] == "tool_call" and e["name"] == "analyze_geometry"
     ]
-    # Last successful build wins (the LLM may retry after a schema error).
-    final_build = next(
-        (r for r in reversed(build_results) if r.get("occ_valid")),
-        build_results[-1] if build_results else None,
-    )
-    final_spec = None
-    for tc in reversed(response.tool_calls):
-        if tc["name"] == "build_part":
-            try:
-                final_spec = json.loads(tc["arguments"]).get("spec")
-            except (json.JSONDecodeError, AttributeError):
-                final_spec = tc["arguments"]
-            break
+    build_calls = [
+        {
+            "arguments": call["arguments"],
+            "result": next(
+                (e["result"] for e in events
+                 if e["type"] == "tool_result" and e["name"] == "build_part"
+                 and e["iteration"] == call["iteration"]),
+                None,
+            ),
+        }
+        for call in events
+        if call["type"] == "tool_call" and call["name"] == "build_part"
+    ]
+    final_transaction = select_final_build(build_calls)
+    final_build = final_transaction["result"] if final_transaction else None
+    final_spec = final_transaction["spec"] if final_transaction else None
 
     lo, hi = case["expect"]["faces"]
     faces = final_build.get("faces") if final_build else None
     step_path = final_build.get("step_path") if final_build else None
     step_exists = bool(step_path) and Path(step_path).exists()
     occ_valid = bool(final_build and final_build.get("occ_valid"))
-    passed = step_exists and occ_valid and faces is not None and lo <= faces <= hi
+    mechanical_errors = verify_part_spec(final_spec, case["expect"]) if final_spec is not None else ["no final build spec"]
+    analysis = analyze_generated_part(step_path) if step_exists else {
+        "ok": False, "step_path": step_path, "error": "step_missing",
+    }
+    analyze_paths = []
+    for call in analyze_calls:
+        try:
+            analyze_paths.append(json.loads(call["arguments"]).get("step_path"))
+        except (json.JSONDecodeError, AttributeError, TypeError):
+            analyze_paths.append(None)
+    final_build_iteration = build_calls[-1] and max(
+        call["iteration"] for call in events
+        if call["type"] == "tool_call" and call["name"] == "build_part"
+    ) if build_calls else None
+    final_path_analyzed = bool(step_path) and any(
+        path == step_path and call["iteration"] > final_build_iteration
+        for path, call in zip(analyze_paths, analyze_calls)
+    )
+    passed = (
+        step_exists and occ_valid and faces is not None and lo <= faces <= hi
+        and not mechanical_errors and analysis["ok"] and final_path_analyzed
+    )
 
     _append_record({
         "ts": datetime.now(timezone.utc).isoformat(),
@@ -162,6 +190,10 @@ def test_gen_e2e(agent, case):
         "occ_valid": occ_valid,
         "faces": faces,
         "expect_faces": [lo, hi],
+        "mechanical_errors": mechanical_errors,
+        "analysis_ok": analysis["ok"],
+        "analysis_error": analysis.get("error"),
+        "final_path_analyzed": final_path_analyzed,
         "step_path": step_path,
         "step_exists": step_exists,
         "wall_seconds": round(wall_s, 2),
@@ -179,4 +211,10 @@ def test_gen_e2e(agent, case):
     assert lo <= faces <= hi, (
         f"{case['id']}: face count {faces} outside expected [{lo}, {hi}] "
         f"(spec={final_spec})"
+    )
+    assert not mechanical_errors, f"{case['id']}: mechanical gate: {mechanical_errors}"
+    assert analysis["ok"], f"{case['id']}: final analysis failed: {analysis}"
+    assert final_path_analyzed, (
+        f"{case['id']}: analyze_geometry did not use final artifact {step_path}; "
+        f"observed paths {analyze_paths}"
     )

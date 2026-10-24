@@ -141,6 +141,14 @@ def test_list_demo_steps_finds_degraded_fixtures() -> None:
     )
 
 
+def test_grouped_demo_steps_includes_committed_smoke_fixture() -> None:
+    import ui.copilot_app as ui_module
+
+    grouped = ui_module._grouped_demo_steps()
+
+    assert any(src == "fixture" and path.name == "smoke_box.step" for src, path in grouped)
+
+
 def test_list_demo_steps_is_deduped() -> None:
     """Windows globs match case-insensitively; ``*.step`` and ``*.STEP`` both
     pick up the same files. The helper must dedupe by resolved path."""
@@ -200,8 +208,7 @@ def test_score_sidebar_populates_from_analyze_geometry(
 
 
 def test_grouped_demo_steps_returns_source_labels() -> None:
-    """Dropdown source must distinguish synth (parametric_degraded) from real
-    (tests/data/grabcad). Every entry carries a "synth" or "real" label."""
+    """Dropdown distinguishes committed fixtures, generated synths and real CAD."""
     import ui.copilot_app as ui_module
 
     grouped = ui_module._grouped_demo_steps()
@@ -209,12 +216,13 @@ def test_grouped_demo_steps_returns_source_labels() -> None:
         pytest.skip("no demo STEPs on disk — data/parametric_degraded and "
                     "tests/data/grabcad are both gitignored local data")
     labels = {src for src, _ in grouped}
-    assert labels.issubset({"synth", "real"}), f"unexpected labels: {labels}"
-    # Synth comes first in DEMO_SOURCES, so the first entry should be synth
-    # if any synth files exist.
+    assert labels.issubset({"fixture", "synth", "real"}), f"unexpected labels: {labels}"
+    # Fixture comes first in DEMO_SOURCES; synth precedes real within the
+    # optional local-data entries.
     synth_paths = [p for src, p in grouped if src == "synth"]
     if synth_paths:
-        assert grouped[0][0] == "synth"
+        assert grouped[0][0] == "fixture"
+        assert [src for src, _ in grouped].index("synth") < [src for src, _ in grouped].index("real")
 
 
 def test_session_is_persisted_to_disk(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

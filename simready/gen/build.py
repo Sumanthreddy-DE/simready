@@ -76,7 +76,8 @@ def _occ_required() -> None:
     if BRepPrimAPI_MakeBox is None:
         raise RuntimeError(
             "pythonocc-core is not importable in this Python environment. "
-            "Run geometry-gen under the sr env (C:\\mm\\sr\\python.exe)."
+            "Create and activate the project environment from environment.yml "
+            "(see README Quickstart), then run geometry-gen with that Python."
         )
 
 
@@ -243,17 +244,20 @@ def build_part(
     return payload
 
 
-# Manual smoke (sr env only):
+# Manual smoke in the project environment:
 #   python -m simready.gen.build
 if __name__ == "__main__":  # pragma: no cover
     demo_spec = {
         "steps": [
             {"op": "box", "dx": 80, "dy": 60, "dz": 10},
-            {"op": "cyl", "r": 5, "h": 10, "at": [40, 30, 0]},
+            {"op": "cyl", "r": 5, "h": 12, "at": [40, 30, -1]},
             {"op": "cut", "a": 0, "b": 1},
         ]
     }
     result = build_part(demo_spec, timeout_s=15)
     import json
 
-    print(json.dumps(result, indent=2, default=str), file=sys.stderr)
+    # OCC writes progress logs to stdout; keep one JSON result on the last line
+    # so PowerShell can capture it with `| Select-Object -Last 1`.
+    print(json.dumps(result, default=str))
+    raise SystemExit(0 if result.get("occ_valid") else 1)
