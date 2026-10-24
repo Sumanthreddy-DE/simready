@@ -7,6 +7,8 @@ pythonocc-core is not importable (base env).
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 
 import pytest
 
@@ -142,6 +144,21 @@ def test_build_part_subprocess_bracket_with_hole(tmp_path):
     assert result["occ_valid"] is True
     assert 6 <= result["faces"] <= 10
     assert result["bbox_mm"]["xmax"] - result["bbox_mm"]["xmin"] == pytest.approx(80.0, abs=1e-6)
+
+
+def test_module_demo_outputs_json_and_exits_zero():
+    completed = subprocess.run(
+        [sys.executable, "-m", "simready.gen.build"],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    result = json.loads(completed.stdout.splitlines()[-1])
+    assert result["occ_valid"] is True
+    assert result["faces"] == 7
 
 
 def test_build_part_rejects_malformed_spec_in_parent():

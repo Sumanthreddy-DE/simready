@@ -33,6 +33,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 # Ordered (dir, label) so the dropdown renders synth-first, real-second with
 # a header row per source so the recruiter can tell which is which.
 DEMO_SOURCES: tuple[tuple[Path, str], ...] = (
+    (REPO_ROOT / "tests" / "data", "fixture"),
     (REPO_ROOT / "data" / "parametric_degraded", "synth"),
     (REPO_ROOT / "tests" / "data" / "grabcad", "real"),
 )
@@ -112,8 +113,11 @@ def _list_demo_steps() -> list[Path]:
 
 
 def _grouped_demo_steps() -> list[tuple[str, Path]]:
-    """Return [(source_label, path), ...] in DEMO_SOURCES order. Source label
-    is "synth" or "real" so the dropdown can render a prefix per source."""
+    """Return [(source_label, path), ...] in DEMO_SOURCES order.
+
+    Labels distinguish committed fixtures, generated synthetics and real CAD.
+    The committed smoke fixture keeps the demo usable on a fresh checkout.
+    """
     seen: set[Path] = set()
     out: list[tuple[str, Path]] = []
     for source_dir, label in DEMO_SOURCES:
@@ -461,7 +465,7 @@ with st.sidebar:
         paths: list[Path] = []
         for source_label, p in grouped:
             rel = str(p.relative_to(REPO_ROOT)).replace("\\", "/")
-            tag = "[synth]" if source_label == "synth" else "[real] "
+            tag = {"fixture": "[fixture]", "synth": "[synth]  ", "real": "[real]   "}[source_label]
             labels.append(f"{tag}  {rel}")
             paths.append(p)
         pick_idx = st.selectbox(
@@ -470,12 +474,12 @@ with st.sidebar:
             format_func=lambda i: labels[i],
             key="demo_pick",
         )
-        counts = {"synth": 0, "real": 0}
+        counts = {"fixture": 0, "synth": 0, "real": 0}
         for source_label, _ in grouped:
             counts[source_label] += 1
         st.caption(
-            f"{counts['synth']} synth (parametric_degraded) · "
-            f"{counts['real']} real (grabcad)"
+            f"{counts['fixture']} committed fixtures · "
+            f"{counts['synth']} synth · {counts['real']} real"
         )
         if st.button("Analyze selected STEP", key="use_step_btn"):
             picked = str(paths[pick_idx])
@@ -485,9 +489,8 @@ with st.sidebar:
             st.rerun()
     else:
         st.info(
-            "No demo STEPs found. Run "
-            "`python scripts/generate_degraded_steps.py "
-            "--input data/parametric --output data/parametric_degraded --max-inputs 5`."
+            "No demo STEPs found. The committed `tests/data/smoke_box.step` "
+            "fixture should be available on every checkout."
         )
 
     st.divider()
@@ -548,7 +551,7 @@ with st.sidebar:
 if not st.session_state.chat:
     st.info(
         "Try the sidebar **Analyze selected STEP** button, or type a question like "
-        "`What's wrong with data/parametric_degraded/bracket_with_hole_0000__open_shell.step?`"
+        "`What's wrong with tests/data/smoke_box.step?`"
     )
 
 _render_chat()

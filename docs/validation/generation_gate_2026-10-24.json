@@ -1,0 +1,70 @@
+{
+  "date": "2026-10-24",
+  "provider": "https://api.vultrinference.com/v1",
+  "model": "glm-5.3",
+  "harness": "tests/test_gen_e2e.py strengthened mechanical/final-analysis gate",
+  "prompts": "tests/data/gen_prompts.jsonl",
+  "runs_per_prompt": 1,
+  "passed": 5,
+  "total": 5,
+  "pytest_wall_seconds": 175.06,
+  "sum_prompt_wall_seconds": 116.2,
+  "rows": [
+    {
+      "prompt_id": "normal_box",
+      "faces": 6,
+      "spec_summary": "box(60,40,30)",
+      "occ_valid": true,
+      "mechanical_errors": [],
+      "analysis_ok": true,
+      "final_path_analyzed": true,
+      "wall_seconds": 21.66,
+      "passed": true
+    },
+    {
+      "prompt_id": "thin_plate",
+      "faces": 6,
+      "spec_summary": "box(100,80,0.5)",
+      "occ_valid": true,
+      "mechanical_errors": [],
+      "analysis_ok": true,
+      "final_path_analyzed": true,
+      "wall_seconds": 21.73,
+      "passed": true
+    },
+    {
+      "prompt_id": "l_bracket",
+      "faces": 11,
+      "spec_summary": "box(60,60,10) + box(60,10,50,at[0,0,10]) + fuse",
+      "occ_valid": true,
+      "mechanical_errors": [],
+      "analysis_ok": true,
+      "final_path_analyzed": true,
+      "wall_seconds": 20.38,
+      "passed": true
+    },
+    {
+      "prompt_id": "bracket_with_hole",
+      "faces": 7,
+      "spec_summary": "box(80,60,10) cut by centered r=5 through-cylinder",
+      "occ_valid": true,
+      "mechanical_errors": [],
+      "analysis_ok": true,
+      "final_path_analyzed": true,
+      "wall_seconds": 30.45,
+      "passed": true
+    },
+    {
+      "prompt_id": "small_feature_box",
+      "faces": 7,
+      "spec_summary": "box(60,60,30) cut by centered r=0.5 through-cylinder",
+      "occ_valid": true,
+      "mechanical_errors": [],
+      "analysis_ok": true,
+      "final_path_analyzed": true,
+      "wall_seconds": 21.98,
+      "passed": true
+    }
+  ],
+  "evidence_boundary": "One run per prompt on one provider/model. Mechanical spec checks, artifact validity, successful final analysis and final-path identity passed. Verdict prose was not gated; normal_box prose claimed ready for meshing, which is stronger than heuristic evidence supports. Generated STEPs and raw local JSONL remain ignored; this record is the compact provenance summary."
+}
