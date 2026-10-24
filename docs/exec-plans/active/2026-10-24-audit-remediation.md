@@ -8,8 +8,9 @@
 
 **Tech Stack:** Python 3.10 (`C:\mm\sr\python.exe`), Click, Rich, pytest; Python stdlib SHA-256 and file-copy operations on Windows.
 
-**Status:** active  
-**Last verified:** 2026-10-24
+**Status:** done
+**Last verified:** 2026-10-25
+**Integrated:** `f1b6e31`, `1433900` on `main` (cherry-picked to exclude paused SP1 commits).
 
 ---
 
@@ -127,7 +128,7 @@ Run focused searches for stale paths/tool counts/status. Run `git diff --check`,
 
 ### Task 4: Later gated phases
 
-- [ ] Fix README setup, demos, results provenance, and generation gates with fresh execution evidence.
-- [ ] Run browser-observed Streamlit chat/build/analyze and fresh-clone acceptance.
-- [ ] Ask separately before any archive operation or worktree retirement.
-- [ ] Preserve `sp1-bench`; reconcile `main`/`gencad` ancestry before integration decisions.
+- [x] Fix README setup, demos, results provenance, and generation gates with fresh execution evidence.
+- [x] Run browser-observed Streamlit chat/build/analyze and fresh-clone acceptance.
+- [x] Preserve `sp1-bench`; integrate only the two remediation commits onto `main` by cherry-pick, excluding paused SP1 work.
+- [ ] Ask separately before any archive operation or worktree retirement (deliberately deferred, not part of the completed remediation).

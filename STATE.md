@@ -3,7 +3,7 @@
 <!-- Machine-maintained by save-session Step 6b. Hand-edit 2026-07-19 authorized by user (triage session). -->
 
 Status: active
-Last touched: 2026-10-24
+Last touched: 2026-10-25
 
 ## What
 MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processing. LLM copilot over B-rep analysis pipeline + BRepSAGE (3-head GraphSAGE) defect classifier + geometry-generation DSL (`build_part` tool). **APPLICATION SENT 2026-10-05 (user confirmed).** Open follow-up work = the `apply-*` items in BACKLOG S1/S2, GenCAD VLM track first. History: `v0.4.0-apply` (2026-05) was prep only, not a send. Strategy doc: docs/strategy/mecagent-gap-and-drift-2026-05-26.md; wave plan: BACKLOG.md "Triage 2026-07-19".
@@ -24,11 +24,10 @@ MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processi
 - **2026-10-05:** application sent; follow-up commitments filed as BACKLOG `apply-*` items (`11fb5e1`, `3822d3b`), GenCAD promoted to S1 ahead of SP1.
 - **2026-10-04..05 session:** SP1 spec reviewed (`c99ace2`) + 13-task plan (`e49abd5`), Tasks 1–2 (`84e7820`, `45a43f5`); gen eval v2.2 on Vultr — GLM 5.3 5/5, DeepSeek V4.1 Flash 5/5, Llama retired on NIM (`b3f7cc4`, `b30e212`, `b9ec82e`); D Labs excluded (corrupts tool calls); copilot default → Vultr glm-5.3.
 - **2026-10-13 README + branch sync:** README on `main` rewritten (`58fe9b5`): Direction section (checker as metric, later reward), GenCAD results, roadmap Done/Now/Next(SP1-SP3)/Later. `main` merged into `sp1-bench` (`8ec3613`, `cfbbda4`), `gencad` fast-forwarded; state files identical on all branches. Closed `apply-readme-on-main`, `apply-readme-cv-alignment`, `branch-state-divergence`, `gencad-results-duplicate` (local download archived).
-- **2026-10-24 audit remediation:** CLI `InvalidInput` now prints validation errors, never claims clean geometry, emits one terminal report and exits 1; successful analysis still exits 0. Full `sr` suite 242 passed / 5 deselected before one additional artifact-exit regression test. Preserved 14 GenCAD/local files in the canonical workspace with all destination SHA-256 hashes matching and sources retained. Map: `docs/impl/workspace-artifacts.md`. No archive moves or worktree retirement.
+- **2026-10-24/25 audit remediation integrated (`f1b6e31`, `1433900`):** CLI failure reporting is truthful; 14 GenCAD/local files preserved with matching destination hashes and sources retained. README setup/demo/results remediated; committed UI fixtures work without local caches; deterministic build→analyze verified in browser and clean checkout. Current combined-v2 fixture inference reproduced .853/.920/.895. Strengthened generation gate passed 5/5 on Vultr GLM 5.3 (175.06 s), with mechanics and exact final-artifact analysis. Full suite 255 passed / 5 deselected. No archive moves or worktree retirement.
 
 ## Doing
-- **Audit remediation** (branch `fix/audit-remediation`): CLI false-success fixed and local GenCAD assets preserved. Next: fresh-clone README setup, Streamlit chat + `build_part`, results/artifact provenance and generation-gate evidence. Archive operations and worktree retirement remain separately gated.
-- **GenCAD walkthrough package** (BACKLOG `apply-call-walkthrough`, week of 2026-10-12): results table and IoU finding now in the README (2026-10-13); remaining: 3-4 examples + fresh-clone demo check.
+- **GenCAD walkthrough package** (BACKLOG `apply-call-walkthrough`): results table, IoU finding and fresh-clone demo evidence done; next session: examples idx 400 (IoU 1.0 plate), one truncation failure, idx 5699 (good IoU + self-intersection), idx 4836 (tube shell-vs-filled IoU).
 - **GenCAD follow-ups:** `gencad-stop-problem` (all 12 failures are runaway generations), `gencad-strong-baseline` (one-shot prompt), Gemma-3-4B (`apply-gencad-vlm-track`).
 - **SP1 checker-scored text-to-CAD benchmark** — paused behind GenCAD (`sp1-resume`, branch `sp1-bench`).
 - QLoRA chat-SFT gold-set eval (GGUF + llama-server), then close. Low priority.
@@ -38,7 +37,7 @@ MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processi
 - defect head next levers (item Open): hand-labelled real-CAD positives / clean real negatives in training / grammar extension to revolved surfaces; self_int class needs interference feature
 - Wave 3 (user-gated): one collaborative Colab QLoRA run (DECIDED: run once then stop); grow real_eval set 20-30 STEPs; gmsh-calibration do-or-drop
 - gen v3 (CLI + Streamlit gen panel) deferred until v2 proves the loop
-- CI proven 2026-07-19: full-suite ran 190/192 on linux first try; 2 local-data tests now skip-if-absent; continue-on-error dropped (ci-full-suite-promote CLOSED)
+- ~~CI proven 2026-07-19: full-suite ran 190/192 on linux first try; 2 local-data tests now skip-if-absent; continue-on-error dropped (ci-full-suite-promote CLOSED)~~
 
 ## Resume here
-Launch and edit in `Mech/SimReady`, branch `fix/audit-remediation`. Continue the approved plan `docs/exec-plans/active/2026-10-24-audit-remediation.md`: fresh-clone README/demo and results remediation next. Use `docs/impl/workspace-artifacts.md` for canonical local assets. `sp1-bench` remains paused at Task 2 review; `gencad` worktree and all original assets remain pending explicit later retirement/archive approval. Do not commit or push without user approval.
+Launch and edit in `Mech/SimReady`, branch `main`. Audit remediation is integrated at `f1b6e31` and `1433900`; plan `docs/exec-plans/active/2026-10-24-audit-remediation.md` is done except separately gated archive/worktree decisions. Next: GenCAD walkthrough examples listed under Doing, then `gencad-stop-problem` → `gencad-strong-baseline` → Gemma. `sp1-bench` remains paused at Task 2 review; original GenCAD worktree/assets remain. Fresh environment-manager provisioning, full training rebuild, fresh GenCAD inference and additional hosted-model gate runs remain unverified. Do not commit or push without user approval.
