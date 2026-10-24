@@ -50,6 +50,7 @@ Archive/
 ## Source of truth (live, not here)
 
 - Open issues: `<repo>/BACKLOG.md`
-- Current plan: `<repo>/docs/exec-plans/path-c-4week.md`
-- Live status: `~/.claude/projects/C--Users-suman-Desktop-Docs-Job-Projects-Mech-SimReady/memory/project_simready.md`
-- Locked decisions: same memory dir, `project_path-c-decisions.md`
+- Current plans: `<repo>/docs/exec-plans/active/`; completed plans: `<repo>/docs/exec-plans/completed/`
+- Live status: `<repo>/STATE.md`
+- Local artifact paths/provenance: `<repo>/docs/impl/workspace-artifacts.md`
+- Locked Path C decisions: Citadel SimReady memory `project_path-c-decisions.md`

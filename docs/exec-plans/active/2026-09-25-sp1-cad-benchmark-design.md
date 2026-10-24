@@ -1,7 +1,7 @@
 # SP1: Checker-scored text-to-CAD benchmark + harness (design)
 
-**Status:** active
-**Last verified:** 2026-10-04
+**Status:** paused
+**Last verified:** 2026-10-24
 **Stage:** reviewed by user 2026-10-04 (changes folded in below). Next: implementation plan.
 
 **Context:** First of three sub-projects (SP1 benchmark + harness → SP2 generation vocabulary v2 →

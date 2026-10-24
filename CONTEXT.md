@@ -25,19 +25,20 @@ Canonical terms for this codebase. Read this before writing or reviewing code so
 
 ## Copilot parts (Path C, current)
 
-- **Copilot** — LLM agent loop. Three tools, multi-turn, conversation history round-tripped via `AgentResponse.messages`.
+- **Copilot** — LLM agent loop. Four tools, multi-turn, conversation history round-tripped via `AgentResponse.messages`.
 - **Tools** — Pure-Python functions exposed as OpenAI-compatible tool schemas. NOT autonomous code execution.
-  - `analyze_geometry(step_path)` — Wraps `analyze_file`. Returns slim summary + `severity_counts` (LLMs choke on full report; summarizer + truncator drops large fields).
+  - `analyze_geometry(step_path)` — Wraps `analyze_file_safe`. Returns slim summary + `severity_counts` (LLMs choke on full report; summarizer + truncator drops large fields).
   - `suggest_fixes(findings_json)` — Templated ranked actions. No LLM call inside.
-  - `lookup_standard(topic, k=3)` — RAG over FEA PDFs. **Corpus currently empty → returns `{"status": "no_index"}`**. BACKLOG `fea-rag-corpus-empty` tracks fill.
+  - `lookup_standard(query, top_k=3)` — RAG over FEA PDFs. Uses the local full index when present and falls back to the committed seed index; returns `no_index` only if neither exists.
+  - `build_part(spec)` — Builds a new STEP from the typed parametric DSL in a subprocess, then the agent analyzes the returned artifact.
 - **RAG-lite** — Sentence-transformers embeddings + cosine over a JSON index. NOT a vector DB. Pre-normalised vectors, `argpartition` top-k. Suited for ≤10 docs; switch to a real DB if corpus grows.
 - **System prompt** — Verdict-with-score → Issues → Fixes → Citations. 3 reference dialogues. Format violations get re-prompted, not auto-corrected.
 - **`on_event` observer** — Per-turn Rich panels in CLI; same hook used by Streamlit UI for live event stream.
 
 ## Environments
 
-- **`sr` env** — `C:\mm\sr\python.exe`, Python 3.10, pythonocc-core 7.9, torch 2.12.0+cpu, torch_geometric 2.7.0. **The only env where the full test suite passes (160/160).** Use this for OCC + ML work.
-- **Base env** — Python 3.12 system install. No pythonocc, no torch_geometric. 33 pre-existing failures expected. Use for copilot-only (non-OCC) work and lightweight smokes.
+- **`sr` env** — `C:\mm\sr\python.exe`, Python 3.10, pythonocc-core 7.9, torch 2.12.0+cpu, torch_geometric 2.7.0. Use this for OCC + ML work and the full test suite.
+- **Base env** — Python 3.12 system install. No pythonocc or torch_geometric. Use only for copilot-only (non-OCC) work and lightweight smokes; missing-OCC analysis must return an actionable failure and nonzero CLI exit.
 - **PYTHONPATH** — Prepend `$env:PYTHONPATH = "C:\Users\suman\Desktop\Docs\Job\Projects\Mech\SimReady"` before any script. PowerShell here-strings + module imports get tripped without it.
 
 ## Avoid these terms
@@ -48,15 +49,11 @@ Canonical terms for this codebase. Read this before writing or reviewing code so
 - **"mesher" / "solver"** — out of scope; SimReady does not do these.
 - **"agent"** — only the copilot loop is the agent. Don't call `analyze_file` an agent.
 
-## Resume bullet (apply-ready, 2026-05-18)
-
-> Built SimReady Copilot — agentic LLM system (OpenAI-compatible multi-turn tool-use loop) that ingests STEP CAD files, runs a BRepSAGE GNN analysis pipeline, and returns ranked manufacturability fix suggestions with RAG-cited FEA-standard references; shipped as a Streamlit app with 3D face-score visualization, 160 passing tests.
-
 ---
 
 ## Stakeholders / external context
 
-- **MecAgent** — Target employer (ML/AI Founding Engineer role). Application date: wk-2 day-14 (~2026-05-23). Demo screen-recording + repo link + 1-page bullet list = apply package. See `project_mecagent-alignment.md`.
+- **MecAgent** — Target employer (ML/AI Founding Engineer role). Application sent 2026-10-05. Current evidence and follow-up work are tracked in `BACKLOG.md`; historical application narratives are not current status.
 - **GrabCAD** — Source of real-world STEPs. Anti-bot + login walls block scraping; pivot is curated 10-STEP manual download.
 - **NAFEMS / ASME PTC** — Authoritative FEA standards, but mostly paywalled. Public fallbacks for the RAG corpus: vendor whitepapers, MIT OCW, NIST handbook chapters.
 
@@ -74,12 +71,13 @@ Canonical terms for this codebase. Read this before writing or reviewing code so
 > 1. Close shell at face 7 (try `ShapeFix_Shell`).
 > 2. Merge or remove sliver face 14.
 > 3. Consider shell-element discretisation given the part thickness.
-> Citations: *(none — `lookup_standard` returned no_index; FEA corpus not yet built.)*
+> Citations: *(returned by `lookup_standard` when the local or committed seed index contains a relevant passage.)*
 
 ## Live source-of-truth files
 
+- `STATE.md` — current workspace, focus and next action.
 - `BACKLOG.md` (repo root) — open issues by severity.
-- `docs/exec-plans/completed/path-c-4week.md` — full plan + progress.
+- `docs/impl/workspace-artifacts.md` — canonical local artifact paths and provenance.
 - `docs/validation/` — synth + real-CAD validation tables.
 - `docs/impl/brepnet-implementation-notes.md` — BRepSAGE model + dataset notes.
 - `BACKLOG.md` Strategic Context section — wk-3 priorities, contrarian review summary, gaps vs JD table.
