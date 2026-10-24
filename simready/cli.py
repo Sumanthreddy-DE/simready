@@ -36,7 +36,9 @@ def analyze(input_file: str, output_path: str | None, export_healed_path: str | 
     if emit_json:
         click.echo(payload)
     else:
-        click.echo(render_terminal_report(report, verbose=verbose))
+        click.echo(render_terminal_report(report, verbose=verbose), nl=False)
+    if report.get("status") == "InvalidInput":
+        raise click.exceptions.Exit(1)
 
 
 if __name__ == "__main__":

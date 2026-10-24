@@ -3,7 +3,7 @@
 <!-- Machine-maintained by save-session Step 6b. Hand-edit 2026-07-19 authorized by user (triage session). -->
 
 Status: active
-Last touched: 2026-10-13
+Last touched: 2026-10-24
 
 ## What
 MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processing. LLM copilot over B-rep analysis pipeline + BRepSAGE (3-head GraphSAGE) defect classifier + geometry-generation DSL (`build_part` tool). **APPLICATION SENT 2026-10-05 (user confirmed).** Open follow-up work = the `apply-*` items in BACKLOG S1/S2, GenCAD VLM track first. History: `v0.4.0-apply` (2026-05) was prep only, not a send. Strategy doc: docs/strategy/mecagent-gap-and-drift-2026-05-26.md; wave plan: BACKLOG.md "Triage 2026-07-19".
@@ -24,9 +24,11 @@ MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processi
 - **2026-10-05:** application sent; follow-up commitments filed as BACKLOG `apply-*` items (`11fb5e1`, `3822d3b`), GenCAD promoted to S1 ahead of SP1.
 - **2026-10-04..05 session:** SP1 spec reviewed (`c99ace2`) + 13-task plan (`e49abd5`), Tasks 1–2 (`84e7820`, `45a43f5`); gen eval v2.2 on Vultr — GLM 5.3 5/5, DeepSeek V4.1 Flash 5/5, Llama retired on NIM (`b3f7cc4`, `b30e212`, `b9ec82e`); D Labs excluded (corrupts tool calls); copilot default → Vultr glm-5.3.
 - **2026-10-13 README + branch sync:** README on `main` rewritten (`58fe9b5`): Direction section (checker as metric, later reward), GenCAD results, roadmap Done/Now/Next(SP1-SP3)/Later. `main` merged into `sp1-bench` (`8ec3613`, `cfbbda4`), `gencad` fast-forwarded; state files identical on all branches. Closed `apply-readme-on-main`, `apply-readme-cv-alignment`, `branch-state-divergence`, `gencad-results-duplicate` (local download archived).
+- **2026-10-24 audit remediation:** CLI `InvalidInput` now prints validation errors, never claims clean geometry, emits one terminal report and exits 1; successful analysis still exits 0. Full `sr` suite 242 passed / 5 deselected before one additional artifact-exit regression test. Preserved 14 GenCAD/local files in the canonical workspace with all destination SHA-256 hashes matching and sources retained. Map: `docs/impl/workspace-artifacts.md`. No archive moves or worktree retirement.
 
 ## Doing
-- **GenCAD walkthrough package** (BACKLOG `apply-call-walkthrough`, week of 2026-10-12): results table and IoU finding now in the README (2026-10-13); remaining: 3-4 examples + fresh-clone demo check. Work in worktree `Mech/SimReady-gencad`, branch `gencad`.
+- **Audit remediation** (branch `fix/audit-remediation`): CLI false-success fixed and local GenCAD assets preserved. Next: fresh-clone README setup, Streamlit chat + `build_part`, results/artifact provenance and generation-gate evidence. Archive operations and worktree retirement remain separately gated.
+- **GenCAD walkthrough package** (BACKLOG `apply-call-walkthrough`, week of 2026-10-12): results table and IoU finding now in the README (2026-10-13); remaining: 3-4 examples + fresh-clone demo check.
 - **GenCAD follow-ups:** `gencad-stop-problem` (all 12 failures are runaway generations), `gencad-strong-baseline` (one-shot prompt), Gemma-3-4B (`apply-gencad-vlm-track`).
 - **SP1 checker-scored text-to-CAD benchmark** — paused behind GenCAD (`sp1-resume`, branch `sp1-bench`).
 - QLoRA chat-SFT gold-set eval (GGUF + llama-server), then close. Low priority.
@@ -39,4 +41,4 @@ MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processi
 - ~~CI proven 2026-07-19: full-suite ran 190/192 on linux first try; 2 local-data tests now skip-if-absent; continue-on-error dropped (ci-full-suite-promote CLOSED)~~
 
 ## Resume here
-Launch Claude from `Mech/SimReady` (Citadel memory resolves there; the worktree path resolves to the projects-root router), then edit files in the worktree `Mech/SimReady-gencad` (branch `gencad`): finish the MecAgent walkthrough package — examples (IoU-1.0 plate idx 400, a truncation failure, idx 5699 self-intersecting with good IoU, tube idx 4836) + fresh-clone demo check (Streamlit chat + `build_part`); results table is in the README. Then `gencad-stop-problem` → `gencad-strong-baseline` → Gemma. Edit STATE/BACKLOG on `main` only; merge `main` into `sp1-bench` the same session. Session: `sessions/2026-10-13-readme-direction-branch-sync-session.tmp`.
+Launch and edit in `Mech/SimReady`, branch `fix/audit-remediation`. Continue the approved plan `docs/exec-plans/active/2026-10-24-audit-remediation.md`: fresh-clone README/demo and results remediation next. Use `docs/impl/workspace-artifacts.md` for canonical local assets. `sp1-bench` remains paused at Task 2 review; `gencad` worktree and all original assets remain pending explicit later retirement/archive approval. Do not commit or push without user approval.
