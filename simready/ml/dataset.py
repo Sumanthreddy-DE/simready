@@ -19,6 +19,19 @@ class SampleMetadata:
     graph_path: Path
     labels_path: Path
     face_count: int
+    source_id: str | None = None
+    family_id: str | None = None
+    split: str | None = None
+
+
+def sample_source_id(data: Data) -> str:
+    """Canonical graph ID: reviewed source_id when present, otherwise auto-label stem."""
+    source_id = getattr(data, "source_id", None)
+    if source_id is None:
+        source_id = getattr(data, "stem", None)
+    if not isinstance(source_id, str) or not source_id:
+        raise ValueError("sample requires a nonempty source_id or stem")
+    return source_id
 
 
 def discover_samples(dataset_dir: Path) -> list[SampleMetadata]:
@@ -43,6 +56,9 @@ def discover_samples(dataset_dir: Path) -> list[SampleMetadata]:
                 graph_path=graph_path,
                 labels_path=labels_path,
                 face_count=int(entry.get("face_count", 0)),
+                source_id=entry.get("source_id"),
+                family_id=entry.get("family_id"),
+                split=entry.get("split"),
             )
         )
     return samples
@@ -80,6 +96,11 @@ def load_sample(sample: SampleMetadata) -> Data:
     data.graph_label = torch.tensor([int(labels.get("graph_label", 0))], dtype=torch.long)
     data.face_count = len(nodes_sorted)
     data.stem = sample.stem
+    data.source_id = sample.source_id or sample.stem
+    if sample.family_id is not None:
+        data.family_id = sample.family_id
+    if sample.split is not None:
+        data.split = sample.split
     return data
 
 

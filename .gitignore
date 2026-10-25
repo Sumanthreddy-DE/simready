@@ -84,3 +84,4 @@ data/gencad/
 
 # Claude Code session dumps: local only (public repo)
 Archive/sessions/*.tmp
+data/real_clean_v1/
