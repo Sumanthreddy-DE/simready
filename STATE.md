@@ -3,7 +3,7 @@
 <!-- Machine-maintained by save-session Step 6b. Hand-edit 2026-07-19 authorized by user (triage session). -->
 
 Status: active
-Last touched: 2026-10-25
+Last touched: 2026-10-26
 
 ## What
 MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processing. LLM copilot over B-rep analysis pipeline + BRepSAGE (3-head GraphSAGE) defect classifier + geometry-generation DSL (`build_part` tool). **APPLICATION SENT 2026-10-05 (user confirmed).** Open follow-up work = the `apply-*` items in BACKLOG S1/S2, GenCAD VLM track first. History: `v0.4.0-apply` (2026-05) was prep only, not a send. Strategy doc: docs/strategy/mecagent-gap-and-drift-2026-05-26.md; wave plan: BACKLOG.md "Triage 2026-07-19".
@@ -26,6 +26,7 @@ MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processi
 - **2026-10-13 README + branch sync:** README on `main` rewritten (`58fe9b5`): Direction section (checker as metric, later reward), GenCAD results, roadmap Done/Now/Next(SP1-SP3)/Later. `main` merged into `sp1-bench` (`8ec3613`, `cfbbda4`), `gencad` fast-forwarded; state files identical on all branches. Closed `apply-readme-on-main`, `apply-readme-cv-alignment`, `branch-state-divergence`, `gencad-results-duplicate` (local download archived).
 - **2026-10-24/25 audit remediation integrated (`f1b6e31`, `1433900`):** CLI failure reporting is truthful; 14 GenCAD/local files preserved with matching destination hashes and sources retained. README setup/demo/results remediated; committed UI fixtures work without local caches; deterministic build→analyze verified in browser and clean checkout. Current combined-v2 fixture inference reproduced .853/.920/.895. Strengthened generation gate passed 5/5 on Vultr GLM 5.3 (175.06 s), with mechanics and exact final-artifact analysis. Full suite 255 passed / 5 deselected. No archive moves or worktree retirement.
 - **2026-10-25 defect-head real-clean experiment (`experiment/defect-real-clean`, `f39fe93`):** strict inspection admitted only 2/12 real parts. One-fit/one-holdout defect-head-only candidate left holdout FP 1/1 and collapsed synthetic self_intersection to 0/104; candidate rejected and production checkpoint unchanged. Reviewed code + negative report `docs/validation/defect_head_real_clean_v1.md`; full suite 404 passed / 7 skipped. Backlog item stays open pending a larger independently verified real-CAD dataset.
+- **2026-10-25/26 code-graph tool trial (no code changes):** Understand-Anything (~711k tokens, ~19 min) vs graphify (~243k, ~5 min) on `simready/`; UA better pipeline narrative, graphify more real findings. 3 S3 items filed (`5db8f4b`). Keep/uninstall decided elsewhere. Handoff: citadel `harness/sessions/SimReady/2026-10-26-code-graph-tool-trial-session.tmp`.
 
 ## Doing
 - **GenCAD walkthrough package** (BACKLOG `apply-call-walkthrough`): results table, IoU finding and fresh-clone demo evidence done; next session: examples idx 400 (IoU 1.0 plate), one truncation failure, idx 5699 (good IoU + self-intersection), idx 4836 (tube shell-vs-filled IoU).
