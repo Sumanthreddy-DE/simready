@@ -41,5 +41,7 @@ MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processi
 - gen v3 (CLI + Streamlit gen panel) deferred until v2 proves the loop
 - ~~CI proven 2026-07-19: full-suite ran 190/192 on linux first try; 2 local-data tests now skip-if-absent; continue-on-error dropped (ci-full-suite-promote CLOSED)~~
 
+- Weekly mini-build loop (2026-11-02): take the week's most testable AI-CAD item from the Muse digest, test it in ~2 h on 5 GenCAD rows or score its output with `analyze_file_safe`, write a short result note, then a LinkedIn post. Skip weeks with nothing testable. Pipeline: `Projects/_ideas/muse-pipeline.md`.
+
 ## Resume here
 Launch and edit in `Mech/SimReady`, branch `main`. Audit remediation is integrated at `f1b6e31` and `1433900`; plan `docs/exec-plans/active/2026-10-24-audit-remediation.md` is done except separately gated archive/worktree decisions. Next: GenCAD walkthrough examples listed under Doing, then `gencad-stop-problem` → `gencad-strong-baseline` → Gemma. `sp1-bench` remains paused at Task 2 review; original GenCAD worktree/assets remain. Defect experiment is preserved locally on `experiment/defect-real-clean` in `Mech/SimReady-real-clean` with ignored data/candidate artifacts; integrate only on explicit request, not automatically. Fresh environment-manager provisioning, full training rebuild, fresh GenCAD inference and additional hosted-model gate runs remain unverified. Do not commit or push without user approval.
