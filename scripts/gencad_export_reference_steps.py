@@ -6,6 +6,8 @@ Writes data/gencad/reference_steps/gt_<idx>.step (gitignored; regenerate any tim
 """
 from __future__ import annotations
 
+import argparse
+
 import cadquery as cq
 
 from gencad_common import CACHE, load_reference, load_scores
@@ -13,14 +15,20 @@ from gencad_iou_filled import load_mecagent_metric
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--idx", type=int, nargs="+", help="export only these valid row indices")
+    args = parser.parse_args()
+    valid = {i for i, s in load_scores().items() if s["valid"]}
+    selected = valid if args.idx is None else set(args.idx)
+    if selected - valid:
+        parser.error(f"rows are missing or invalid: {sorted(selected - valid)}")
     M = load_mecagent_metric()
     out = CACHE / "reference_steps"
     out.mkdir(parents=True, exist_ok=True)
     ref = load_reference()
-    valid = [i for i, s in load_scores().items() if s["valid"]]
-    for i in sorted(valid):
+    for i in sorted(selected):
         cq.exporters.export(M._load_solid_from_code(ref[i]["code"]), str(out / f"gt_{i}.step"))
-    print("exported", len(list(out.glob("gt_*.step"))), "->", out)
+    print("exported", len(selected), "->", out)
 
 
 if __name__ == "__main__":
