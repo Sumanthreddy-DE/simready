@@ -123,6 +123,7 @@ scored the same way as the comparison.
 
 ## Files and how to reproduce
 
+Four selected cases with measured geometry and paired renders: [walkthrough examples](gencad_examples.md).
 Results in `docs/validation/gencad/` (committed):
 
 | File | Made by | Content |
