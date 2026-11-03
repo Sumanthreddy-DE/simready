@@ -1,5 +1,5 @@
 from simready.ml.graph_extractor import extract_brep_graph
-from simready.occ_utils import uv_bounds
+from simready.occ_utils import iter_faces, uv_bounds
 from simready.parser import parse_geometry
 from simready.splitter import split_bodies
 from simready.validator import validate_step_file
@@ -35,6 +35,21 @@ def test_smoke_box_exact_counts():
     assert graph.metadata["edge_count"] == len(graph.edge_features)
     # Raw oriented count preserved separately
     assert graph.metadata["oriented_edge_count"] >= graph.metadata["edge_count"]
+
+
+def test_smoke_box_face_indices_match_canonical_iterator():
+    validation = validate_step_file("tests/data/smoke_box.step")
+    assert validation.is_valid is True
+
+    faces = iter_faces(validation.shape)
+    graph = extract_brep_graph(validation.shape)
+
+    assert len(faces) == 6
+    assert graph.metadata["face_count"] == len(faces)
+    assert len(graph.node_features) == len(faces)
+    assert [node["face_index"] for node in graph.node_features] == [
+        index for index, _ in faces
+    ]
 
 
 def test_edge_count_metadata_matches_features():

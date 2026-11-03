@@ -128,9 +128,9 @@ Linux/macOS: use the same create/install commands and your environment manager's
 
 ```powershell
 python -m simready.cli analyze tests/data/smoke_box.step
-python -m simready.cli analyze part.step --json
-python -m simready.cli analyze part.step --html report.html
-python -m simready.cli analyze part.step --export-healed out.step
+python -m simready.cli analyze tests/data/smoke_box.step --json
+python -m simready.cli analyze tests/data/smoke_box.step --html report.html
+python -m simready.cli analyze tests/data/smoke_box.step --export-healed out.step
 ```
 
 A missing dependency, invalid input, timeout, or failed analysis prints its validation error
@@ -144,6 +144,11 @@ It writes a new STEP under `data/gen_parts/`, prints its path, then analyzes tha
 ```powershell
 $built = python -m simready.gen.build | Select-Object -Last 1 | ConvertFrom-Json
 python -m simready.cli analyze $built.step_path
+```
+
+```bash
+step_path=$(python -m simready.gen.build | tail -n 1 | python -c 'import json, sys; print(json.load(sys.stdin)["step_path"])')
+python -m simready.cli analyze "$step_path"
 ```
 
 Expected build evidence: `occ_valid: true`, 7 faces, bounding box 80 × 60 × 10 mm. The
@@ -164,6 +169,8 @@ python -m simready.copilot.cli tests/data/smoke_box.step "What's wrong with this
 python -m streamlit run ui/copilot_app.py
 python -m streamlit run ui/app.py
 ```
+
+In Bash, use `cp .env.example .env` to copy the configuration template.
 
 In the chat sidebar, **Demo CAD** includes the committed `tests/data/smoke_box.step` fixture
 on a fresh checkout. Select it and click **Analyze selected STEP**. To exercise generation in
@@ -231,7 +238,8 @@ Defect per-class accuracy: clean 0.679 · open_shell 0.856 · sliver_face 1.00 �
 
 **Fresh inference verification, 2026-10-24:** running
 `python scripts/evaluate.py data/labels_fixtures_v2 weights/brepnet.pt` with the project
-environment and `PYTHONPATH` set reproduced 27 graphs / 3,612 faces and
+environment and `PYTHONPATH` set (PowerShell: `$env:PYTHONPATH = (Get-Location).Path`;
+Bash: `export PYTHONPATH="$PWD"`) reproduced 27 graphs / 3,612 faces and
 accuracy .853 / precision .920 / recall .895 / F1 .908. This ties the committed checkpoint to
 the fixture metrics. It is not a fresh training run or independent validation of the labels.
 
