@@ -1,6 +1,6 @@
 # readme-linux-commands + three S3 cleanups — task brief
 
-**Status:** active
+**Status:** done
 **Last verified:** 2026-11-03
 
 BACKLOG S2 `readme-linux-commands`, S3 `brepnet-dead-import`,
