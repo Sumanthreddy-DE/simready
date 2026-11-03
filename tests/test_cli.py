@@ -1,6 +1,24 @@
+import json
+from pathlib import Path
+import subprocess
+import sys
+
 from click.testing import CliRunner
 
 from simready.cli import cli
+
+
+def test_cli_json_stdout_is_one_document():
+    result = subprocess.run(
+        [sys.executable, "-m", "simready.cli", "analyze",
+         "tests/data/smoke_box.step", "--json"],
+        cwd=Path(__file__).resolve().parents[1],
+        capture_output=True,
+        text=True,
+        timeout=150,
+    )
+    report = json.loads(result.stdout)
+    assert "status" in report
 
 
 def invalid_report():
