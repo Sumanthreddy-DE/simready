@@ -137,6 +137,12 @@ def test_agent_exception_is_json_failure(monkeypatch, capfd):
     assert result["error"] == "provider unavailable"
 
 
+@pytest.mark.skipif(
+    os.name == "nt",
+    reason="simulates OCC's buffered stdio with msvcrt.printf, but Python and OCC use the "
+           "UCRT on Windows, so the simulated text never reaches either captured stream; a "
+           "live Windows --json run (2026-11-03) printed one clean JSON object",
+)
 def test_buffered_native_output_cannot_leak_after_json(monkeypatch, capfd):
     fake_agent(monkeypatch, [])
     native = ctypes.CDLL("msvcrt" if os.name == "nt" else None)
