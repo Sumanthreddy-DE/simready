@@ -10,7 +10,7 @@ pydantic>=2.0
 # Optional: Web UI
 streamlit>=1.30
 # Copilot (Path C wk-1)
-openai>=1.40
+openai>=1.40,<3
 python-dotenv>=1.0
 # RAG-lite (Path C wk-1 day 3)
 pypdf>=4.0
