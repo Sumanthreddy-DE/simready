@@ -1,6 +1,6 @@
 # fresh-install-copilot-crash + cli-json-extra-document — task brief
 
-**Status:** active
+**Status:** done
 **Last verified:** 2026-11-03
 
 BACKLOG S1 `fresh-install-copilot-crash` and S2 `cli-json-extra-document`. Written for
