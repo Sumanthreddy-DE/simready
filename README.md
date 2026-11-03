@@ -198,6 +198,8 @@ python scripts/scrape_fea_docs.py
 python scripts/index_fea_docs.py   # → data/fea_docs_index.json
 ```
 
+For one-command prompt-to-STEP generation and analysis, run `python scripts/simready_gen.py "Create an 80 x 60 x 10 mm plate with a centered 10 mm through-hole."` (the same command in PowerShell and Bash). Add `--json` for one JSON result on stdout, `--model NAME` to override the configured model, or `--timeout 120` to bound the final independent analysis in seconds; an OCC-valid final build and successful analysis are required for exit 0.
+
 ## Results & Limitations
 
 Exact reproduction commands and evidence boundaries: `docs/validation/reproduce-results.md`.
