@@ -77,9 +77,9 @@ Sources: [IoU variants](gencad/iou_shell_vs_filled.json),
 Bounding boxes are axis-aligned XYZ extents in original GenCAD coordinate units,
 not real-world dimensions. The saved checker results used a separate scaling
 assumption: largest bbox side = 100 mm. Each image is independently fitted to
-800×600 using the same fixed isometric projection and uniform grey; images do
-not share a physical scale or show checker overlays. I cannot visually review
-the images in this run; geometry statements use measurements and saved records.
+800×600 using the same fixed isometric projection, grey shaded by face orientation;
+images do not share a physical scale or show checker overlays. Geometry statements
+use measurements and saved records, not the renders.
 The two self-intersection cases discussed in the evaluation are examples, not a rate.
 MecAgent's shell metric remains the headline; the filled variant is supplementary.
 
