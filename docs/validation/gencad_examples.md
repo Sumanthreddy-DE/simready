@@ -47,6 +47,10 @@ Sources: [sketch counts and error](gencad/per_row_analysis.json),
 The saved checker flags SelfIntersection (Major) on the generated part, but not
 the reference (ReviewRecommended, overall score 77.7).
 Overlap and defect checks answer different questions; the render is not proof of the defect.
+Measured on the generated STEP: four holes (r 0.016), each centred about 0.018 from the
+axis of a rounded corner (r 0.022–0.032), so every hole cuts into a corner round, and no
+centre hole. The reference render shows five holes: four set in from the corners and one
+in the centre. The plates overlap almost completely, which is what IoU measures.
 
 | Reference | Generated |
 |---|---|
