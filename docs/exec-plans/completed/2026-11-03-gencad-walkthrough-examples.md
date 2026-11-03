@@ -1,6 +1,6 @@
 # apply-call-walkthrough — four GenCAD examples — task brief
 
-**Status:** active
+**Status:** done
 **Last verified:** 2026-11-03
 
 BACKLOG S1 `apply-call-walkthrough` (remaining part: "3-4 generated examples"). Written for
