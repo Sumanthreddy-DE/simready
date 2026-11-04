@@ -12,6 +12,8 @@ import sys
 
 import pytest
 
+pytestmark = pytest.mark.occ
+
 from simready.gen.spec import PartSpec
 
 occ = pytest.importorskip(

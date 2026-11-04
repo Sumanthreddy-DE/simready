@@ -6,6 +6,7 @@ import pytest
 from simready.pipeline import analyze_file_safe
 
 
+@pytest.mark.occ
 def test_smoke_box_report_matches_schema():
     jsonschema = pytest.importorskip("jsonschema")
     schema_path = Path(__file__).resolve().parents[1] / "simready" / "report_schema.json"

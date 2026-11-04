@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 
+import pytest
 import torch
 
 from simready.ml.model import (
@@ -106,6 +107,7 @@ def test_dataset_graph_label_defaults_to_clean(tmp_path):
     assert int(data.graph_label) == 0
 
 
+@pytest.mark.occ
 def test_inference_exposes_predicted_defect(tmp_path):
     """run_brepnet_inference must surface a graph-level defect prediction when a
     checkpoint with the defect head is loaded."""

@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 import simready.ml.brepnet as brepnet_module
 from simready.pipeline import analyze_file
 
@@ -36,6 +38,7 @@ def test_analyze_valid_file_with_export(valid_step_file, tmp_path):
         assert Path(report["healed_export"]).exists()
 
 
+@pytest.mark.occ
 def test_analyze_multi_body_file():
     report = analyze_file("tests/data/multi_body.step")
     assert report["validation"]["is_valid"] is True
@@ -56,6 +59,7 @@ def test_analyze_multi_body_file():
     assert "graph" in report["bodies"][0]
 
 
+@pytest.mark.occ
 def test_analyze_open_face_file():
     report = analyze_file("tests/data/open_face.step")
     assert report["validation"]["is_valid"] is True
@@ -65,30 +69,35 @@ def test_analyze_open_face_file():
     assert report["status"] in {"NotReady", "NeedsAttention", "ReviewRecommended"}
 
 
+@pytest.mark.occ
 def test_analyze_thin_plate_file():
     report = analyze_file("tests/data/thin_plate.step")
     checks = {finding["check"] for finding in report["findings"]}
     assert "ThinWalls" in checks
 
 
+@pytest.mark.occ
 def test_analyze_small_feature_file():
     report = analyze_file("tests/data/small_feature_hole.step")
     checks = {finding["check"] for finding in report["findings"]}
     assert "SmallFilletsOrHoles" in checks or "SmallFeatures" in checks
 
 
+@pytest.mark.occ
 def test_analyze_duplicate_body_file():
     report = analyze_file("tests/data/duplicate_body.step")
     checks = {finding["check"] for finding in report["findings"]}
     assert "DuplicateBodyHeuristic" in checks
 
 
+@pytest.mark.occ
 def test_analyze_duplicate_face_file():
     report = analyze_file("tests/data/duplicate_face_compound.step")
     checks = {finding["check"] for finding in report["findings"]}
     assert "DuplicateFaceHeuristic" in checks
 
 
+@pytest.mark.occ
 def test_clean_box_has_no_self_intersection(monkeypatch):
     """Regression: BRepAlgoAPI_Common(shape, copy) used to flag every clean solid.
 
@@ -104,6 +113,7 @@ def test_clean_box_has_no_self_intersection(monkeypatch):
     assert report["score"]["overall"] == 100.0
 
 
+@pytest.mark.occ
 def test_combined_per_face_scores_match_face_count():
     """Regression: face-index union of rule (1-based) and ML (0-based) used
     to produce N+1 entries with a phantom face 0. After 0-based unification,
@@ -116,6 +126,7 @@ def test_combined_per_face_scores_match_face_count():
     assert set(combined.keys()) == set(range(face_count))
 
 
+@pytest.mark.occ
 def test_rule_face_mean_is_a_mean_not_a_count():
     """Regression: pipeline reported `rule_face_count` under the name
     `rule_face_mean`. Must be a [0, 1] mean.
@@ -127,6 +138,7 @@ def test_rule_face_mean_is_a_mean_not_a_count():
     assert "rule_face_count" in report["score"]
 
 
+@pytest.mark.occ
 def test_thin_walls_spreads_per_face_across_all_faces():
     """Regression: ThinWalls was a body-level finding that wrote {0: score}
     into per_face, colliding with the real face index 0. It should now
@@ -143,6 +155,7 @@ def test_thin_walls_spreads_per_face_across_all_faces():
     assert max(values) - min(values) < 1e-6  # uniform spread
 
 
+@pytest.mark.occ
 def test_self_intersection_skipped_when_face_count_exceeds_limit(monkeypatch):
     """Regression: BOPAlgo_ArgumentAnalyzer on large topology can run for many
     minutes. The check now skips with a Minor finding when face_count exceeds
@@ -159,6 +172,7 @@ def test_self_intersection_skipped_when_face_count_exceeds_limit(monkeypatch):
     assert "SelfIntersection" not in checks  # Major variant must not fire when skipped
 
 
+@pytest.mark.occ
 def test_brepnet_inference_is_honestly_labelled_heuristic(monkeypatch):
     """Regression: TorchBRepNetAdapter claimed `weights_loaded=True` and
     `score_source="checkpoint-adapter"` while still running the heuristic.

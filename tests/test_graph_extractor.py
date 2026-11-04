@@ -1,3 +1,5 @@
+import pytest
+
 from simready.ml.graph_extractor import extract_brep_graph
 from simready.occ_utils import iter_faces, uv_bounds
 from simready.parser import parse_geometry
@@ -5,6 +7,7 @@ from simready.splitter import split_bodies
 from simready.validator import validate_step_file
 
 
+@pytest.mark.occ
 def test_extract_brep_graph_smoke_box():
     validation = validate_step_file("tests/data/smoke_box.step")
     assert validation.is_valid is True
@@ -21,6 +24,7 @@ def test_extract_brep_graph_smoke_box():
     assert "adjacency_count" in graph.metadata
 
 
+@pytest.mark.occ
 def test_smoke_box_exact_counts():
     """Pin exact topology counts for a box: 6 faces, 12 edges, 24 coedges, 12 adjacency pairs."""
     validation = validate_step_file("tests/data/smoke_box.step")
@@ -37,6 +41,7 @@ def test_smoke_box_exact_counts():
     assert graph.metadata["oriented_edge_count"] >= graph.metadata["edge_count"]
 
 
+@pytest.mark.occ
 def test_smoke_box_face_indices_match_canonical_iterator():
     validation = validate_step_file("tests/data/smoke_box.step")
     assert validation.is_valid is True
@@ -52,6 +57,7 @@ def test_smoke_box_face_indices_match_canonical_iterator():
     ]
 
 
+@pytest.mark.occ
 def test_edge_count_metadata_matches_features():
     """Regression: metadata edge_count must always equal len(edge_features)."""
     validation = validate_step_file("tests/data/smoke_box.step")
@@ -63,6 +69,7 @@ def test_edge_count_metadata_matches_features():
     assert graph2.metadata["edge_count"] == len(graph2.edge_features)
 
 
+@pytest.mark.occ
 def test_extract_brep_graph_multi_body_works():
     validation = validate_step_file("tests/data/multi_body.step")
     assert validation.is_valid is True
@@ -72,6 +79,7 @@ def test_extract_brep_graph_multi_body_works():
     assert len(graph.node_features) > 0
 
 
+@pytest.mark.occ
 def test_extract_brep_graph_emits_topology_maps():
     validation = validate_step_file("tests/data/smoke_box.step")
     graph = extract_brep_graph(validation.shape)
@@ -84,6 +92,7 @@ def test_extract_brep_graph_emits_topology_maps():
     assert len(graph.coedge_features) >= 0
 
 
+@pytest.mark.occ
 def test_extract_brep_graph_node_features_include_phase2_fields():
     validation = validate_step_file("tests/data/smoke_box.step")
     graph = extract_brep_graph(validation.shape)
@@ -94,6 +103,7 @@ def test_extract_brep_graph_node_features_include_phase2_fields():
     assert len(node["surface_type_one_hot"]) == len(graph.metadata["surface_type_labels"])
 
 
+@pytest.mark.occ
 def test_extract_brep_graph_edge_features_include_dihedral_metadata():
     validation = validate_step_file("tests/data/smoke_box.step")
     graph = extract_brep_graph(validation.shape)
@@ -103,6 +113,7 @@ def test_extract_brep_graph_edge_features_include_dihedral_metadata():
     assert set(edge) >= {"edge_index", "length", "midpoint_curvature", "connected_faces", "convexity", "dihedral_angle", "dihedral_signal"}
 
 
+@pytest.mark.occ
 def test_extract_brep_graph_multi_body_per_body_extraction():
     validation = validate_step_file("tests/data/multi_body.step")
     assert validation.is_valid is True
@@ -116,6 +127,7 @@ def test_extract_brep_graph_multi_body_per_body_extraction():
     assert sum(graph.metadata["face_count"] for graph in per_body_graphs) == extract_brep_graph(validation.shape).metadata["face_count"]
 
 
+@pytest.mark.occ
 def test_uv_bounds_returns_nonzero_for_box_face():
     """Regression: uv_bounds compat shim must return real values, not (0,0,0,0)."""
     from OCC.Core.TopAbs import TopAbs_FACE
