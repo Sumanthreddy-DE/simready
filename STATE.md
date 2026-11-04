@@ -3,7 +3,7 @@
 <!-- Machine-maintained by save-session Step 6b. Hand-edit 2026-07-19 authorized by user (triage session). -->
 
 Status: active
-Last touched: 2026-11-03
+Last touched: 2026-11-04
 
 ## What
 MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processing. LLM copilot over B-rep analysis pipeline + BRepSAGE (3-head GraphSAGE) defect classifier + geometry-generation DSL (`build_part` tool). **APPLICATION SENT 2026-10-05 (user confirmed).** Open follow-up work = the `apply-*` items in BACKLOG S1/S2, GenCAD VLM track first. History: `v0.4.0-apply` (2026-05) was prep only, not a send. Strategy doc: docs/strategy/mecagent-gap-and-drift-2026-05-26.md; wave plan: BACKLOG.md "Triage 2026-07-19".
@@ -28,6 +28,7 @@ MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processi
 - **2026-10-25 defect-head real-clean experiment (`experiment/defect-real-clean`, `f39fe93`):** strict inspection admitted only 2/12 real parts. One-fit/one-holdout defect-head-only candidate left holdout FP 1/1 and collapsed synthetic self_intersection to 0/104; candidate rejected and production checkpoint unchanged. Reviewed code + negative report `docs/validation/defect_head_real_clean_v1.md`; full suite 404 passed / 7 skipped. Backlog item stays open pending a larger independently verified real-CAD dataset.
 - **2026-10-25/26 code-graph tool trial (no code changes):** Understand-Anything (~711k tokens, ~19 min) vs graphify (~243k, ~5 min) on `simready/`; UA better pipeline narrative, graphify more real findings. 3 S3 items filed (`5db8f4b`). Keep/uninstall decided elsewhere. Handoff: citadel `harness/sessions/SimReady/2026-10-26-code-graph-tool-trial-session.tmp`.
 - 2026-11-03 (VPS runs, merged from claude-lab): fresh-clone stranger test on `main` (report in claude-lab); `fresh-install-copilot-crash` merge `57a105e` (`openai>=1.40,<3`); README Linux + 3 S3 cleanups merge `5c17d6a`; `apply-call-walkthrough` examples merge `83ae012` (`docs/validation/gencad_examples.md`); `geometry-gen-mvp` v3 CLI merge `a79596f` (`scripts/simready_gen.py`). Laptop suite 254 passed / 1 skipped / 5 deselected. Handoff: harness/sessions/claude-lab/2026-11-03-vps-runs-simready-stc-session.tmp
+- 2026-11-04 (VPS run, merged from claude-lab): `occ` test marker, merge `00de34d` (occ 104 + not-occ 134 passed; not-occ 134/0 failed with OCC blocked); 255 count explained + corrected (`6e79257`). Closed S3 `base-vs-env-marker-split`, `test-count-claim-255`.
 
 ## Doing
 - **GenCAD follow-ups:** `gencad-stop-problem` (all 12 failures are runaway generations), `gencad-strong-baseline` (one-shot prompt), Gemma-3-4B (`apply-gencad-vlm-track`).
