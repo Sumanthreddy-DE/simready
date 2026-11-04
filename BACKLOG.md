@@ -114,10 +114,8 @@ committed seed RAG index (`lookup_standard` now live on fresh clones), CI
 
 ## Open — S3 (tech debt, deprecations, low-impact polish)
 
-- [ ] **S3 · test-count-claim-255** — STATE.md and the S1 `audit-reports-followup` item record "full suite 255 passed / 5 deselected" for 2026-10-25, but `main` collected 250 (245 + 5 deselected) on 2026-11-03 before that day's merges (now 254 passed / 1 skipped / 5 deselected after +9 tests). Find where the 5 went (`git log --diff-filter=D -- tests/`, or a test file present only on the remediation branch) and correct the recorded figure before quoting a test count anywhere (MecAgent write-up). *(found 2026-11-03, claude-lab session)*
 - [ ] **S3 · gen-streamlit-panel** — the geometry-gen plan's v3 also named a Streamlit panel showing the generation loop. Not built 2026-11-03: `ui/copilot_app.py` chat already runs prompt → `build_part` → analyze. Build only if a demo needs the loop shown step by step. *(opened 2026-11-03, claude-lab review)*
 - [ ] **S3 · real-eval-set-grow** — n=7 (post-skip / post-timeout) is too small for a defensible held-out metric. Add 20–30 more real STEPs that survive the analyze guard (avoid dense flange / bearing NURBS for now, or wait for `analyze-file-occ-hang-per-check`). Use defect-head FP-rate as the primary held-out metric, not "accuracy" (no labels). *Opened 2026-05-28. See `docs/validation/real_eval.md` §4.*
-- [ ] **S3 · base-vs-env-marker-split** — Two-Python-env reality (base 3.12 vs `C:\mm\sr` 3.10) keeps confusing tests. Add `pytest -m base` vs `pytest -m occ` marker split + a Makefile/PS shortcut. Less acute now that env is verified working, but the gotcha remains. *Opened 2026-05-14 (wk-1 Q5).*
 - [ ] **S3 · kimi-k26-nim-404** — `moonshotai/kimi-k2.6` listed in the account's NIM `/v1/models` catalog but every invoke (incl. plain no-tools completion, 3 retries) returns `404 Function '23d4f03a-…' not found for account` — NVIDIA-side serverless provisioning gap. GLM 5.2 substituted for the v2 eval second leg (user-approved); MiniMax M3 + DeepSeek V4-flash verified invocable as further options. Re-probe k2.6 later; if it wakes, re-run `tests/test_gen_e2e.py` for a third leg. NOTE: KIMI_API_KEY in `.env` is an `nvapi-` key (build.nvidia.com), not a Moonshot key — Moonshot-direct base_url is not an option with current keys. *Opened 2026-07-19.*
 - [ ] **S3 · vultr-budget** — Vultr inference credit was $5 on 2026-10-05; gen eval v2.2 used cents. SP1 smoke + official runs estimated ≈ $2.70 (GLM-5.3 output tokens dominate). Check the balance before SP1 Task 11; cap `max_tokens` if it is tight. *Opened 2026-10-05.*
 - [ ] **S3 · cv-generic-simready-entry** — The generic English CV (`Myself/CV/EN/content/resume.json`, owned by the Myself repo) still frames SimReady as "AI copilot for FEA pre-processing" and its GNN bullet oversells (circular refinement label; defect head 11/11 false positives on real CAD). The MecAgent variant (`resume-mecagent.json`) was updated separately. Fix the generic entry before any further application (e.g. Faber). Tracked here only as a pointer. *Opened 2026-10-05.*
@@ -128,6 +126,10 @@ committed seed RAG index (`lookup_standard` now live on fresh clones), CI
 ## Doing
 
 _(items currently being worked — move from Open when started, back to Open if paused.)_
+
+- **vps-run: chore/test-markers** — brief `docs/exec-plans/active/2026-11-04-test-markers.md` (opencode `dlab/gpt-6-1-sol`), 2026-11-04. Items:
+  - [ ] **S3 · test-count-claim-255** — STATE.md and the S1 `audit-reports-followup` item record "full suite 255 passed / 5 deselected" for 2026-10-25, but `main` collected 250 (245 + 5 deselected) on 2026-11-03 before that day's merges (now 254 passed / 1 skipped / 5 deselected after +9 tests). Find where the 5 went (`git log --diff-filter=D -- tests/`, or a test file present only on the remediation branch) and correct the recorded figure before quoting a test count anywhere (MecAgent write-up). *(found 2026-11-03, claude-lab session)*
+  - [ ] **S3 · base-vs-env-marker-split** — Two-Python-env reality (base 3.12 vs `C:\mm\sr` 3.10) keeps confusing tests. Add `pytest -m base` vs `pytest -m occ` marker split + a Makefile/PS shortcut. Less acute now that env is verified working, but the gotcha remains. *Opened 2026-05-14 (wk-1 Q5).*
 
 ---
 
