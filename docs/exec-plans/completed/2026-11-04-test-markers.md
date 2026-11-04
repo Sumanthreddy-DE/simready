@@ -1,6 +1,6 @@
 # Brief — `occ` test marker + the "255 passed" test count
 
-**Status:** active
+**Status:** done
 **Last verified:** 2026-11-04
 **Branch:** `chore/test-markers` (cut from `main` at `8f22a51` + this brief's commit)
 **BACKLOG items:** S3 `base-vs-env-marker-split`, S3 `test-count-claim-255` (both in **Doing**)
@@ -243,3 +243,9 @@ check remains for laptop review as specified; these results are from
 `simready-fix` with OCC installed. All implementation/report commits are on
 `chore/test-markers`. No push, network call, installation, credential edit,
 or `/save-session` was performed.
+
+## Laptop review (2026-11-04)
+
+Merged as `00de34d`. Laptop sr env (`C:/mm/sr`), clean worktree of the branch: full 238 passed / 12 skipped (gitignored data absent); `-m "occ and not live_llm"` 104 passed / 10 skipped; `-m "not occ and not live_llm"` 134 passed / 3 skipped; with every `OCC` import blocked by a meta-path finder, the not-occ run is 134 passed, 0 failed. Plain base Python 3.12 cannot run it (no `torch_geometric`), so the README says "need no pythonocc (the other requirements still apply)" instead of "any Python".
+
+255 resolved on review: the laptop working copy of `main` collects 255/260 vs 249 in a clean worktree; the 6 extra are `test_grabcad.py` cases parametrized over 3 gitignored STEPs in `tests/data/grabcad/`. `fix/audit-remediation` clean = 249 (238 + 11 bench), + 6 = 255. STATE.md and the S1 line corrected.

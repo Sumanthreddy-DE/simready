@@ -346,7 +346,7 @@ the base and LoRA columns are still empty (`docs/finetune_results.md`).
   GenCAD parts are unit-normalized and the checker's thresholds are in mm.
 - The Python suite mocks LLM-facing clients (5 live-LLM tests are opt-in); test count is not
   an ML-quality signal. Run `python -m pytest -q` for the current environment-specific count.
-  - `python -m pytest -m "not occ and not live_llm" -q` — pure tests, any Python.
+  - `python -m pytest -m "not occ and not live_llm" -q` — tests that need no pythonocc (the other requirements still apply).
   - `python -m pytest -m "occ and not live_llm" -q` — needs the sr env.
 - Self-intersection check skipped above 150 faces and on freeform (B-spline) faces — OCC
   `BOPAlgo` can hang indefinitely there, and Python-side watchdogs cannot interrupt it
