@@ -144,3 +144,27 @@ one S1 line) and this brief. No source file under `simready/`, `copilot/`, `ui/`
 
 Baseline line; the four acceptance outputs; the 255 finding with both collect counts
 and the diff summary; commit SHAs; anything not done and why.
+
+## Task 2 investigation
+
+- Used existing local remote-tracking ref `origin/fix/audit-remediation` at
+  `5f0bed01981b4fb9947ff08ce18a32c4e5a4ef68`; integrated main was
+  `1433900`. Both were inspected in the temporary detached worktree
+  `~/projects/Mech/SimReady-count`, which was removed afterward.
+- Exact collection summaries with the specified Python and
+  `-m pytest --collect-only -q -p no:cacheprovider`:
+  - remediation: `249 tests collected in 8.84s`
+  - integrated main: `238 tests collected in 7.29s`
+- Sorted node-ID diff: exactly 11 tests only on remediation (8 in
+  `tests/test_bench_concepts.py`, 3 in `tests/test_bench_concepts_file.py`);
+  no tests only on integrated main. The test-tree diff between refs contains
+  only those two additional files.
+- Finding: the branch difference is confirmed, but these collection counts
+  do not reproduce 255 passed or establish the historical passed count on main.
+  Collection is not execution. Per Task 2's evidence gate, neither `STATE.md`
+  nor `BACKLOG.md` was changed; the origin of the exact 255 claim remains unresolved.
+- Ruling: omitted `git fetch origin` because the Environment section forbids
+  network calls. Evidence therefore describes the existing local tracking ref,
+  not a freshly fetched remote. Used subprocess `cwd` in one shell call instead
+  of shell `cd`, and read/diffed the full collection outputs without truncation.
+  Removed the clean temporary worktree without `--force`.
