@@ -10,14 +10,23 @@ Repo: `~/projects/Mech/SimReady`. Two tasks, one branch, one commit per task.
 
 ## Environment (VPS)
 
-Run this once per shell before any python command:
+Your shell tool does **not** keep `export`s or activations between calls (first
+attempt 2026-11-04 failed on exactly this: `micromamba: command not found`, then
+`/usr/bin/python: No module named pytest`). So never activate anything. Call the env's
+Python by its full path in **every** command:
 
 ```
-export MAMBA_ROOT_PREFIX=~/simready-fresh/mamba/root PIP_CACHE_DIR=~/simready-fresh/cache/pip XDG_CACHE_HOME=~/simready-fresh/cache PATH=~/simready-fresh/mamba/bin:$PATH
-eval "$(micromamba shell hook -s bash)"
-micromamba activate simready-fix
+PY=~/simready-fresh/mamba/root/envs/simready-fix/bin/python
 ```
 
+Put `PY=… ;` at the start of each shell call (or write the full path out). Every
+`python` below means `$PY`. First call, as a check:
+
+```
+PY=~/simready-fresh/mamba/root/envs/simready-fix/bin/python; $PY -c "import OCC, pytest; print('env OK')"
+```
+
+Not `env OK` → stop and report the output; do not look for another Python.
 Env `simready-fix` has pythonocc. Install nothing into it, create no env, never
 `micromamba shell init`, never edit dotfiles. No network calls, no `.env` changes,
 no `-m live_llm`.
@@ -95,15 +104,18 @@ say "Full suite 255 passed / 5 deselected" for 2026-10-25. `main` collected 250
 `origin/fix/audit-remediation` and `origin/sp1-bench` but not on `main`, so 255 may
 have been counted on the remediation branch, not on `main`.
 
-Do, read-only on other refs:
+Do, read-only on other refs — run it as **one** shell call (the `cd` must not be
+split from the commands after it):
 
 ```
-git fetch origin
-git worktree add --detach ../SimReady-count origin/fix/audit-remediation
-cd ../SimReady-count && python -m pytest --collect-only -q -p no:cacheprovider > /tmp/ids-branch.txt; tail -2 /tmp/ids-branch.txt
-git checkout --detach 1433900
-python -m pytest --collect-only -q -p no:cacheprovider > /tmp/ids-main.txt; tail -2 /tmp/ids-main.txt
-cd ~/projects/Mech/SimReady && git worktree remove ../SimReady-count
+PY=~/simready-fresh/mamba/root/envs/simready-fix/bin/python
+R=~/projects/Mech/SimReady; W=~/projects/Mech/SimReady-count
+git -C $R fetch origin
+git -C $R worktree add --detach $W origin/fix/audit-remediation
+(cd $W && $PY -m pytest --collect-only -q -p no:cacheprovider > /tmp/ids-branch.txt); tail -2 /tmp/ids-branch.txt
+git -C $W checkout --detach 1433900
+(cd $W && $PY -m pytest --collect-only -q -p no:cacheprovider > /tmp/ids-main.txt); tail -2 /tmp/ids-main.txt
+git -C $R worktree remove --force $W
 diff <(grep :: /tmp/ids-branch.txt | sort) <(grep :: /tmp/ids-main.txt | sort) | head -60
 ```
 
