@@ -48,6 +48,7 @@ def fake_agent(monkeypatch, results):
     monkeypatch.setattr(cli, "CopilotAgent", FakeAgent)
 
 
+@pytest.mark.occ
 def test_success_json_analyzes_exact_built_step(monkeypatch, built, capfd):
     fake_agent(monkeypatch, [built])
     capfd.readouterr()
@@ -68,6 +69,7 @@ def test_success_json_analyzes_exact_built_step(monkeypatch, built, capfd):
     assert "Native tool progress" in err
 
 
+@pytest.mark.occ
 def test_later_failure_does_not_fall_back(monkeypatch, built, capfd):
     fake_agent(monkeypatch, [built, {"occ_valid": False, "error": "invalid final spec"}])
     capfd.readouterr()
@@ -96,6 +98,7 @@ def test_missing_key(monkeypatch, capfd):
     assert len(err.splitlines()) == 1
 
 
+@pytest.mark.occ
 def test_failed_analysis_is_failure(monkeypatch, built, capfd):
     fake_agent(monkeypatch, [built])
 
@@ -113,6 +116,7 @@ def test_failed_analysis_is_failure(monkeypatch, built, capfd):
     assert result["error"] == "analysis timed out"
 
 
+@pytest.mark.occ
 def test_human_output_ends_with_three_line_summary(monkeypatch, built, capfd):
     fake_agent(monkeypatch, [built])
     capfd.readouterr()

@@ -22,9 +22,10 @@ occ = pytest.importorskip(
 
 REAL_EVAL = Path(__file__).resolve().parents[1] / "tests" / "data" / "real_eval"
 
-pytestmark = pytest.mark.skipif(
-    not REAL_EVAL.exists(), reason="gitignored real_eval data absent"
-)
+pytestmark = [
+    pytest.mark.occ,
+    pytest.mark.skipif(not REAL_EVAL.exists(), reason="gitignored real_eval data absent"),
+]
 
 # (stem, why it previously died)
 FORMER_KILLS = [

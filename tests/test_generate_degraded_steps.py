@@ -10,6 +10,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.occ
+
 import scripts.generate_degraded_steps as gd
 
 

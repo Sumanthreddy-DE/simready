@@ -13,6 +13,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.occ
+
 from simready.copilot import rag
 from simready.copilot.tools import (
     DEFAULT_FINDINGS_LIMIT,
