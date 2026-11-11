@@ -1,6 +1,6 @@
 # VPS run: split the OCC tests out of test_copilot_tools.py
 
-**Status:** active
+**Status:** done
 **Last verified:** 2026-11-11
 
 BACKLOG S3 `copilot-tools-midfile-importorskip`. Branch `chore/copilot-tools-occ-split`.
@@ -67,4 +67,71 @@ without pythonocc. (It must raise `ModuleNotFoundError`, not plain `ImportError`
    lines; the only allowed difference is none (same pass/skip/fail counts).
 7. Commit: `test: split OCC tests out of test_copilot_tools.py so the pure tests run without pythonocc`.
    In this plan file set `**Status:** done` and add a `## Result` section: commit SHA, the
-   check lines from steps 4–6. Commit that too. Stop. Claude reviews and merges.
+    check lines from steps 4–6. Commit that too. Stop. Claude reviews and merges.
+
+## Result
+
+Test split commit: `dcf524215c5541ca44725012f3f5ca3ab00cb988`.
+Branch: `chore/copilot-tools-occ-split`; worktree: `/tmp/simready-occ-split`.
+Steps 1–7 completed; ready for Claude's review and merge.
+
+Moved the OCC importorskip block and happy-box test byte-for-byte into
+`tests/test_copilot_tools_occ.py`. All 24 function bodies (tests, fixture and helper)
+retain their original text and order. Removed the pure module's OCC marker and
+unused `Path` import. No additional pure tests needed moving.
+
+### Baseline (step 1)
+
+- Normal: `22 passed, 1 warning in 4.48s`
+- `PYTHONPATH=/tmp/noocc`: `1 skipped, 1 warning in 2.78s`
+
+### Focused checks (step 4)
+
+All commands used `/home/sumanth/simready-fresh/mamba/root/envs/simready-fix/bin/python`
+as `$PY`, with working directory `/tmp/simready-occ-split`.
+
+- `$PY -m pytest tests/test_copilot_tools.py tests/test_copilot_tools_occ.py -q`:
+  `22 passed, 1 warning in 5.07s`
+- Same command with `PYTHONPATH=/tmp/noocc`:
+  `21 passed, 1 skipped, 1 warning in 3.19s`
+- `$PY -m pytest tests/test_copilot_tools.py -q -m "not occ"`:
+  `21 passed, 1 warning in 3.84s`
+
+### Negative control (step 5)
+
+- Temporarily restored the pure module's OCC marker, then ran the same `not occ`
+  command: `21 deselected, 1 warning in 3.10s` (expected no-tests-selected exit).
+- Removed the marker again and reran: `21 passed, 1 warning in 3.19s`.
+
+### Full suite comparison (step 6)
+
+Initial `$PY -m pytest -q -p no:cacheprovider` runs (20-minute timeout each):
+
+- Before, main checkout at `d032337`:
+  `239 passed, 10 skipped, 5 deselected, 3 warnings in 168.82s (0:02:48)`
+- After, worktree:
+  `239 passed, 11 skipped, 3 warnings in 168.74s (0:02:48)`
+
+Ruling: normalize provider environment for the comparison. Collect-only probes
+showed `tests/test_gen_e2e.py:53` skipping the whole module in the worktree because
+provider configuration was absent, while main collected and deselected its five
+live tests. Comparing those raw skip counts would conflate local configuration
+with the split. Cost if wrong: a collection regression could be misattributed to
+configuration; the equalized runs below verify identical counts.
+
+Reran the same full-suite command in both checkouts with this identical prefix:
+`OPENAI_BASE_URL=https://example.invalid/v1 OPENAI_MODEL=offline-control OPENAI_API_KEY=offline-control`.
+These dummy values satisfy collection guards; pytest.ini's default `not live_llm`
+filter keeps all five live tests deselected. No credentials were copied.
+
+- Before, main checkout:
+  `239 passed, 10 skipped, 5 deselected, 3 warnings in 150.60s (0:02:30)`
+- After, worktree:
+  `239 passed, 10 skipped, 5 deselected, 3 warnings in 149.81s (0:02:29)`
+
+Pass/skip/fail/deselection counts match. Existing warnings are one anyio pytest
+deprecation and two torch JIT deprecations. `git diff --check` passed.
+
+Execution used the shell tool's explicit working directory rather than `cd`;
+the environment Python was spelled out in every pytest command. Only the two
+test files and this plan were changed. No push or merge was performed.
