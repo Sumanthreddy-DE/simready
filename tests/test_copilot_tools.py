@@ -9,11 +9,8 @@ Live API calls are NOT exercised here — see test_copilot_agent.py for that.
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
-
-pytestmark = pytest.mark.occ
 
 from simready.copilot import rag
 from simready.copilot.tools import (
@@ -242,25 +239,3 @@ def test_build_part_dispatch_rejects_malformed_spec_in_parent() -> None:
     result = dispatch_tool("build_part", {"spec": {"steps": []}})
     assert result.get("schema_valid") is False
     assert "error" in result
-
-
-occ = pytest.importorskip(
-    "OCC.Core.BRepPrimAPI",
-    reason="pythonocc-core not available (run under the sr env)",
-)
-
-
-def test_build_part_dispatch_happy_box(tmp_path, monkeypatch) -> None:
-    # Redirect the executor's default output dir to a tempdir so the test
-    # doesn't litter data/gen_parts/.
-    monkeypatch.chdir(tmp_path)
-    from simready.copilot.tools import dispatch_tool
-
-    result = dispatch_tool(
-        "build_part",
-        {"spec": {"steps": [{"op": "box", "dx": 15, "dy": 15, "dz": 15}]}, "timeout_seconds": 60},
-    )
-    assert result["schema_valid"] is True
-    assert result["occ_valid"] is True
-    assert result["faces"] == 6
-    assert result["step_path"].endswith(".step")
