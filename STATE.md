@@ -31,6 +31,7 @@ MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processi
 - 2026-11-04 (VPS run, merged from claude-lab): `occ` test marker, merge `00de34d` (occ 104 + not-occ 134 passed; not-occ 134/0 failed with OCC blocked); 255 count explained + corrected (`6e79257`). Closed S3 `base-vs-env-marker-split`, `test-count-claim-255`.
 
 ## Doing
+- **vps-run: chore/copilot-tools-occ-split** — opencode run of S3 `copilot-tools-midfile-importorskip`, brief `docs/exec-plans/active/2026-11-11-copilot-tools-occ-split.md` (worktree `/tmp/simready-occ-split`). Claude reviews + merges.
 - **GenCAD follow-ups:** `gencad-stop-problem` (all 12 failures are runaway generations), `gencad-strong-baseline` (one-shot prompt), Gemma-3-4B (`apply-gencad-vlm-track`).
 - **SP1 checker-scored text-to-CAD benchmark** — paused behind GenCAD (`sp1-resume`, branch `sp1-bench`).
 - QLoRA chat-SFT gold-set eval (GGUF + llama-server), then close. Low priority.
