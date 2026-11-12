@@ -35,7 +35,7 @@ MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processi
 
 ## Doing
 - **GenCAD follow-ups:** `gencad-stop-problem` (all 12 failures are runaway generations), `gencad-strong-baseline` (one-shot prompt), Gemma-3-4B (`apply-gencad-vlm-track`).
-- **SP1 checker-scored text-to-CAD benchmark** — paused behind GenCAD (`sp1-resume`, branch `sp1-bench`). Task 2 reviewed 2026-11-12; next Task 3 (fix the bbox gap there) while the user proofreads the concepts.
+- **SP1 checker-scored text-to-CAD benchmark** — paused behind GenCAD (`sp1-resume`, branch `sp1-bench`). Task 2 reviewed 2026-11-12; next Task 3 with the bbox-gap fix (`sp1-task3-bbox-gap`); user proofread tracked as `sp1-concepts-proofread`.
 - QLoRA chat-SFT gold-set eval (GGUF + llama-server), then close. Low priority.
 
 ## Pipeline
