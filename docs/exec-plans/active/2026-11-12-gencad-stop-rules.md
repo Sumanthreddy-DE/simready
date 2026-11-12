@@ -1,6 +1,6 @@
 # gencad-stop-problem — offline stop rules on the saved generations — task brief
 
-**Status:** active
+**Status:** done
 **Last verified:** 2026-11-12
 
 BACKLOG S2 `gencad-stop-problem`, on the path to S1 `apply-submit-mecagent-test`. Written for
@@ -117,4 +117,81 @@ start, delete them and say so. Report `du -sh ~/simready-fresh`. Never read `.en
 
 ## Result
 
-_(agent fills this in)_
+Worktree: `/tmp/simready-stop-rules`, branch `exp/gencad-stop-rules`, base
+`836f553`. Implementation and scoring stayed in that worktree; the only install
+was the approved `gencad` environment.
+
+Commits:
+- `e2b3451` — `gencad: add offline stop-rule scorer`
+- `9b3436d` — `gencad: score stop rules on the saved generations`
+- Final record commit: `docs: record gencad stop-rule results` (this commit).
+
+Both suites used the exact offline environment prefix and pytest command in
+step 2, with a 20-minute command timeout. Exact summary lines:
+
+```text
+241 passed, 10 skipped, 5 deselected, 3 warnings in 169.51s (0:02:49)
+260 passed, 10 skipped, 5 deselected, 3 warnings in 175.33s (0:02:55)
+```
+
+Only the 19 new tests were added. Rule tests first failed collection because the
+new module did not exist, then passed after implementation; positive-control
+gate tests were added afterward and passed. No claim of test-first coverage is
+made for those four gate tests. Rules were also applied to all 100 saved programs:
+all 1,000 R1/R2/R3 output combinations parse successfully. The evaluation-doc edit
+was checked mechanically to be an insertion of only the permitted section.
+Final code review was self-review; no fresh-context reviewer was dispatched.
+
+**Positive control:** R0 completed all 100 rows before any rule was scored:
+zero validity-flag mismatches; maximum absolute IoU difference
+`0.00032698836756284155` (threshold `0.001`). R0 VSR `88/100`, IoU valid-only
+`0.2557739051600322`, IoU invalid=0 `0.2250810365408283`. MecAgent clone SHA:
+`dc94ef8cce16a7d45da9767fab42c0625ec10cb1`, matching the expected revision.
+The first R0 attempt hit the shell's 20-minute timeout at 98 rows; R0 was rerun
+in full with a longer shell timeout. Each child retained the required 120 s
+timeout. Scoring was subsequently interrupted after R3 K=3; the six complete
+100-row files and R0 gate were rechecked before resuming at K=4. No partial
+scores were used.
+
+**Negative control:** R1 preserves all 88 originally valid programs
+byte-identically. R2 changes 34/100 generated programs. No rule uses reference
+code, sketch count or length; references are used for scoring and stratification.
+
+| Rule | VSR | IoU valid-only | IoU invalid=0 | Changed vs R0 | I→V | V→I | Mean Δ IoU both-valid |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| R0 | 88/100 | 0.255774 | 0.225081 | 0 | 0 | 0 | +0.00000000 |
+| R1 | 100/100 | 0.229609 | 0.229609 | 12 | 12 | 0 | -0.00000082 |
+| R2 | 100/100 | 0.229610 | 0.229610 | 34 | 12 | 0 | +0.00000000 |
+| R3 K=1 | 100/100 | 0.229146 | 0.229146 | 56 | 12 | 0 | -0.00053986 |
+| R3 K=2 | 100/100 | 0.229464 | 0.229464 | 38 | 12 | 0 | -0.00016630 |
+| R3 K=3 | 100/100 | 0.229446 | 0.229446 | 29 | 12 | 0 | -0.00018656 |
+| R3 K=4 | 100/100 | 0.229433 | 0.229433 | 21 | 12 | 0 | -0.00020065 |
+| R3 K=5 | 100/100 | 0.229609 | 0.229609 | 17 | 12 | 0 | -0.00000084 |
+| R3 K=6 | 100/100 | 0.229609 | 0.229609 | 12 | 12 | 0 | -0.00000084 |
+| R3 K=7 | 100/100 | 0.229610 | 0.229610 | 12 | 12 | 0 | +0.00000002 |
+| R3 K=8 | 100/100 | 0.229609 | 0.229609 | 12 | 12 | 0 | -0.00000084 |
+
+The both-valid denominator is 88. R3 is sensitivity-only: no K was selected.
+Full bucket tables (1 / 2 / 3 / 4–8 sketches; n=57/18/12/13) are in the new
+`docs/validation/gencad_eval.md` section; all 55 aggregate/bucket records are in
+`docs/validation/gencad/stop_rules/summary.json`. Reference sketch counts use
+the existing analysis script's workplane-assignment regex, not comments.
+
+**Finding:** R1 repairs all 12 truncations while leaving the original 88 valid
+programs intact. Invalid=0 mean IoU improves by about 0.00453; fidelity remains
+low. R2 adds no material metric improvement. The tiny both-valid deltas for
+unchanged programs are numerical rescoring variation. R1 is end-of-generation
+rollback; the greedy-prefix argument does not establish online stopping or
+token savings. R2 needs look-ahead before discarding the duplicate block.
+
+**Environment:** Python 3.11.18; cadquery 2.8.0; cadquery-ocp 7.9.3.1.1;
+trimesh 5.2.0; numpy 2.4.6; scipy 1.17.1. `du -sh ~/simready-fresh`:
+`6.3G`. Both `~/.conda` and `~/.mamba` existed at start and remain; neither was
+deleted. Reference parquet/programs and the metric clone remain gitignored.
+The temporary table-aggregation helper is in `data/gencad/` (gitignored), not
+a new committed CLI.
+
+**Not done:** new generation, GPU work, retraining, parameter selection,
+filled-voxel scoring, checker reruns, other models, online stop integration,
+push, merge, or edits to the prohibited project/status/environment files.
+No dataset images or reference programs were committed. No `.env` was read.
