@@ -161,9 +161,15 @@ Verdict count by source document: 16 verified, 1 mismatch (Lapp T21, two concept
 | c044 | bore = 6H minor diameter 6.647-6.912 | M8 (8) | an 8 mm bore fails, which is intended (the prompt asks for the tap-drill bore); tap drill 6.8 lies inside | verified (CDE chart) |
 | c045 | major diameter 6g 5.794-5.974 | 6.0 | a 6.0 rod fails engineer; **the explicit prompt states 6 mm, so rule 5 is broken** | verified (Ames) |
 
-Choices for one line each: keep the standard zones (they test fit knowledge, and a nominal
-answer fails), widen the zones to include the nominal, or for c045 change the explicit prompt to
-a 6g size (for example 5.9) or widen the engineer range to 6.0.
+**Decision (user, 2026-11-12):**
+- c031 and c044: keep the standard zones. Both are verified.
+- c030: widen the bore to 10.0-10.034 and the OD (boss and bbox) to 16.0-16.039. Its E6/s6
+  zones are unverified, so rule 3 falls back.
+- c045: widen the engineer major diameter to 5.794-6.0. This restores rule 5.
+- Applied in the follow-up commit `bench: apply point (b) decision to c030, c045`. All 111
+  reference checks still pass.
+- c030's explicit prompt still uses 10.03 / 16.035 / 9.9; a plain 10 × 16 × 10 would now also
+  pass every check. Left for the proofread.
 
 ## Point (c): proofread pointers (facts only)
 
