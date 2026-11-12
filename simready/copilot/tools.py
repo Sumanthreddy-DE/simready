@@ -174,6 +174,8 @@ def analyze_geometry(
     timeout_seconds: int = 120,
     findings_limit: int = DEFAULT_FINDINGS_LIMIT,
     render_image: bool = True,
+    *,
+    heal_step: bool = True,
 ) -> dict[str, Any]:
     """Run SimReady analysis pipeline and return an LLM-friendly summary.
 
@@ -181,7 +183,9 @@ def analyze_geometry(
     to keep all findings. When `render_image` is true (default), a static
     colored-face PNG is rendered to ``data/copilot_renders/`` and its path is
     attached as ``image_path`` for the UI to embed. A best-effort healed STEP
-    is written to ``data/healed_steps/`` and attached as ``healed_step_path``.
+    is written to ``data/healed_steps/`` and attached as ``healed_step_path``
+    when ``heal_step`` is true (default). These flags control output artifacts,
+    not the pipeline's internal ShapeFix healing or subprocess hang guard.
     """
     resolved = Path(step_path).expanduser().resolve()
     if not resolved.exists():
@@ -198,9 +202,10 @@ def analyze_geometry(
         png_path = _maybe_render_png(str(resolved), full_report)
         if png_path is not None:
             summary["image_path"] = str(png_path)
-    healed_path = _maybe_heal_step(str(resolved), resolved.stem)
-    if healed_path is not None:
-        summary["healed_step_path"] = str(healed_path)
+    if heal_step:
+        healed_path = _maybe_heal_step(str(resolved), resolved.stem)
+        if healed_path is not None:
+            summary["healed_step_path"] = str(healed_path)
     return summary
 
 
