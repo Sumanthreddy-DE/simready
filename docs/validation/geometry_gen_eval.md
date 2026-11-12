@@ -47,6 +47,8 @@ Both Llama failures have the same shape: the model emits the correct primitives,
 
 The exec plan budgeted ~60 s wall per prompt and flagged anything above as a regression: 8/10 first-run prompts exceeded it (Llama mean ≈ 95 s, GLM mean ≈ 92 s; range 39.8–142.9 s). The stack-up per prompt is: 2–4 NIM round-trips against a long system prompt, a spawn-subprocess OCC build (~5–10 s, by design per the hang-protection decision), and — the biggest avoidable chunk — a full in-process `analyze_file` with BRepSAGE inference, PNG render, and best-effort STEP heal on a 6-face box, including first-call torch + sentence-transformers model loads inside the test process. None of this is new regression in the build path; it is the analyze path doing demo-grade work in an eval loop. Fixes, in leverage order: a persistent build worker (already noted in the v1 plan risks), a `render_image=False` / slim mode for eval callers of `analyze_geometry`, and the open `analyze-file-occ-hang-per-check` S2 item whose subprocess isolation would also amortize model loads. Flagged here per the plan; not gated on.
 
+**Measured 2026-11-12 (offline, no LLM):** the analyze step is no longer in-process — `analyze_geometry` runs `analyze_file_safe` in a spawn child since the OCC-hang guard (same day as this run). Per call on the five gate specs: build ~1.2 s, analysis child ~9.0 s (at least 3.9 s of it start-up and imports), PNG 0.03 s, healed-STEP export 0.02 s. Local work is about 20 s per prompt (one build, two analyses); LLM round-trips are the rest. Record: `docs/exec-plans/completed/2026-11-12-gen-eval-latency.md`.
+
 ## v2.1 — Llama re-run after orphan-step rule + sequential tool calls (2026-07-19)
 
 Three changes landed between the runs above and this one:
