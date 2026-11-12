@@ -1,6 +1,6 @@
 # kimi-k26-nim-404 — re-probe Kimi K2.6 on NVIDIA NIM — task brief
 
-**Status:** active
+**Status:** superseded
 **Last verified:** 2026-11-12
 
 BACKLOG S3 `kimi-k26-nim-404`. Written for an agent on the VPS in opencode. Claude reviews;
@@ -57,3 +57,5 @@ Never read, print or `cat` `.env`. Never echo a key, not even a prefix. Load key
 ## Result
 
 _(agent fills this in)_
+
+_Superseded 2026-11-12: owner dropped K2.6; Kimi K3 on D Labs ran instead (eval doc v2.4)._
