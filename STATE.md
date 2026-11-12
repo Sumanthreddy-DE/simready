@@ -30,6 +30,7 @@ MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processi
 - 2026-11-03 (VPS runs, merged from claude-lab): fresh-clone stranger test on `main` (report in claude-lab); `fresh-install-copilot-crash` merge `57a105e` (`openai>=1.40,<3`); README Linux + 3 S3 cleanups merge `5c17d6a`; `apply-call-walkthrough` examples merge `83ae012` (`docs/validation/gencad_examples.md`); `geometry-gen-mvp` v3 CLI merge `a79596f` (`scripts/simready_gen.py`). Laptop suite 254 passed / 1 skipped / 5 deselected. Handoff: harness/sessions/claude-lab/2026-11-03-vps-runs-simready-stc-session.tmp
 - 2026-11-04 (VPS run, merged from claude-lab): `occ` test marker, merge `00de34d` (occ 104 + not-occ 134 passed; not-occ 134/0 failed with OCC blocked); 255 count explained + corrected (`6e79257`). Closed S3 `base-vs-env-marker-split`, `test-count-claim-255`.
 - 2026-11-12 (VPS opencode GPT, merge `ee3f1db`): `gen-eval-latency` measured offline and closed — analysis child ~9 s/call (≥3.9 s start-up), render+heal 0.06 s, so prompt latency is mostly LLM; verifier skips healed-STEP export. Suite 241 passed / 10 skipped / 5 deselected.
+- 2026-11-12: Kimi K3 via D Labs on the v2.3 gen gate — 4/5 (thin_plate failed); injected `reason` keys in tool args (D Labs proxy signature) cost every prompt a call. K2.6 on NIM dropped. Eval doc v2.4.
 
 ## Doing
 - **GenCAD follow-ups:** `gencad-stop-problem` (all 12 failures are runaway generations), `gencad-strong-baseline` (one-shot prompt), Gemma-3-4B (`apply-gencad-vlm-track`).
@@ -37,7 +38,6 @@ MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processi
 - QLoRA chat-SFT gold-set eval (GGUF + llama-server), then close. Low priority.
 
 ## Pipeline
-- re-probe kimi-k2.6 on NIM (S3)
 - defect head next levers (item Open): larger independently verified real-CAD clean + defective dataset with enough source families for a nontrivial holdout; self_int class needs interference feature. One-real-negative attempt exhausted 2026-10-25; do not tune that one-part mixture.
 - Wave 3 (user-gated): one collaborative Colab QLoRA run (DECIDED: run once then stop); grow real_eval set 20-30 STEPs; gmsh-calibration do-or-drop
 - gen v3 (CLI + Streamlit gen panel) deferred until v2 proves the loop

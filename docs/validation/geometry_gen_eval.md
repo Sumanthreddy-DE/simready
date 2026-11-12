@@ -184,3 +184,36 @@ under `data/gen_eval/` and generated STEPs under `data/gen_parts/`, both ignored
 `normal_box` still said "ready for meshing", which exceeds SimReady's heuristic evidence.
 The gate establishes mechanical spec conformance and successful analysis, not meshability or
 truthful prose.
+
+## v2.4 — Kimi K3 on D Labs (2026-11-12)
+
+Kimi K2.6 on NIM (the planned 2026-07-19 second leg) is dropped; Kimi K3 replaces it. It is
+only available to us through D Labs (`https://api.dlabkeys.com/v1`, model `kimi-k3`), so this
+leg runs on a different provider from the graded Vultr legs above. Same v2.3 gate, `main` at
+`1666ff4`, one run per prompt, no retries:
+`OPENAI_BASE_URL=https://api.dlabkeys.com/v1 OPENAI_MODEL=kimi-k3 python -m pytest tests/test_gen_e2e.py -m live_llm -v`
+→ **4 passed, 1 failed in 406.58 s**.
+
+| Prompt | Turns | `build_part` calls | Faces | Wall s | Gate |
+|---|--:|--:|--:|--:|---|
+| normal_box | 4 | 2 | 6 | 40.6 | pass |
+| thin_plate | 6 | 6 | — | 194.2 | fail (`max_iterations`, no valid build) |
+| l_bracket | 5 | 2 | 11 | 49.7 | pass |
+| bracket_with_hole | 4 | 2 | 7 | 36.3 | pass |
+| small_feature_box | 5 | 2 | 7 | 42.5 | pass |
+
+**Every prompt lost a call to an injected `reason` key.** Our tool schemas have no `reason`
+field. In a logged re-run of `normal_box`, the first call was
+`{"spec": {...}, "reason": "User asked to create a 60x40x30 mm rectangular block"}` →
+`BadArguments: unexpected keyword argument 'reason'`; the model then retried without it. On
+`thin_plate`, all six calls put a `reason` string *inside* `spec` in place of `steps`
+(`ValidationError: steps Field required`), and the loop ran out of turns. This is the same
+signature recorded for every model on D Labs on 2026-10-05 (injected `reason` keys; the same
+models were clean on Vultr), so it is most likely the proxy, not Kimi. It cannot be separated
+from the model here: no other provider we use serves Kimi K3. A simple single-tool probe the
+same day (3 calls each on `kimi-k3`, `kimi-k3-1-pro`, `glm-5-3`) came back clean, so the
+injection is intermittent or depends on the schema or system prompt.
+
+**Evidence boundary:** one provider with a known tool-call defect, one run per prompt. Report
+this leg as "Kimi K3 via D Labs, 4/5, with proxy tool-call noise", never as a clean Kimi K3
+result next to the Vultr legs.
