@@ -3,7 +3,7 @@
 <!-- Machine-maintained by save-session Step 6b. Hand-edit 2026-07-19 authorized by user (triage session). -->
 
 Status: active
-Last touched: 2026-11-04
+Last touched: 2026-11-12
 
 ## What
 MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processing. LLM copilot over B-rep analysis pipeline + BRepSAGE (3-head GraphSAGE) defect classifier + geometry-generation DSL (`build_part` tool). **APPLICATION SENT 2026-10-05 (user confirmed).** Open follow-up work = the `apply-*` items in BACKLOG S1/S2, GenCAD VLM track first. History: `v0.4.0-apply` (2026-05) was prep only, not a send. Strategy doc: docs/strategy/mecagent-gap-and-drift-2026-05-26.md; wave plan: BACKLOG.md "Triage 2026-07-19".
@@ -31,10 +31,11 @@ MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processi
 - 2026-11-04 (VPS run, merged from claude-lab): `occ` test marker, merge `00de34d` (occ 104 + not-occ 134 passed; not-occ 134/0 failed with OCC blocked); 255 count explained + corrected (`6e79257`). Closed S3 `base-vs-env-marker-split`, `test-count-claim-255`.
 - 2026-11-12 (VPS opencode GPT, merge `ee3f1db`): `gen-eval-latency` measured offline and closed — analysis child ~9 s/call (≥3.9 s start-up), render+heal 0.06 s, so prompt latency is mostly LLM; verifier skips healed-STEP export. Suite 241 passed / 10 skipped / 5 deselected.
 - 2026-11-12: Kimi K3 via D Labs on the v2.3 gen gate — 4/5 (thin_plate failed); injected `reason` keys in tool args (D Labs proxy signature) cost every prompt a call. K2.6 on NIM dropped. Eval doc v2.4.
+- 2026-11-12 (`sp1-bench`, `e6193ea..58a6906`; `58a6906` not yet pushed): SP1 Task 2 review. Reference specs 111/111 under the plan's Task 3/4 code (negative controls fail); sources 16 verified / 1 mismatch / 5 unverifiable; fixes c017, c020, c031; point (b) decided (c031/c044 keep standard zones, c030/c045 widened to the nominal); `.gitattributes` LF. Found: plan Task 3 `sorted_extents` bbox gap (1e-7/side) fails exact-nominal answers. Record `docs/exec-plans/active/2026-11-12-sp1-task2-review.md`.
 
 ## Doing
 - **GenCAD follow-ups:** `gencad-stop-problem` (all 12 failures are runaway generations), `gencad-strong-baseline` (one-shot prompt), Gemma-3-4B (`apply-gencad-vlm-track`).
-- **SP1 checker-scored text-to-CAD benchmark** — paused behind GenCAD (`sp1-resume`, branch `sp1-bench`).
+- **SP1 checker-scored text-to-CAD benchmark** — paused behind GenCAD (`sp1-resume`, branch `sp1-bench`). Task 2 reviewed 2026-11-12; next Task 3 (fix the bbox gap there) while the user proofreads the concepts.
 - QLoRA chat-SFT gold-set eval (GGUF + llama-server), then close. Low priority.
 
 ## Pipeline
@@ -46,4 +47,4 @@ MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processi
 - Weekly mini-build loop (2026-11-02): take the week's most testable AI-CAD item from the Muse digest, test it in ~2 h on 5 GenCAD rows or score its output with `analyze_file_safe`, write a short result note, then a LinkedIn post. Skip weeks with nothing testable. Pipeline: `Projects/_ideas/muse-pipeline.md`.
 
 ## Resume here
-Launch and edit in `Mech/SimReady`, branch `main`. Walkthrough package complete (results table, IoU finding, fresh-clone fix `57a105e`, examples page `docs/validation/gencad_examples.md`), gen CLI `scripts/simready_gen.py` shipped. Next: submit the MecAgent test (BACKLOG S1 `apply-submit-mecagent-test`); decide S2 `fixture-eval-not-reproducible`; then `gencad-stop-problem` → `gencad-strong-baseline` → Gemma. `sp1-bench` paused at Task 2 review. Do not commit or push without user approval. Handoff: harness/sessions/claude-lab/2026-11-03-vps-runs-simready-stc-session.tmp
+Launch and edit in `Mech/SimReady`, branch `main`. Walkthrough package complete (results table, IoU finding, fresh-clone fix `57a105e`, examples page `docs/validation/gencad_examples.md`), gen CLI `scripts/simready_gen.py` shipped. Next: submit the MecAgent test (BACKLOG S1 `apply-submit-mecagent-test`); decide S2 `fixture-eval-not-reproducible`; then `gencad-stop-problem` → `gencad-strong-baseline` → Gemma. `sp1-bench` paused at Task 3 (Task 2 reviewed 2026-11-12, user proofread open). Do not commit or push without user approval. Handoff: harness/sessions/claude-lab/2026-11-03-vps-runs-simready-stc-session.tmp
