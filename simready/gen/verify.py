@@ -11,7 +11,9 @@ def analyze_generated_part(step_path: str, *, timeout_seconds: int = 120) -> dic
     """Analyze a generated STEP and reject error or InvalidInput summaries."""
     from simready.copilot.tools import analyze_geometry
 
-    result = analyze_geometry(step_path, timeout_seconds=timeout_seconds, render_image=False)
+    result = analyze_geometry(
+        step_path, timeout_seconds=timeout_seconds, render_image=False, heal_step=False,
+    )
     if result.get("error") or result.get("status") == "InvalidInput":
         return {
             "ok": False,
