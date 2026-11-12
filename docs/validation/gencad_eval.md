@@ -288,9 +288,13 @@ checker re-evaluation, or independent-model validation was performed.
 
 ## Next steps (from this evidence)
 
-1. **Stopping problem:** all 12 failures are runaway generations. Try a stop rule or repetition
-   penalty at inference (no retraining) and re-score; expected to lift VSR toward the
-   single-sketch rate.
+1. **Stopping problem:** all 12 failures are runaway generations. **Done offline 2026-11-12**
+   (section "Stop rules" above): trimming to the last complete `solid=` line lifts VSR
+   88 → 100/100, but the 12 recovered parts average IoU 0.038 (max 0.080), so IoU (invalid=0)
+   moves only 0.225 → 0.230. R2 removed repeated sketch blocks from 22 valid programs with
+   exactly zero IoU change: the repeats are identical copies unioned onto the same solid, so
+   over-generation costs tokens and runtime, not geometry. A repetition penalty was not tested
+   (needs GPU).
 2. **Stronger baseline:** untuned model with one example program in the prompt, so the
    0 → 0.88 comparison is not against a model that answers in JSON.
 3. **Gemma-3-4B:** same notebooks, second model.

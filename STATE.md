@@ -32,9 +32,10 @@ MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processi
 - 2026-11-12 (VPS opencode GPT, merge `ee3f1db`): `gen-eval-latency` measured offline and closed — analysis child ~9 s/call (≥3.9 s start-up), render+heal 0.06 s, so prompt latency is mostly LLM; verifier skips healed-STEP export. Suite 241 passed / 10 skipped / 5 deselected.
 - 2026-11-12: Kimi K3 via D Labs on the v2.3 gen gate — 4/5 (thin_plate failed); injected `reason` keys in tool args (D Labs proxy signature) cost every prompt a call. K2.6 on NIM dropped. Eval doc v2.4.
 - 2026-11-12 (`sp1-bench`, `e6193ea..58a6906`; `58a6906` not yet pushed): SP1 Task 2 review. Reference specs 111/111 under the plan's Task 3/4 code (negative controls fail); sources 16 verified / 1 mismatch / 5 unverifiable; fixes c017, c020, c031; point (b) decided (c031/c044 keep standard zones, c030/c045 widened to the nominal); `.gitattributes` LF. Found: plan Task 3 `sorted_extents` bbox gap (1e-7/side) fails exact-nominal answers. Record `docs/exec-plans/active/2026-11-12-sp1-task2-review.md`.
+- 2026-11-12 (VPS opencode GPT, merge `b3e3fae`): `gencad-stop-problem` closed offline — R1 trim lifts VSR 88 → 100, IoU invalid=0 0.225 → 0.230; repeated sketches are exact duplicates (zero IoU effect).
 
 ## Doing
-- **GenCAD follow-ups:** `gencad-stop-problem` (all 12 failures are runaway generations), `gencad-strong-baseline` (one-shot prompt), Gemma-3-4B (`apply-gencad-vlm-track`).
+- **GenCAD follow-ups:** `gencad-strong-baseline` (one-shot prompt), Gemma-3-4B (`apply-gencad-vlm-track`).
 - **SP1 checker-scored text-to-CAD benchmark** — paused behind GenCAD (`sp1-resume`, branch `sp1-bench`). Task 2 reviewed 2026-11-12; next Task 3 with the bbox-gap fix (`sp1-task3-bbox-gap`); user proofread tracked as `sp1-concepts-proofread`.
 - QLoRA chat-SFT gold-set eval (GGUF + llama-server), then close. Low priority.
 
