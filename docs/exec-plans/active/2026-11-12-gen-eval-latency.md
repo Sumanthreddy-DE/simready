@@ -1,6 +1,6 @@
 # gen-eval-latency — measure, then slim the analyze step for eval callers — task brief
 
-**Status:** active
+**Status:** done
 **Last verified:** 2026-11-12
 
 BACKLOG S3 `gen-eval-latency`. Written for an agent on the VPS in opencode. Claude reviews
@@ -79,4 +79,92 @@ Never read `.env`.
 
 ## Result
 
-_(agent fills this in)_
+### Before implementation (2026-11-12)
+
+Worktree `/tmp/simready-gen-latency`, branch `perf/gen-eval-latency`, base `f073d31`.
+Timing script committed alone as `4b72ae5`.
+Baseline: `239 passed, 10 skipped, 5 deselected, 3 warnings in 136.85s (0:02:16)`.
+
+Measured rounds 2–3, averaged across the five parts: analysis child wall ~8.97 s,
+import-only child ~3.92 s, build ~1.16 s, PNG ~0.033 s, heal/export ~0.024 s,
+final verifier ~8.89 s. Analysis dominates; artifact work is under 1% of analysis.
+The agent-loop analyze path is therefore a large share of local work, but a slim
+agent-dispatch option would save only ~0.057 s per call here. **Do not implement
+lever b**: no measurable latency case for new agent configuration. Implement the
+explicit lever a to eliminate unnecessary verifier output files, not as a claimed
+material speedup. The alternative of removing subprocess isolation is rejected:
+the hang guard matters more than these timings.
+
+Ruling: the import-only child mirrors the worker's pipeline import, including
+interpreter startup/exit; it does not include later lazy torch/PyG imports during
+inference. It is a lower-bound attribution probe, not total import cost. Reusing
+a worker might avoid ~3.92 s per analyze (~7.83 s for two analyses per prompt)
+from this measured component alone, before any lazy-import/model-reuse benefit;
+a persistent worker is outside scope.
+
+Pre-flight: the timing script consumes the unchanged analysis/verifier APIs;
+lever a adds only a default-preserving keyword. No shared-interface conflict.
+This brief is the execution authority; no separate spec is named. Execution
+progress and rulings are recorded here to keep all task work in the prescribed
+worktree and existing plan structure.
+
+Lever a committed as `a1e7aa7`. Regression evidence: the default artifact case
+passed before the change; the slim verifier case failed on `healed_step_path`
+being present. After implementation both pass; targeted tools/verifier suite:
+`34 passed, 1 warning in 23.54s`. Tests use real OCC, a real child analysis,
+and fresh temporary directories to check actual artifact presence/absence;
+the whole module carries `pytest.mark.occ`.
+
+### Before / after wall timings
+
+Seconds; each cell is the arithmetic mean across all five parts. First = round 1
+of each part; later = mean of rounds 2–3 of each part (fresh child each time,
+same long-lived parent). These are not cold-cache measurements. Raw 15-round
+records per run and exact specs are in ignored `data/gen_eval/timing_before.json`
+and `data/gen_eval/timing_after.json`; after-run stdout is `timing_after.log` there.
+
+| Stage | Before first | Before later | After first | After later |
+|---|---:|---:|---:|---:|
+| Import-only child | 4.0370 | 3.9151 | 4.1480 | 4.5067 |
+| `build_part` | 1.2095 | 1.1627 | 1.2834 | 1.1802 |
+| `analyze_file_safe` | 9.2185 | 8.9717 | 9.4804 | 8.9963 |
+| PNG render | 0.0513 | 0.0333 | 0.0569 | 0.0337 |
+| Heal/export | 0.0324 | 0.0242 | 0.0248 | 0.0237 |
+| Whole `analyze_generated_part` | 8.7674 | 8.8884 | 9.2143 | 10.6654 |
+
+Stages overlap: the whole verifier includes a second analysis, so do not sum it
+with standalone analysis as if they were exclusive sub-stages of one call.
+PNG and heal/export are deliberately timed independently in **both** runs even
+though the verifier no longer invokes either. The before verifier already omitted
+PNG; lever a removes only its ~0.024 s heal/export work.
+
+**No measured speedup.** After verifier's later mean rose, dominated by the
+small-feature part (18.0057 s later mean versus 9.2312 s before); other after
+part means were 8.4539–9.3042 s. Keep that outlier in the table: three rounds
+cannot establish a performance regression or speedup of tens of milliseconds.
+The reliable result is elimination of verifier artifacts with unchanged analysis
+semantics. No live endpoint latency or end-to-end prompt-budget claim is made.
+
+### Verification and completion
+
+- Before: `239 passed, 10 skipped, 5 deselected, 3 warnings in 136.85s (0:02:16)`.
+- After, same exact offline-control prefix and no-cache pytest command:
+  `241 passed, 10 skipped, 5 deselected, 3 warnings in 161.19s (0:02:41)`.
+- Difference: exactly the two new OCC artifact-policy cases. No new failures,
+  skips or deselections. Existing warnings: anyio/pytest alias and torch JIT
+  deprecation. Both timing runs completed all five specs × three rounds.
+- Review: self-review of the whole branch against steps 1–7; no subagent
+  delegation requested. Checked the default/schema contract, actual output-file
+  assertions, spawn-safe script imports, label/path validation, and overlapping
+  timing interpretation. `git diff --check` clean. No deferred code findings.
+- Ruling: use this Result section as the execution ledger, rather than creating
+  a separate harness workspace or task briefs. This preserves the user's exact
+  file/commit sequence and worktree-only constraint; cost if wrong is weaker
+  automated resume bookkeeping. The import-probe ruling above costs potentially
+  understating worker-reuse savings; it does not justify removing the hang guard.
+- Not done: lever b (artifact cost too small for new configuration), persistent
+  workers (explicitly out of scope), LLM runs (prohibited). No edits to the stale
+  validation document because `docs/validation/` is prohibited by this brief.
+- Commits: `4b72ae5` timing script; `a1e7aa7` lever a and regression tests;
+  final commit titled `docs: record gen-eval-latency results` contains this record.
+  Execution stops immediately after that commit for owner review/merge.
