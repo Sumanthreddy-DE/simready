@@ -277,9 +277,10 @@ decoding. VSR = program runs and yields a solid.
 
 How to read it:
 
-- **0 → 88 is mostly format.** The untuned model answers in invented JSON; the tuned one
-  writes runnable GenCAD-style CadQuery. A stronger one-shot-prompt baseline is planned so
-  the comparison is not against a model that never writes Python.
+- **0 → 88 is partly format.** The untuned model answers in invented JSON; the tuned one
+  writes runnable GenCAD-style CadQuery. Format alone does not explain it: with one example
+  program in the prompt, the untuned model writes CadQuery but copies the example for 99 of
+  100 images (1/100 valid).
 - **All 12 failures are runaway generations** (output hits the token limit mid-line, usually
   after more sketches than the reference). No CadQuery API errors.
 - **Geometry is the weak part, and it falls with complexity.** IoU is bimodal (median 0.047,
