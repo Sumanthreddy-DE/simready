@@ -62,6 +62,7 @@ def test_topology_uv_and_curve_adapters():
     assert u1 > u0 and v1 > v0
     mapping = occ.TopTools_IndexedDataMapOfShapeListOfShape()
     occ.topexp.MapShapesAndAncestors(shape, occ.TopAbs_EDGE, occ.TopAbs_FACE, mapping)
-    assert mapping.Extent() == 12
+    # Size()/FindFromIndex() are what checks.py uses; pythonocc 7.9 has no Extent().
+    assert mapping.Size() == 12 and mapping.FindFromIndex(1).Size() == 2
     edge = occ.topods.Edge(occ.TopExp_Explorer(shape, occ.TopAbs_EDGE).Current())
     assert edge_length(edge) > 0
