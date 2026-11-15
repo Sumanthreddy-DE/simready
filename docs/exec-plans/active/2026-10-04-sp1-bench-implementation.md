@@ -1040,6 +1040,8 @@ git commit -m "feat(bench): geometry - validity gate, hole/boss features, replay
 
 ### Task 4: Checker + reference-spec positive controls
 
+**Verified 2026-11-15:** plan code as written, except the two test files gate on `simready.occ_compat.OCC_AVAILABLE` instead of `importorskip("OCC.Core...")` (deviation 6). Under OCP: 23 checker cases + 37 reference specs pass (60); full suite 20 failed / 151 passed before, 20 failed / 211 passed after. Break check: with `sorted_extents` switched back to `brepbndlib.Add`, all 37 reference specs still pass, because the reference specs are authored mid-range (c006 builds 19.95 mm against an engineer range [19.67, 20.0]). The gap fix is protected by the Task 3 nominal tests, not by these positive controls.
+
 **Files:**
 - Create: `simready/bench/checker.py`
 - Create: `tests/test_bench_checker.py`
@@ -1049,7 +1051,7 @@ git commit -m "feat(bench): geometry - validity gate, hole/boss features, replay
 - Consumes: Task 1 check models, `in_range`, `CHECKER_VERSION`; Task 3 `geometry`.
 - Produces: `grade_shape(shape, checks: list[Check], expected_solids: int = 1) -> dict` with keys `checker_version, gate{passed, reason, brep_valid, free_edges, volume, solids}, checks[{type, status, detail}], n_pass, n_fail, n_not_checked, partial, passed, failure_class`. Failure-class strings `F5_invalid_solid`, `F6_dimension_miss`, `F7_feature_miss`; `PASS/FAIL/NOT_CHECKED` constants.
 
-- [ ] **Step 1: Write the failing checker tests (known pass + known fail per check type)**
+- [x] **Step 1: Write the failing checker tests (known pass + known fail per check type)**
 
 `tests/test_bench_checker.py`:
 
@@ -1195,12 +1197,12 @@ def test_reference_spec_passes_own_checks(concept):
         assert not failed, (phrasing, failed)
 ```
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run: `C:/mm/sr/python.exe -m pytest tests/test_bench_checker.py tests/test_bench_reference_specs.py -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'simready.bench.checker'`
 
-- [ ] **Step 3: Write `simready/bench/checker.py`**
+- [x] **Step 3: Write `simready/bench/checker.py`**
 
 ```python
 """Grade a built shape against a concept's checks. Needs OCC (via geometry).
@@ -1336,12 +1338,12 @@ def grade_shape(shape: Any, checks: list[Check], expected_solids: int = 1) -> di
     return report
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `C:/mm/sr/python.exe -m pytest tests/test_bench_checker.py tests/test_bench_reference_specs.py -v`
 Expected: all checker cases pass, plus one passing reference test per in-vocab concept. A failing reference test means the concept or its checks are wrong. Fix the concept line (re-run Task 2's file test), never the checker, unless a checker case also fails.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add simready/bench/checker.py tests/test_bench_checker.py tests/test_bench_reference_specs.py simready/bench/prompts/concepts_v1.jsonl
