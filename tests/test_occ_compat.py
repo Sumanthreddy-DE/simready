@@ -1,6 +1,7 @@
 """Exercise the pythonocc-style API against whichever binding is installed."""
 
 import pytest
+import importlib
 
 from simready import occ_compat as occ
 from simready.occ_utils import edge_length, iter_faces, shape_bounding_box
@@ -10,6 +11,24 @@ pytestmark = pytest.mark.skipif(not occ.OCC_AVAILABLE, reason="OCC unavailable")
 
 def test_backend():
     assert occ.BACKEND in {"pythonocc", "ocp"}
+
+
+def test_missing_pythonocc_attribute_falls_back_to_ocp(monkeypatch):
+    real_import = importlib.import_module
+
+    def import_with_missing_attribute(name, *args, **kwargs):
+        if name == "OCC.Core.Bnd":
+            # An installed module lacking Bnd_Box makes getattr raise AttributeError.
+            return object()
+        return real_import(name, *args, **kwargs)
+
+    try:
+        with monkeypatch.context() as patch:
+            patch.setattr(importlib, "import_module", import_with_missing_attribute)
+            importlib.reload(occ)
+            assert occ.BACKEND == "ocp"
+    finally:
+        importlib.reload(occ)
 
 
 def test_bounding_adapters_preserve_gap_and_optimal_extents():

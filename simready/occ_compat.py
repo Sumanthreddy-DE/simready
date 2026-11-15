@@ -81,11 +81,11 @@ BACKEND = None
 try:
     _names = _pythonocc()
     BACKEND = "pythonocc"
-except ImportError:
+except (ImportError, AttributeError):
     try:
         _names = _ocp()
         BACKEND = "ocp"
-    except ImportError:
+    except (ImportError, AttributeError):
         _names = dict.fromkeys(__all__)
 globals().update(_names)
 OCC_AVAILABLE = BACKEND is not None
