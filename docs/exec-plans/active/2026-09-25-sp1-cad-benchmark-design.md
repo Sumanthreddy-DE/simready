@@ -258,3 +258,5 @@ seeing results; SP3's metric stays the one fixed in D6.
 2. The checker grades the in-memory shape; no STEP is written per attempt (STEPs are not stored; replay uses the fingerprint).
 3. New excluded class `checker_error`: a crash in our checker is excluded from scoring like `infra_error` and fixed via `regrade`.
 4. The system prompt allows a refusal ("say so instead of calling the tool"), which gives table 5 its "admits it can't" path.
+5. Benchmark `sorted_extents` uses `brepbndlib.AddOptimal(shape, box, False, False)` to exclude OCC's 1e-7 mm per-side gap: nominal dimensions must pass engineer ranges capped at nominal. Shared `shape_bounding_box` retains its gap; bounding boxes use `CornerMin`/`CornerMax` for OCP 8 compatibility.
+6. A pythonocc-first `simready.occ_compat` shim also supports pip-installed OCP, because pythonocc-core has no usable PyPI release. Build, shared geometry, benchmark geometry and the validator import block use it; callers retain pythonocc spelling while OCP static methods, curve length and indexed shape-map types are adapted centrally. Other OCC importers remain outside this compatibility scope.

@@ -35,6 +35,8 @@
 2. **The checker grades the in-memory shape; no STEP file is written per attempt.** Spec §2 says "build STEP → checker", but STEPs are never stored (replay uses the fingerprint). Writing and re-reading one would only test the STEP writer.
 3. **A new excluded class, `checker_error`.** A crash inside our own checker must not be blamed on the model. It is logged, excluded like `infra_error`, and fixed via `regrade`.
 4. **The system prompt allows a refusal** ("if it cannot be built with these operations, say so"). Without it, spec §3 table 5 ("admits it can't vs fakes the feature") would have no "admits" path.
+5. **Benchmark extents exclude OCC's bounding-box gap.** `geometry.sorted_extents` uses `brepbndlib.AddOptimal(shape, box, False, False)` rather than the tolerance-inflated shared bounding box, so exact nominal dimensions pass engineer ranges capped at nominal. `shape_bounding_box` retains its existing gap; both paths read `CornerMin`/`CornerMax` because OCP 8 cannot marshal `Bnd_Box.Get()`.
+6. **A pythonocc-first OCC/OCP shim supports pip environments.** `simready.occ_compat` keeps pythonocc spellings and adapts OCP static methods; pythonocc-core has no usable PyPI release, so pip-installed benchmark environments use OCP. Build, shared geometry, and benchmark imports use the shim; the validator import block also migrates so existing build STEP round-trip tests run under OCP (approved scope correction). OCP 8's indexed shape map comes from `OCP.collections`, and curve length uses `Length_s`.
 
 Task 1 writes these four into the spec.
 
@@ -577,6 +579,8 @@ Ask the user to proofread `concepts_v1.jsonl`, focusing on: realism of each part
 
 ### Task 3: Geometry module (gate, extents, cylindrical features, fingerprint)
 
+**Verified 2026-11-15:** all 12 plan cases plus two nominal-upper-bound regressions pass under OCP; all 13 existing build tests and four shim tests pass (31 total). Implementation uses shim imports and gap-free extents per deviations 5–6; the historical prototype below retains its original pythonocc imports/bounding-box call. pythonocc runtime verification remains for the laptop sr environment.
+
 **Files:**
 - Create: `simready/bench/geometry.py`
 - Create: `tests/test_bench_geometry.py`
@@ -585,7 +589,7 @@ Ask the user to proofread `concepts_v1.jsonl`, focusing on: realism of each part
 - Consumes: `simready.occ_utils.count_shapes, count_topology, iter_faces, shape_bounding_box`; `simready.gen.build.build_shape`, `PartSpec` (tests).
 - Produces: `GateResult(passed, reason, brep_valid, free_edges, volume, solids)`; `run_gate(shape, expected_solids=1) -> GateResult`; `sorted_extents(shape) -> list[float]`; `volume(shape) -> float`; `surface_area(shape) -> float`; `CylFeature(diameter, axis_point, direction, t0, t1, sweep, concave, through)` with `.depth`, `.full`; `cylindrical_features(shape) -> list[CylFeature]`; `axis_distance(a, b) -> float`; `fingerprint(shape) -> dict`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `tests/test_bench_geometry.py`:
 
@@ -739,12 +743,12 @@ def test_fingerprint_is_stable_across_rebuilds():
     assert fp["extents"] == [5.0, 42.0, 42.0] and fp["solids"] == 1
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `C:/mm/sr/python.exe -m pytest tests/test_bench_geometry.py -v`
 Expected: FAIL with `ImportError: cannot import name 'geometry' from 'simready.bench'`
 
-- [ ] **Step 3: Write `simready/bench/geometry.py`**
+- [x] **Step 3: Write `simready/bench/geometry.py`**
 
 This code was prototyped against pythonocc 7.9.0 on 2026-10-04, and every case in the tests above was observed.
 
@@ -1020,12 +1024,12 @@ def fingerprint(shape: Any) -> dict[str, Any]:
     }
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `C:/mm/sr/python.exe -m pytest tests/test_bench_geometry.py -v`
 Expected: 12 passed
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add simready/bench/geometry.py tests/test_bench_geometry.py
