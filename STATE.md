@@ -3,7 +3,7 @@
 <!-- Machine-maintained by save-session Step 6b. Hand-edit 2026-07-19 authorized by user (triage session). -->
 
 Status: active
-Last touched: 2026-11-12
+Last touched: 2026-11-15
 
 ## What
 MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processing. LLM copilot over B-rep analysis pipeline + BRepSAGE (3-head GraphSAGE) defect classifier + geometry-generation DSL (`build_part` tool). **APPLICATION SENT 2026-10-05 (user confirmed).** Open follow-up work = the `apply-*` items in BACKLOG S1/S2, GenCAD VLM track first. History: `v0.4.0-apply` (2026-05) was prep only, not a send. Strategy doc: docs/strategy/mecagent-gap-and-drift-2026-05-26.md; wave plan: BACKLOG.md "Triage 2026-07-19".
@@ -33,9 +33,10 @@ MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processi
 - 2026-11-12: Kimi K3 via D Labs on the v2.3 gen gate — 4/5 (thin_plate failed); injected `reason` keys in tool args (D Labs proxy signature) cost every prompt a call. K2.6 on NIM dropped. Eval doc v2.4.
 - 2026-11-12 (`sp1-bench`, `e6193ea..58a6906`; `58a6906` not yet pushed): SP1 Task 2 review. Reference specs 111/111 under the plan's Task 3/4 code (negative controls fail); sources 16 verified / 1 mismatch / 5 unverifiable; fixes c017, c020, c031; point (b) decided (c031/c044 keep standard zones, c030/c045 widened to the nominal); `.gitattributes` LF. Found: plan Task 3 `sorted_extents` bbox gap (1e-7/side) fails exact-nominal answers. Record `docs/exec-plans/active/2026-11-12-sp1-task2-review.md`.
 - 2026-11-12 (VPS opencode GPT, merge `b3e3fae`): `gencad-stop-problem` closed offline — R1 trim lifts VSR 88 → 100, IoU invalid=0 0.225 → 0.230; repeated sketches are exact duplicates (zero IoU effect).
+- 2026-11-15: `gencad-strong-baseline` closed (`c76b4bf`): one-shot prompted untuned Qwen VSR 1/100 — 99 rows copy the example program. Eval page restructured around the test's five questions (`c1ded3a`; stop-rule detail → `docs/validation/gencad_stop_rules.md`). MecAgent technical test SENT 2026-11-15 by email reply to Alexandre Senet (hiring site Railway 404) plus link-fix follow-up; `apply-submit-mecagent-test` closed (`a105642`).
 
 ## Doing
-- **GenCAD follow-ups:** `gencad-strong-baseline` (one-shot prompt), Gemma-3-4B (`apply-gencad-vlm-track`).
+- **GenCAD follow-ups:** Gemma-3-4B (`apply-gencad-vlm-track`, optional). MecAgent test sent 2026-11-15; waiting on Senet (follow-up 2027-03-15 in career-ops).
 - **SP1 checker-scored text-to-CAD benchmark** — paused behind GenCAD (`sp1-resume`, branch `sp1-bench`). Task 2 reviewed 2026-11-12; next Task 3 with the bbox-gap fix (`sp1-task3-bbox-gap`); user proofread tracked as `sp1-concepts-proofread`.
 - QLoRA chat-SFT gold-set eval (GGUF + llama-server), then close. Low priority.
 
@@ -48,6 +49,8 @@ MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processi
 - Weekly mini-build loop (2026-11-02): take the week's most testable AI-CAD item from the Muse digest, test it in ~2 h on 5 GenCAD rows or score its output with `analyze_file_safe`, write a short result note, then a LinkedIn post. Skip weeks with nothing testable. Pipeline: `Projects/_ideas/muse-pipeline.md`.
 
 ## Resume here
+Launch and edit in `Mech/SimReady`. MecAgent test sent 2026-11-15 (one-shot baseline done, eval page restructured). Next: SP1 on `sp1-bench` (worktree `/tmp/simready-sp1-review`, `58a6906`, in sync with origin) — Task 3 with the bbox-gap fix (`sp1-task3-bbox-gap`) written against an OCC/OCP shim, then Task 4, minimal `pyproject.toml`, tag (BACKLOG `cad-rl-env-ownership` items 1–4). If Senet replies with the hiring site's questions, answer them as a new section in `docs/validation/gencad_eval.md`. Do not commit or push without user approval. Handoff: harness/sessions/SimReady/2026-11-15-strong-baseline-mecagent-submit-session.tmp
+
 Launch and edit in `Mech/SimReady`, branch `main`. Stop-problem closed offline (VSR 88 → 100 by trim, IoU flat), latency measured, Kimi K3 leg recorded. Next: write Colab instructions for `gencad-strong-baseline` (one-shot example from the train split, same 100 rows, cell-5 scoring), user runs it, then submit the MecAgent test (S1). Do not commit or push without user approval. Handoff: harness/sessions/SimReady/2026-11-12-worktree-cleanup-gpt-runs-session.tmp
 
 Launch and edit in `Mech/SimReady`, branch `main`. Walkthrough package complete (results table, IoU finding, fresh-clone fix `57a105e`, examples page `docs/validation/gencad_examples.md`), gen CLI `scripts/simready_gen.py` shipped. Next: submit the MecAgent test (BACKLOG S1 `apply-submit-mecagent-test`); decide S2 `fixture-eval-not-reproducible`; then `gencad-strong-baseline` → Gemma (`gencad-stop-problem` closed 2026-11-12). `sp1-bench` paused at Task 3 (Task 2 reviewed 2026-11-12, user proofread open). Do not commit or push without user approval. Handoff: harness/sessions/SimReady/2026-11-12-sp1-task2-review-session.tmp
