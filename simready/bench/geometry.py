@@ -1,4 +1,8 @@
-"""In-memory geometric measurements for the text-to-CAD benchmark checker."""
+"""Geometric measurements for the text-to-CAD benchmark checker.
+
+Everything here works on an in-memory ``TopoDS_Shape`` and returns plain
+Python values, so the checker never needs a STEP round-trip. Needs OCC bindings (pythonocc or OCP, via simready.occ_compat): import it only inside the build/check subprocess or in tests that skip without OCC.
+"""
 
 from __future__ import annotations
 
@@ -16,10 +20,10 @@ from simready.occ_utils import count_shapes, count_topology, iter_faces
 
 Vec3 = tuple[float, float, float]
 
-# Geometric tolerances (mm / unitless), below benchmark tolerances.
+# Geometric tolerances (mm / unitless). Far below any benchmark tolerance (±0.1 mm).
 _LEN_TOL = 1e-4
 _ANG_TOL = 1e-6
-_PROBE_MM = 0.5
+_PROBE_MM = 0.5  # how far past a hole's end the through-probe looks
 
 
 def _sub(a: Vec3, b: Vec3) -> Vec3:
@@ -43,12 +47,17 @@ def _norm(a: Vec3) -> float:
 
 
 def _perp_basis(d: Vec3) -> tuple[Vec3, Vec3]:
-    """Two orthogonal unit vectors perpendicular to unit vector d."""
+    """Two unit vectors perpendicular to unit vector ``d`` and to each other."""
     helper: Vec3 = (1.0, 0.0, 0.0) if abs(d[0]) < 0.9 else (0.0, 1.0, 0.0)
     e1 = _sub(helper, _scale(d, _dot(helper, d)))
     e1 = _scale(e1, 1.0 / _norm(e1))
     e2 = (d[1] * e1[2] - d[2] * e1[1], d[2] * e1[0] - d[0] * e1[2], d[0] * e1[1] - d[1] * e1[0])
     return e1, e2
+
+
+# ----------------------------------------------------------------------------
+# Scalar properties
+# ----------------------------------------------------------------------------
 
 
 def volume(shape: Any) -> float:
@@ -76,17 +85,22 @@ def sorted_extents(shape: Any) -> list[float]:
 
 
 def free_edge_count(shape: Any) -> int:
-    """Edges bounding only one face; zero for a watertight shell."""
+    """Edges bounding only one face. 0 for a closed (watertight) shell."""
     bounds = ShapeAnalysis_FreeBounds(shape)
     return count_shapes(bounds.GetClosedWires(), TopAbs_EDGE) + count_shapes(
         bounds.GetOpenWires(), TopAbs_EDGE
     )
 
 
+# ----------------------------------------------------------------------------
+# Validity gate
+# ----------------------------------------------------------------------------
+
+
 @dataclass
 class GateResult:
     passed: bool
-    reason: str
+    reason: str  # "" when passed, else a short machine-readable cause
     brep_valid: bool
     free_edges: int
     volume: float
@@ -94,10 +108,10 @@ class GateResult:
 
 
 def run_gate(shape: Any, expected_solids: int = 1) -> GateResult:
-    """BRep valid, closed, positive volume, expected solid count—in that order."""
+    """BRep valid, closed, positive volume, expected solid count — in that order."""
     try:
         brep_valid = bool(BRepCheck_Analyzer(shape).IsValid())
-    except Exception:  # OCC raises on degenerate shapes
+    except Exception:  # noqa: BLE001 — OCC raises on degenerate shapes
         brep_valid = False
     free = free_edge_count(shape)
     vol = volume(shape)
@@ -115,22 +129,28 @@ def run_gate(shape: Any, expected_solids: int = 1) -> GateResult:
     return GateResult(reason == "", reason, brep_valid, free, vol, solids)
 
 
+# ----------------------------------------------------------------------------
+# Cylindrical features (holes and bosses)
+# ----------------------------------------------------------------------------
+
+
 @dataclass
 class CylFeature:
-    """Coaxial same-radius faces merged into a hole/bore or convex boss.
+    """One cylindrical feature, merged from all coaxial same-radius faces.
 
-    axis_point is closest to the origin; direction has canonical positive
-    first non-zero component in z,y,x order; t0/t1 are positions along it.
+    ``concave`` = material outside the cylinder (hole/bore); convex = boss,
+    shaft or outer tube wall. ``t0``/``t1`` are absolute positions along
+    ``direction`` measured from ``axis_point``.
     """
 
     diameter: float
-    axis_point: Vec3
-    direction: Vec3
+    axis_point: Vec3  # point on the axis closest to the origin
+    direction: Vec3  # unit, canonical sign (first non-zero of z, y, x is > 0)
     t0: float
     t1: float
-    sweep: float
+    sweep: float  # total angular coverage, radians (2*pi = full cylinder)
     concave: bool
-    through: bool | None = None
+    through: bool | None = None  # holes only; None for convex features
 
     @property
     def depth(self) -> float:
@@ -142,6 +162,7 @@ class CylFeature:
 
 
 def _canonical(d: Vec3) -> bool:
+    """True if ``d`` already has the canonical sign."""
     for c in (d[2], d[1], d[0]):
         if abs(c) > _ANG_TOL:
             return c > 0
@@ -158,7 +179,7 @@ def _cyl_patch(face: Any) -> CylFeature | None:
     d: Vec3 = (ax.Direction().X(), ax.Direction().Y(), ax.Direction().Z())
     u0, u1, v0, v1 = breptools.UVBounds(face)
     pnt, nrm = gp_Pnt(), gp_Vec()
-    # BRepGProp_Face respects orientation: normal points out of material.
+    # BRepGProp_Face respects face orientation: the normal points out of material.
     BRepGProp_Face(face).Normal((u0 + u1) / 2, (v0 + v1) / 2, pnt, nrm)
     rel = _sub((pnt.X(), pnt.Y(), pnt.Z()), loc)
     radial = _sub(rel, _scale(d, _dot(rel, d)))
@@ -180,7 +201,7 @@ def _same_axis(a: CylFeature, b: CylFeature) -> bool:
 
 
 def _probe_open(shape: Any, feat: CylFeature, t: float) -> bool:
-    """Four points at 0.9r around the axis must all be outside material."""
+    """True if four points at 0.9 r around the axis at position ``t`` are all outside material."""
     r = 0.45 * feat.diameter
     e1, e2 = _perp_basis(feat.direction)
     centre = _add(feat.axis_point, _scale(feat.direction, t))
@@ -192,10 +213,12 @@ def _probe_open(shape: Any, feat: CylFeature, t: float) -> bool:
 
 
 def cylindrical_features(shape: Any) -> list[CylFeature]:
-    """Merge touching/overlapping coaxial faces of equal diameter/concavity.
+    """All cylindrical features, merged per (axis, diameter, concavity).
 
-    A hole is through when probes 0.5 mm past both ends at 0.9r are outside
-    material, including a small through bore within a blind counterbore.
+    Coaxial same-diameter faces merge when their axial spans touch or overlap
+    (OCC may split one hole into several faces). A hole is ``through`` when
+    probes ``_PROBE_MM`` past both ends, at 0.9 r, are all outside material —
+    so the small hole of a counterbore is through and the counterbore is not.
     """
     merged: list[CylFeature] = []
     for _, face in iter_faces(shape):
@@ -220,16 +243,20 @@ def cylindrical_features(shape: Any) -> list[CylFeature]:
 
 
 def axis_distance(a: CylFeature, b: CylFeature) -> float:
-    """Distance between parallel axes for hole-pattern checks."""
+    """Distance between two parallel axes (hole-pattern checks)."""
     diff = _sub(b.axis_point, a.axis_point)
     return _norm(_sub(diff, _scale(a.direction, _dot(diff, a.direction))))
 
 
-def fingerprint(shape: Any) -> dict[str, Any]:
-    """Rounded summary stable across rebuilds on the same OCC version.
+# ----------------------------------------------------------------------------
+# Replay fingerprint
+# ----------------------------------------------------------------------------
 
-    Replay compares this rather than STEP bytes with timestamped headers.
-    """
+
+def fingerprint(shape: Any) -> dict[str, Any]:
+    """Rounded geometric summary, equal across rebuilds of the same spec on the
+    same OCC version. ``replay`` compares this instead of a STEP byte hash,
+    because STEP headers carry a timestamp."""
     topo = count_topology(shape)
     return {
         "volume": round(volume(shape), 2),
