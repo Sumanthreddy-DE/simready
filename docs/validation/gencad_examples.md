@@ -74,7 +74,7 @@ voxels; filling the grids measures volume overlap instead.
 | bbox XYZ: 0.276316 × 0.276316 × 0.734375; 4 faces | bbox XYZ: 0.363158 × 0.363158 × 0.750000; 4 faces |
 
 Sources: [IoU variants](gencad/iou_shell_vs_filled.json),
-[recorded tube dimensions and metric finding](gencad_eval.md#tuned-model-reading-the-numbers).
+[recorded tube dimensions and metric finding](gencad_eval.md#the-iou-metric).
 
 ### Reading limits and reproduction
 

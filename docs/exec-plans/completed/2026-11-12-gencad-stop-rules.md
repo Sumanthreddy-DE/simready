@@ -172,8 +172,8 @@ code, sketch count or length; references are used for scoring and stratification
 | R3 K=8 | 100/100 | 0.229609 | 0.229609 | 12 | 12 | 0 | -0.00000084 |
 
 The both-valid denominator is 88. R3 is sensitivity-only: no K was selected.
-Full bucket tables (1 / 2 / 3 / 4–8 sketches; n=57/18/12/13) are in the new
-`docs/validation/gencad_eval.md` section; all 55 aggregate/bucket records are in
+Full bucket tables (1 / 2 / 3 / 4–8 sketches; n=57/18/12/13) are in
+`docs/validation/gencad_stop_rules.md` (moved from `gencad_eval.md` 2026-11-15); all 55 aggregate/bucket records are in
 `docs/validation/gencad/stop_rules/summary.json`. Reference sketch counts use
 the existing analysis script's workplane-assignment regex, not comments.
 
