@@ -18,7 +18,7 @@ Eval set: the dataset's own `hundred_subset` (100 of 7,355 test rows). VSR = the
 and yields a solid. IoU_best = MecAgent's voxel IoU after alignment, reported over valid
 programs only (MecAgent's definition) and with invalid programs counted as 0.
 
-The test asks five things. Short answers:
+The test notebook (`good_luck.ipynb`) asks five things. Short answers:
 
 1. **Data.** 147,289 image/code training pairs. I trained on 6,000 of them (4 %).
 2. **Baseline.** The untuned model answers in JSON, so nothing runs. With one example program
