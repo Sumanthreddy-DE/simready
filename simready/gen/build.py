@@ -28,21 +28,11 @@ from typing import Any
 
 from simready.gen.spec import BoxOp, CutOp, CylOp, FuseOp, PartSpec
 
-try:  # pragma: no cover — exercised under sr env only
-    from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Cut, BRepAlgoAPI_Fuse
-    from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeBox, BRepPrimAPI_MakeCylinder
-    from OCC.Core.gp import gp_Ax2, gp_Dir, gp_Pnt
-    from OCC.Core.STEPControl import STEPControl_AsIs, STEPControl_Writer
-except ImportError:  # pragma: no cover — base env without pythonocc
-    BRepAlgoAPI_Cut = None
-    BRepAlgoAPI_Fuse = None
-    BRepPrimAPI_MakeBox = None
-    BRepPrimAPI_MakeCylinder = None
-    gp_Ax2 = None
-    gp_Dir = None
-    gp_Pnt = None
-    STEPControl_AsIs = None
-    STEPControl_Writer = None
+from simready.occ_compat import (
+    BRepAlgoAPI_Cut, BRepAlgoAPI_Fuse,
+    BRepPrimAPI_MakeBox, BRepPrimAPI_MakeCylinder,
+    gp_Ax2, gp_Dir, gp_Pnt, STEPControl_AsIs, STEPControl_Writer,
+)
 
 
 # Repo-relative default output dir for generated parts. Persistent so the

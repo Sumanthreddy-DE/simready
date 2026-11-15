@@ -6,14 +6,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-try:
-    from OCC.Core.BRepCheck import BRepCheck_Analyzer
-    from OCC.Core.IFSelect import IFSelect_RetDone
-    from OCC.Core.STEPControl import STEPControl_Reader
-except ImportError:  # pragma: no cover
-    BRepCheck_Analyzer = None
+from simready.occ_compat import (
+    BRepCheck_Analyzer, IFSelect_RetDone, STEPControl_Reader, OCC_AVAILABLE,
+)
+if not OCC_AVAILABLE:  # pragma: no cover
     IFSelect_RetDone = 1
-    STEPControl_Reader = None
 
 
 @dataclass

@@ -12,10 +12,10 @@ import pytest
 
 from simready.gen.spec import PartSpec
 
-occ = pytest.importorskip(
-    "OCC.Core.BRepPrimAPI",
-    reason="pythonocc-core not available (run under the sr env)",
-)
+from simready.occ_compat import OCC_AVAILABLE
+
+if not OCC_AVAILABLE:
+    pytest.skip("OCC bindings not available", allow_module_level=True)
 
 from simready.gen.build import build_part, build_shape, write_step
 from simready.occ_utils import count_topology, shape_bounding_box

@@ -4,28 +4,12 @@ from __future__ import annotations
 
 from typing import Any
 
-try:
-    from OCC.Core.Bnd import Bnd_Box
-    from OCC.Core.BRepAdaptor import BRepAdaptor_Curve
-    from OCC.Core.BRepBndLib import brepbndlib
-    from OCC.Core.GCPnts import GCPnts_AbscissaPoint
-    from OCC.Core.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_SOLID
-    from OCC.Core.TopExp import TopExp_Explorer, topexp
-    from OCC.Core.TopoDS import topods
-    from OCC.Core.TopTools import TopTools_IndexedDataMapOfShapeListOfShape
-except ImportError:  # pragma: no cover
-    Bnd_Box = None
-    BRepAdaptor_Curve = None
-    brepbndlib = None
-    GCPnts_AbscissaPoint = None
-    TopAbs_EDGE = TopAbs_FACE = TopAbs_SOLID = None
-    TopExp_Explorer = None
-    topexp = None
-    topods = None
-    TopTools_IndexedDataMapOfShapeListOfShape = None
-
-
-OCC_AVAILABLE = TopExp_Explorer is not None
+from simready.occ_compat import (
+    Bnd_Box, BRepAdaptor_Curve, brepbndlib, breptools,
+    GCPnts_AbscissaPoint, TopAbs_EDGE, TopAbs_FACE, TopAbs_SOLID,
+    TopExp_Explorer, topexp, topods, TopTools_IndexedDataMapOfShapeListOfShape,
+    OCC_AVAILABLE,
+)
 
 
 def count_shapes(shape: Any, shape_type: Any) -> int:
@@ -44,7 +28,9 @@ def shape_bounding_box(shape: Any) -> dict[str, float] | None:
         return None
     box = Bnd_Box()
     brepbndlib.Add(shape, box)
-    xmin, ymin, zmin, xmax, ymax, zmax = box.Get()
+    lo, hi = box.CornerMin(), box.CornerMax()
+    xmin, ymin, zmin = lo.X(), lo.Y(), lo.Z()
+    xmax, ymax, zmax = hi.X(), hi.Y(), hi.Z()
     return {
         "xmin": xmin,
         "ymin": ymin,
@@ -82,13 +68,12 @@ def uv_bounds(face: Any) -> tuple[float, float, float, float]:
     """Return (umin, umax, vmin, vmax) for a face, with pythonocc version compat."""
     # Try new API first (pythonocc 7.9+)
     try:
-        from OCC.Core.BRepTools import breptools
         return tuple(float(v) for v in breptools.UVBounds(face))
     except Exception:
         pass
     # Fall back to deprecated free function
     try:
-        from OCC.Core.BRepTools import breptools_UVBounds
+        from simready.occ_compat import breptools_UVBounds
         return tuple(float(v) for v in breptools_UVBounds(face))
     except Exception:
         pass
