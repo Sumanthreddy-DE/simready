@@ -1,7 +1,9 @@
 """Geometric measurements for the text-to-CAD benchmark checker.
 
 Everything here works on an in-memory ``TopoDS_Shape`` and returns plain
-Python values, so the checker never needs a STEP round-trip. Needs OCC bindings (pythonocc or OCP, via simready.occ_compat): import it only inside the build/check subprocess or in tests that skip without OCC.
+Python values, so the checker never needs a STEP round-trip. Needs OCC
+bindings (pythonocc or OCP, via simready.occ_compat): import it only inside
+the build/check subprocess or in tests that skip without OCC.
 """
 
 from __future__ import annotations

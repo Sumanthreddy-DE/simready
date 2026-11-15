@@ -14,6 +14,7 @@ def test_backend():
 
 
 def test_missing_pythonocc_attribute_falls_back_to_ocp(monkeypatch):
+    pytest.importorskip("OCP")  # the fallback target; absent in the pythonocc-only sr env
     real_import = importlib.import_module
 
     def import_with_missing_attribute(name, *args, **kwargs):
