@@ -26,6 +26,7 @@ with invalid programs counted as 0.
 | Model | VSR | IoU_best (valid only) | IoU_best (invalid = 0) |
 |---|---|---|---|
 | Qwen2.5-VL-3B-Instruct, untuned (4-bit) | 0.00 (0/100) | — | 0.000 |
+| Same, one-shot prompt (1 train example, 2026-11-15) | 0.01 (1/100) | 0.027 | 0.0003 |
 | Qwen2.5-VL-3B + QLoRA (6k examples, 1 epoch) | **0.88 (88/100)** | 0.256 | 0.225 |
 
 Run 2026-10-07, T4, ~81 s per example on average (2 h 15 min for 100; resumed once after a
@@ -90,8 +91,33 @@ extract code from inside JSON strings: that would repair the model's answer, and
 the answer as given.
 
 Caveat for reading the comparison: a 0 % baseline makes any working model look like a large
-gain. A stronger baseline (same untuned model, prompt with one example program) is planned
-if time allows.
+gain. The one-shot prompted baseline below was run to test that; it did not give a stronger
+baseline.
+
+## Prompted baseline: one-shot copies the example (2026-11-15)
+
+Same untuned model, same 100 rows, prompt, decoding and scoring. One training-split example
+(`train` row 87, picked by a fixed rule: among the first 2,000 train rows, the one-sketch
+program whose token length is closest to the eval median) is shown as an earlier chat turn:
+example image, then its reference program as the assistant answer, then the test image.
+Notebook: `notebooks/gencad_baseline.ipynb` with `SHOTS = 1`.
+
+| | VSR | IoU_best (valid only) | IoU_best (invalid = 0) |
+|---|---|---|---|
+| One-shot, untuned | 0.01 (1/100) | 0.027 | 0.0003 |
+
+- **The model copies the example instead of reading the image.** It produced only 2 distinct
+  outputs over 100 rows. 99 rows are the example's program, unchanged except that its first
+  `)))` became `))`, so all 99 fail with `'(' was never closed`. The example program itself
+  compiles (control); the dropped parenthesis is the only difference.
+- **The one valid row (idx 1446)** is a different program: one extruded circle, IoU 0.027.
+- **Reading:** one-shot prompting moves the answer format from JSON to GenCAD-style CadQuery,
+  but a 3B untuned model does not condition the program on the test image. The 0 → 0.88 gain
+  of the QLoRA model is therefore not only format: a prompted model that has the format still
+  scores 0.01. A 2-shot or varied-example prompt was not tried.
+- Files: `gencad/scores_qwen25vl3b_base_1shot.json`; `gencad/oneshot_example.json` holds the
+  train index and a SHA-256 of the program, not the program (GenCAD-Code declares no license).
+  The raw generations are kept locally only, because 99 of 100 rows are that training program.
 
 A scoring bug was found and fixed before this number was recorded: the fence stripper first
 handled only ```` ```python ````, so ```` ```json ```` fences stayed in. Re-scored from the
@@ -296,7 +322,9 @@ checker re-evaluation, or independent-model validation was performed.
    over-generation costs tokens and runtime, not geometry. A repetition penalty was not tested
    (needs GPU).
 2. **Stronger baseline:** untuned model with one example program in the prompt, so the
-   0 → 0.88 comparison is not against a model that answers in JSON.
+   0 → 0.88 comparison is not against a model that answers in JSON. **Done 2026-11-15**
+   (section "Prompted baseline" above): VSR 0.01; the model copies the example program for
+   99 of 100 images.
 3. **Gemma-3-4B:** same notebooks, second model.
 4. **More data / longer training:** 6k of 147k examples, 1 epoch; accuracy on 2+ sketch parts
    is the gap.

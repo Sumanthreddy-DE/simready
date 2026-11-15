@@ -272,6 +272,7 @@ decoding. VSR = program runs and yields a solid.
 | Model | VSR | IoU_best (valid only) | IoU_best (invalid = 0) |
 |---|--:|--:|--:|
 | Qwen2.5-VL-3B-Instruct, untuned (4-bit) | 0/100 | — | 0.000 |
+| Same, one-shot prompt (1 train example) | 1/100 | 0.027 | 0.0003 |
 | Qwen2.5-VL-3B + QLoRA (6k examples, 1 epoch, T4) | **88/100** | 0.256 | 0.225 |
 
 How to read it:
@@ -371,9 +372,10 @@ that can be checked.
 
 **Now — GenCAD follow-ups** (`docs/validation/gencad_eval.md`, "Next steps")
 
-1. **Stopping problem:** all 12 failures are runaway generations. Try a stop rule or
-   repetition penalty at inference, no retraining, and re-score the same 100 rows.
+1. **Stopping problem:** all 12 failures are runaway generations. Done offline 2026-11-12:
+   trimming to the last complete `solid=` line lifts VSR 88 → 100/100, IoU flat (0.225 → 0.230).
 2. **Stronger baseline:** the same untuned model with one example program in the prompt.
+   Done 2026-11-15: 1/100 valid; the model copies the example program for 99 of 100 images.
 3. **Second model:** Gemma-3-4B with the same two notebooks, against its own untuned base.
 
 **Next — text → CAD, in three sub-projects**
