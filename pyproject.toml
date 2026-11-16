@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "simready"
+dynamic = ["version"]
+requires-python = ">=3.10"
+license = "MIT"
+dependencies = ["pydantic>=2"]
+
+[project.optional-dependencies]
+bench = ["cadquery-ocp==8.0.1.1.0"]
+
+[tool.setuptools.dynamic]
+version = {attr = "simready.__version__"}
+
+[tool.setuptools.packages.find]
+include = ["simready*"]
+
+[tool.setuptools.package-data]
+"simready.bench" = ["prompts/*.jsonl", "prompts/*.sha256"]
+simready = ["templates/*.html"]

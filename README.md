@@ -149,6 +149,26 @@ python scripts/scrape_fea_docs.py
 python scripts/index_fea_docs.py   # → data/fea_docs_index.json
 ```
 
+### Install as a package (benchmark only)
+
+In the `sr` conda env, which already provides pythonocc:
+
+```bash
+pip install -e .
+```
+
+In a plain venv, use the OCP benchmark extra (replace `<tag>` with a published tag):
+
+```bash
+pip install "simready[bench] @ git+https://github.com/Sumanthreddy-DE/simready@<tag>"
+# Or install from this checkout:
+pip install -e ".[bench]"
+```
+
+Never install cadquery-ocp into an env that has pythonocc: both bundle OCCT.
+For the full app (CLI, UI, ML and copilot), use `environment.yml` and
+`requirements.txt` as above.
+
 ## Results & Limitations
 
 **Read the label-source column before the accuracy column.** The model's *refinement* head
