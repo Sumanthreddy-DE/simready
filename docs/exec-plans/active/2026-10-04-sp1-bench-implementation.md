@@ -1354,6 +1354,8 @@ git commit -m "feat(bench): checker with pass/fail tests per type; reference spe
 
 ### Task 5: Attempt pipeline (parse, classify, grade in a subprocess)
 
+**Verified 2026-11-16:** plan code as written, except the two subprocess tests gate on `simready.occ_compat.OCC_AVAILABLE` (a `needs_occ` skipif mark) instead of `importorskip("OCC.Core.BRepPrimAPI")` (deviation 6). Under OCP: 9 passed; full suite 20 failed / 211 passed before, 20 failed / 220 passed after. Break checks, one at a time, each failing exactly one test: F9 pre-check removed, F4/F8 stage mapping swapped, F3 returned as F2, queue read without a timeout.
+
 **Files:**
 - Create: `simready/bench/attempt.py`
 - Create: `tests/test_bench_attempt.py`
@@ -1362,7 +1364,7 @@ git commit -m "feat(bench): checker with pass/fail tests per type; reference spe
 - Consumes: `PartSpec`, `build_shape`, `grade_shape`, `fingerprint`, `CHECK_LIST`.
 - Produces: `ParsedReply(spec, via, n_tool_calls, error)`; `parse_reply(tool_calls: list[dict], content: str | None) -> ParsedReply` (tool-call dicts have `name`, `arguments`); `classify_spec(spec: dict) -> tuple[str | None, list[str]]`; `grade_spec(spec_dict, checks, expected_solids=1, timeout_s=60.0) -> dict` with `stage` ∈ `graded|build_error|checker_error|timeout`; `evaluate_reply(parsed, checks, expected_solids, grade=grade_spec) -> dict` with keys `via, n_tool_calls, spec, schema_errors, build_error, fingerprint, check_report, partial, passed, failure_class`. Constants `F1, F2, F3, F4, F8, F9, INFRA, CHECKER_ERROR, KNOWN_OPS, GRADE_TIMEOUT_S`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `tests/test_bench_attempt.py`:
 
@@ -1466,12 +1468,12 @@ def test_grade_spec_timeout_is_reported_not_raised():
     assert out["stage"] == "timeout"
 ```
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run: `C:/mm/sr/python.exe -m pytest tests/test_bench_attempt.py -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'simready.bench.attempt'`
 
-- [ ] **Step 3: Write `simready/bench/attempt.py`**
+- [x] **Step 3: Write `simready/bench/attempt.py`**
 
 ```python
 """One benchmark attempt: parse a model reply, classify pre-build failures,
@@ -1681,12 +1683,12 @@ def evaluate_reply(
     return out
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `C:/mm/sr/python.exe -m pytest tests/test_bench_attempt.py -v`
 Expected: 9 passed
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add simready/bench/attempt.py tests/test_bench_attempt.py
