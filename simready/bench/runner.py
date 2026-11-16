@@ -148,6 +148,14 @@ def run_benchmark(
                     stop.set()
                     state["stopped"] = state["stopped"] or f"{MAX_CONSECUTIVE_INFRA} consecutive infra errors"
             return
+        if reply["model_returned"] != model_id:
+            # Vultr answers an unknown or retired id with its default model; never score that.
+            stop.set()
+            with lock:
+                state["stopped"] = state["stopped"] or (
+                    f"model substituted: asked {model_id!r}, got {reply['model_returned']!r}"
+                )
+            return
         with lock:
             state["consecutive_infra"] = 0
         parsed = parse_reply(reply["tool_calls"], reply["content"])

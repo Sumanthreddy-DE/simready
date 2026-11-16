@@ -91,6 +91,14 @@ def test_quota_exhausted_stops_cleanly(tmp_path, concepts):
     assert summary.written == 0 and len(client.calls) == 1
 
 
+def test_substituted_model_stops_without_logging(tmp_path, concepts):
+    out = tmp_path / "run.jsonl"
+    summary = run_benchmark(client=FakeClient(), model_alias="fake", model_id="other", base_url="http://x",
+                            k=2, out_path=out, concepts_path=concepts, workers=1, grade=fake_grade)
+    assert summary.stopped_reason.startswith("model substituted")
+    assert summary.written == 0 and runlog.attempts(out) == []
+
+
 def test_limit_takes_first_items(tmp_path, concepts):
     out = tmp_path / "run.jsonl"
     assert _run(FakeClient(), out, concepts, limit=3).written == 3
