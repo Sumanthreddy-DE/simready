@@ -2878,6 +2878,8 @@ git commit -m "feat(bench): regrade and replay - re-check logs, verify fingerpri
 
 ### Task 9: Report (stdlib only) + `report` command
 
+**Verified 2026-11-16:** plan code as written, with one test strengthened: the plan's tests still passed when `load_run` scored infra/checker errors (the synthetic infra line is out-of-vocab, so the headline never saw it), so `test_failure_distribution_and_out_of_vocab` now also asserts `sum(oov.values()) == 2`. Under OCP: 5 passed; full suite 20 failed / 241 passed before, 20 failed / 246 passed after. Break checks, one at a time, each caught: out-of-vocab attempts in the headline (2 tests), pass@k as all-pass, gap taken against intent, infra lines scored, `incomplete_prompts` ignoring excluded lines. Import check: after `import simready.bench.report`, no `OCC`, `OCP` or `openai` module is loaded (checked in the OCP venv by listing `sys.modules`; the plan's base-Python check needs pydantic, which the VPS system Python lacks). `python -m simready.bench report` on the two Task 8 scratch logs (3 real-grader passes; 3 spawn-guard timeouts) printed 100.0% and 0.0% pass@1, and the timeouts landed in the F8 column.
+
 **Files:**
 - Create: `simready/bench/report.py`
 - Modify: `simready/bench/__main__.py` (add `report`)
@@ -2887,7 +2889,7 @@ git commit -m "feat(bench): regrade and replay - re-check logs, verify fingerpri
 - Consumes: `runlog`, `PHRASINGS` (`concepts` imports only pydantic; no OCC, no openai).
 - Produces: `load_run(path) -> ModelRun(header, attempts, excluded)`; `headline(run) -> dict(p1, p1_ci, pk, pk_ci, n_concepts, n_prompts)`; `by_phrasing(run) -> dict(p1: {phrasing: float}, gap, gap_ci)`; `failure_distribution(run) -> dict[phrasing, Counter]`; `out_of_vocab(run) -> Counter`; `cost(run) -> dict`; `incomplete_prompts(run) -> int`; `render_markdown(runs: list[ModelRun]) -> str`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `tests/test_bench_report.py`:
 
@@ -2973,12 +2975,12 @@ def test_render_markdown_has_all_generated_tables(tmp_path):
     assert "not comparable" in md
 ```
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run: `C:/mm/sr/python.exe -m pytest tests/test_bench_report.py -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'simready.bench.report'`
 
-- [ ] **Step 3: Write `simready/bench/report.py`**
+- [x] **Step 3: Write `simready/bench/report.py`**
 
 ```python
 """bench_v1.md tables from run logs. Stdlib (+ pydantic via concepts) only:
@@ -3189,7 +3191,7 @@ def render_markdown(runs: list[ModelRun]) -> str:
     return "\n".join(lines)
 ```
 
-- [ ] **Step 4: Add `report` to the CLI**
+- [x] **Step 4: Add `report` to the CLI**
 
 In `simready/bench/__main__.py`, add this function above `main`:
 
@@ -3217,7 +3219,7 @@ In `main`:
 
 and `handlers = {"smoke": _smoke, "run": _run, "regrade": _regrade, "replay": _replay, "report": _report}`.
 
-- [ ] **Step 5: Run the tests, including an OCC-free import check**
+- [x] **Step 5: Run the tests, including an OCC-free import check**
 
 Run: `C:/mm/sr/python.exe -m pytest tests/test_bench_report.py -v`
 Expected: 5 passed
@@ -3225,7 +3227,7 @@ Expected: 5 passed
 Run (base Python, no OCC): `python -c "import simready.bench.report, sys; print('OCC' in ' '.join(sys.modules))"`
 Expected: `False`
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add simready/bench/report.py simready/bench/__main__.py tests/test_bench_report.py

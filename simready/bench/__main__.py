@@ -89,6 +89,19 @@ def _replay(args: argparse.Namespace) -> int:
     return 0 if match else 1
 
 
+def _report(args: argparse.Namespace) -> int:
+    from simready.bench.report import load_run, render_markdown
+
+    md = render_markdown([load_run(p) for p in args.runs])
+    if args.out:
+        Path(args.out).write_text(md, encoding="utf-8")
+        print(f"wrote {args.out}")
+    else:
+        sys.stdout.reconfigure(encoding="utf-8")
+        print(md)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m simready.bench")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -107,8 +120,11 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("replay", help="rebuild one attempt and verify its fingerprint")
     p.add_argument("run")
     p.add_argument("attempt_id")
+    rp = sub.add_parser("report", help="bench_v1.md tables from run logs (no OCC needed)")
+    rp.add_argument("runs", nargs="+")
+    rp.add_argument("--out")
     args = ap.parse_args(argv)
-    handlers = {"smoke": _smoke, "run": _run, "regrade": _regrade, "replay": _replay}
+    handlers = {"smoke": _smoke, "run": _run, "regrade": _regrade, "replay": _replay, "report": _report}
     return handlers[args.cmd](args)
 
 
