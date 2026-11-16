@@ -46,13 +46,43 @@ def _smoke(args: argparse.Namespace) -> int:
     return 0 if parsed.spec is not None else 1
 
 
+def _run(args: argparse.Namespace) -> int:
+    from simready.bench.providers import ModelClient, load_providers
+    from simready.bench.runner import run_benchmark
+
+    provider = load_providers()[args.model]
+    run_id = args.run_id or f"{args.model}-k{args.k}" + (f"-smoke{args.limit}" if args.limit else "")
+    summary = run_benchmark(
+        client=ModelClient(provider),
+        model_alias=args.model,
+        model_id=provider.model,
+        base_url=provider.base_url,
+        k=args.k,
+        out_path=RUNS_DIR / f"{run_id}.jsonl",
+        limit=args.limit,
+        workers=args.workers,
+        official=args.official,
+        max_tokens=provider.max_tokens,
+    )
+    print(f"{summary.path}: wrote {summary.written}, infra errors {summary.infra_errors}, "
+          f"stopped: {summary.stopped_reason or 'no'}")
+    return 0 if summary.stopped_reason is None else 2
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m simready.bench")
     sub = ap.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("smoke", help="one live call: model id, tool calling, parse")
     s.add_argument("--model", required=True)
+    r = sub.add_parser("run", help="run the benchmark for one model")
+    r.add_argument("--model", required=True)
+    r.add_argument("--k", type=int, default=5)
+    r.add_argument("--limit", type=int)
+    r.add_argument("--run-id")
+    r.add_argument("--workers", type=int, default=4)
+    r.add_argument("--official", action="store_true")
     args = ap.parse_args(argv)
-    handlers = {"smoke": _smoke}
+    handlers = {"smoke": _smoke, "run": _run}
     return handlers[args.cmd](args)
 
 

@@ -2208,6 +2208,8 @@ git commit -m "feat(bench): provider client with quota-aware retries, smoke comm
 
 ### Task 7: Run log + runner + `run` command
 
+**Verified 2026-11-16:** plan code as written, with two test fixes. (a) `_run` in the test passed `workers=2` and also forwarded `**kw`, so `test_quota_exhausted_stops_cleanly` (which passes `workers=1`) raised `TypeError: got multiple values for keyword argument 'workers'`; `_run` now uses `kw.setdefault("workers", 2)`. (b) That test asserted only `written < 12`, which still passed with `stop.set()` deleted from the quota handler (11 written); it now asserts `written == 0` and exactly one client call. Under OCP: 7 passed; full suite 20 failed / 229 passed before, 20 failed / 236 passed after. Break checks, one at a time, each caught: quota does not stop the run, resume header pin skipped, infra errors counted as done, official frozen-hash check skipped, gzip read path off, `limit` ignored (2 tests).
+
 **Files:**
 - Create: `simready/bench/runlog.py`
 - Create: `simready/bench/runner.py`
@@ -2218,7 +2220,7 @@ git commit -m "feat(bench): provider client with quota-aware retries, smoke comm
 - Consumes: `load_concepts`, `file_sha256`, `frozen_sha256`, `PHRASINGS`, `CHECKER_VERSION`; `parse_reply`, `evaluate_reply`, `grade_spec`, `INFRA`; `build_messages`, `BUILD_PART_TOOL`, `system_prompt_sha256`; `InfraError`, `QuotaExhausted`; the client object's `.complete(messages, tools, temperature, seed)`.
 - Produces: `runlog.read_records(path)`, `runlog.read_header(path)`, `runlog.attempts(path) -> list[dict]` (latest record per `attempt_id`), `runlog.done_attempt_ids(path) -> set[str]`, `runlog.append(path, record)`, `runlog.EXCLUDED_CLASSES`. `runner.run_benchmark(*, client, model_alias, model_id, base_url, k, out_path, concepts_path=CONCEPTS_V1, limit=None, workers=4, official=False, grade=grade_spec, max_tokens=None) -> RunSummary(path, written, infra_errors, stopped_reason)`. Attempt record keys: `record="attempt", attempt_id, concept_id, name, in_vocab, phrasing, attempt_idx, prompt, model, prompt_sha256, checker_version, seed, ts, response, usage, latency_s`, plus every `evaluate_reply` key (or `error` for infra).
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `tests/test_bench_runner.py`:
 
@@ -2344,12 +2346,12 @@ def test_runlog_reads_gzip(tmp_path, concepts):
     assert len(runlog.attempts(gz)) == 2
 ```
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run: `C:/mm/sr/python.exe -m pytest tests/test_bench_runner.py -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'simready.bench.runlog'`
 
-- [ ] **Step 3: Write `simready/bench/runlog.py`**
+- [x] **Step 3: Write `simready/bench/runlog.py`**
 
 ```python
 """Read/append benchmark JSONL logs (.jsonl or .jsonl.gz). Stdlib only.
@@ -2408,7 +2410,7 @@ def append(path: str | Path, record: dict) -> None:
         fh.write(line)
 ```
 
-- [ ] **Step 4: Write `simready/bench/runner.py`**
+- [x] **Step 4: Write `simready/bench/runner.py`**
 
 ```python
 """Batch runner: concepts x phrasings x k attempts -> append-only JSONL log.
@@ -2586,7 +2588,7 @@ def run_benchmark(
     return RunSummary(out_path, state["written"], state["infra"], state["stopped"])
 ```
 
-- [ ] **Step 5: Add `run` to the CLI**
+- [x] **Step 5: Add `run` to the CLI**
 
 In `simready/bench/__main__.py`, add this function above `main`:
 
@@ -2628,12 +2630,12 @@ In `main`, add the parser and the handler:
 
 and `handlers = {"smoke": _smoke, "run": _run}`.
 
-- [ ] **Step 6: Run the tests**
+- [x] **Step 6: Run the tests**
 
 Run: `C:/mm/sr/python.exe -m pytest tests/test_bench_runner.py -v`
 Expected: 7 passed
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add simready/bench/runlog.py simready/bench/runner.py simready/bench/__main__.py tests/test_bench_runner.py
