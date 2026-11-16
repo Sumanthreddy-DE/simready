@@ -2178,7 +2178,7 @@ if __name__ == "__main__":
     sys.exit(main())
 ```
 
-- [ ] **Step 6: Verify keys and model IDs live (needs the user)**
+- [x] **Step 6: Verify keys and model IDs live (needs the user)**
 
 1. *(Superseded 2026-11-16 by the provider update above: both aliases use `VULTR_API_KEY`; check that one key and skip to 3.)* Ask the user which provider issued each key (GLM-5.3 and DeepSeek V4.1 Flash) and to add the keys to `.env` as `GLM_API_KEY` and `DEEPSEEK_API_KEY` themselves. As of 2026-10-04, `.env` holds only `OPENAI_API_KEY` (NIM), `OPENAI_BASE_URL`, `OPENAI_MODEL` and `KIMI_API_KEY`. If both models are served on NIM with the existing key, set `key_env` to `OPENAI_API_KEY` instead.
 2. Check the keys load without printing them:
@@ -2191,7 +2191,11 @@ if __name__ == "__main__":
 
 Expected end state: both smokes exit 0 with `pre_build_class: null`.
 
-- [ ] **Step 7: Run the tests**
+**Done 2026-11-16 (Task 6-live, VPS):** `VULTR_API_KEY` added to `.env` by the user (36 chars, checked by length only); the worktree reads it through a symlink to the main checkout's `.env`. Vultr `models.list` serves 33 ids. GLM: `glm-5.3` (also `glm-5.2`, `glm-5.3-flash`). DeepSeek: the 2026-10-05 id `deepseek-v4.1-flash` is gone; the only match is `deepseek-v4.1-flash-1017`, so the alias keeps its name and `model` is `deepseek-v4.1-flash-1017`. Both smokes: `via: tool`, `finish_reason: tool_calls`, `pre_build_class: null`, exit 0, about 1 s. Seed: `seed=0` is accepted by both (no HTTP 400), so `supports_seed` is `true`; accepted does not mean honoured, so k attempts are not assumed reproducible. Thinking mode: left at the provider default; no parameter sent.
+
+**Defect found and guarded:** Vultr does not reject an unknown model id. The first GLM smoke still carried the `<VERIFY ...>` placeholder as its id and came back `model_returned: deepseek-v4.1-flash-1017` with exit 0, so a typo or a retired id would silently benchmark another model. `smoke` now exits 1 when `model_returned` differs from the configured id (negative control: id `glm-5.3-nosuch` printed the mismatch and exited 1). The runner has the same exposure and only logs `model_returned`; a run-time guard is a Task 10 item.
+
+- [x] **Step 7: Run the tests**
 
 Run: `C:/mm/sr/python.exe -m pytest tests/test_bench_providers.py -v`
 Expected: 9 passed, 1 deselected (`test_providers_json_is_complete` is `live_llm`).

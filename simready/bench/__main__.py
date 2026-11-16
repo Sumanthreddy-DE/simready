@@ -43,6 +43,10 @@ def _smoke(args: argparse.Namespace) -> int:
         "usage": reply["usage"],
         "latency_s": reply["latency_s"],
     }, indent=2))
+    # Vultr answers an unknown model id with its default model instead of an error.
+    if reply["model_returned"] != provider.model:
+        print(f"model_returned {reply['model_returned']!r} != configured {provider.model!r}")
+        return 1
     return 0 if parsed.spec is not None else 1
 
 

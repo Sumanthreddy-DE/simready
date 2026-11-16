@@ -1,20 +1,20 @@
 {
   "glm-5.3": {
     "base_url": "https://api.vultrinference.com/v1",
-    "model": "<VERIFY: exact model id from models.list (glm-5.3 on 2026-10-05)>",
+    "model": "glm-5.3",
     "key_env": "VULTR_API_KEY",
     "rpm": 20,
     "max_tokens": 8192,
-    "supports_seed": false,
+    "supports_seed": true,
     "extra_body": {}
   },
   "deepseek-v4.1-flash": {
     "base_url": "https://api.vultrinference.com/v1",
-    "model": "<VERIFY: exact model id from models.list (deepseek-v4.1-flash on 2026-10-05)>",
+    "model": "deepseek-v4.1-flash-1017",
     "key_env": "VULTR_API_KEY",
     "rpm": 20,
     "max_tokens": 8192,
-    "supports_seed": false,
+    "supports_seed": true,
     "extra_body": {}
   }
 }
