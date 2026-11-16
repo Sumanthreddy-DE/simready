@@ -3245,12 +3245,21 @@ git commit -m "feat(bench): report - pass@k, concept bootstrap CIs, reasoning ga
 **Files:**
 - Possibly modify: `simready/bench/prompts/concepts_v1.jsonl`, `simready/bench/checker.py`, `simready/bench/attempt.py`, `simready/bench/providers.json` (whatever the smoke shows)
 
-- [ ] **Step 1: Full test suite green first**
+**Done 2026-11-16 (VPS, Vultr, both models via tool calls):**
+- Step 1: bench tests all pass (126 passed, 1 deselected); the full suite has 20 failures, all outside `test_bench_*` and present at the `5f830db` baseline (VPS environment, not SP1), so "0 failures" is not reachable here.
+- Fix 1, runner guard (from Task 6-live): `run_benchmark` stops with `stopped_reason` `model substituted: ...` and logs nothing when `model_returned` differs from the configured id. Test `test_substituted_model_stops_without_logging`; fails with the guard removed.
+- Fix 2, hidden step cap: first smoke, GLM failed 4/4 intent attempts with F2 `steps: List should have at most 16 items ... not 19`. The 16-step `PartSpec` cap was not stated anywhere in the tool schema, so the model was graded on a rule it was never told. `build_part`'s description in `simready/copilot/tools.py` (the product schema, single source of truth) now says `A spec has at most {STEPS_MAX} steps in total; a longer one is rejected.` The system-prompt hash changes, so the smoke logs before this fix cannot be resumed (by design). Test: `test_bench_tool_drops_agent_only_instructions` asserts the sentence; fails without the fix. After it: no F2.
+- Fix 3, GLM `max_tokens` 8192 -> 16384: second smoke, GLM hit `finish_reason: length` on 2/12 (F1). GLM reasons at length (median 25 s, up to 11,128 completion tokens); at 16384, 0/12 truncated, and 2 attempts used more than 8192. DeepSeek stays at 8192 (max 1,192 used).
+- Final smoke (`smoke3-glm`, `smoke2-ds`, 2 concepts x 3 phrasings x k=2): pass@1 GLM 83.3%, DeepSeek 91.7%; pass@k 100% both. Remaining failures read and judged genuine model misses, not checker bugs: c001 engineer bore 22.0 mm (line-to-line with the 22 mm boss; the prompt asks for clearance, check [22.1, 24.0]); bore 25.0 mm; one F3 (`steps[7].a=7` self-reference). One for the proofread (`sp1-concepts-proofread`): a first-smoke GLM answer used a 23 mm x 3 mm pocket for the boss plus an 8 mm through hole, which clears a 2 mm boss but fails the `through: true` bore check.
+- Step 4: `replay ... c001/explicit/0` matched on both logs, exit 0.
+- Cost for Task 11, from the smoke averages: GLM about 4.7k completion tokens per attempt, so 750 attempts (50 concepts x 3 x k=5) is about 3.5M tokens, roughly $11 at $3 / 1M; DeepSeek about $0.5. The last recorded Vultr balance is $5 (2026-10-05), so check the balance or cut GLM's k before Task 11 (BACKLOG `vultr-budget`).
+
+- [x] **Step 1: Full test suite green first**
 
 Run: `C:/mm/sr/python.exe -m pytest -q`
 Expected: the previous suite (227) plus all `test_bench_*` pass, 0 failures.
 
-- [ ] **Step 2: Smoke-run 2 concepts × 3 phrasings × k=2 per model**
+- [x] **Step 2: Smoke-run 2 concepts × 3 phrasings × k=2 per model**
 
 ```bash
 C:/mm/sr/python.exe -m simready.bench run --model glm-5.3 --k 2 --limit 12 --run-id smoke-glm
@@ -3260,11 +3269,11 @@ C:/mm/sr/python.exe -m simready.bench report data/bench_runs/smoke-glm.jsonl dat
 
 Expected: both runs print `stopped: no` and the report renders. `--limit 12` covers c001 and c002, all three phrasings, 2 attempts each.
 
-- [ ] **Step 3: Read every smoke attempt, not just the totals**
+- [x] **Step 3: Read every smoke attempt, not just the totals**
 
 For each of the 24 attempts, check: `via`; the parsed spec; the class; and, for F6/F7, the check `detail` lines. Typical findings to fix here: a range that's too tight for a reasonable answer (fix the concept), a reply shape the parser misses (add a parser test first, then fix), `finish_reason: length` (raise `max_tokens`), `checker_error` (fix the checker with a regression test first). Every change gets a test or a concept-file fix, plus a commit.
 
-- [ ] **Step 4: Replay one attempt per model**
+- [x] **Step 4: Replay one attempt per model**
 
 ```bash
 C:/mm/sr/python.exe -m simready.bench replay data/bench_runs/smoke-glm.jsonl c001/explicit/0
@@ -3272,7 +3281,7 @@ C:/mm/sr/python.exe -m simready.bench replay data/bench_runs/smoke-glm.jsonl c00
 
 Expected: `"match": true`, exit 0. Use any attempt that has a fingerprint.
 
-- [ ] **Step 5: Commit the fixes**
+- [x] **Step 5: Commit the fixes**
 
 ```bash
 git add -A simready/bench tests
