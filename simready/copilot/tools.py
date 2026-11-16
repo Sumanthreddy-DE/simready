@@ -18,6 +18,7 @@ from typing import Any
 
 from simready.pipeline import analyze_file_safe
 from simready.copilot import rag
+from simready.gen.spec import STEPS_MAX
 
 logger = logging.getLogger(__name__)
 
@@ -135,6 +136,7 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
                 "0-based indices into earlier steps. The last step is the part returned; "
                 "every other step MUST be referenced by a later fuse/cut, so multi-primitive "
                 "parts always end with the boolean op that combines them. "
+                f"A spec has at most {STEPS_MAX} steps in total; a longer one is rejected. "
                 "After calling this, ALWAYS call analyze_geometry on the returned step_path "
                 "to validate it before describing the result to the user."
             ),

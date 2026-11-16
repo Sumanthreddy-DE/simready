@@ -24,6 +24,7 @@ from simready.bench.providers import (
     load_providers,
     resolve_key,
 )
+from simready.gen.spec import STEPS_MAX
 
 P = Provider("t", "http://x/v1", "m", "BENCH_TEST_KEY", 0, 512, True, {})
 REQ = httpx.Request("POST", "http://x/v1/chat/completions")
@@ -125,6 +126,7 @@ def test_rate_limiter_spaces_calls():
 def test_bench_tool_drops_agent_only_instructions():
     desc = BUILD_PART_TOOL["function"]["description"]
     assert "analyze_geometry" not in desc and "axis is +Z" in desc
+    assert f"at most {STEPS_MAX} steps" in desc  # the PartSpec cap is stated, not hidden (Task 10 smoke)
     assert "timeout_seconds" not in BUILD_PART_TOOL["function"]["parameters"]["properties"]
     assert "say so" in SYSTEM_PROMPT
     assert len(system_prompt_sha256()) == 64
