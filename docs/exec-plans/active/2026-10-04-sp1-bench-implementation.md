@@ -1708,11 +1708,15 @@ git commit -m "feat(bench): attempt pipeline - reply parsing, F1-F9 classes, kil
 
 **Split (user decision 2026-10-05):** steps 1–5, 7 and 8 run now ("Task 6-code"). Step 6 (live key and model-id verification) runs after Task 9 ("Task 6-live"), once the user gives the provider's base URL. The key is from a provider the user calls "D Labs"; nothing about it may be assumed.
 
+**Provider update (2026-10-05, applied 2026-11-16):** both models run on Vultr Serverless Inference, not D Labs. D Labs corrupts tool-call arguments for every model tested; Vultr returned 6/6 valid tool calls in a live probe on 2026-10-05 (BACKLOG `sp1-resume` note a2). `providers.json` therefore ships `base_url` `https://api.vultrinference.com/v1` and `key_env` `VULTR_API_KEY` for both aliases; only `model` keeps a `<VERIFY>` marker (with the 2026-10-05 id as a hint), so `test_providers_json_is_complete` still fails until step 6 confirms the ids live.
+
+**Verified 2026-11-16 (Task 6-code):** plan code as written, except (a) `providers.json` per the provider update above, and (b) the test imports `httpx2 as httpx` when `openai` is 3.x, because openai 3.0 replaced its `httpx` dependency with `httpx2` (checked in the 2.54.0 and 3.0.0 wheel METADATA) and the error classes need that library's `Response`. Under OCP + openai 3.51.0: 9 passed, 1 deselected; `-m live_llm` fails on the `<VERIFY` marker as intended. Full suite 20 failed / 220 passed before, 20 failed / 229 passed after. Break checks, one at a time, each failing exactly one test: quota detection removed, 4xx retried, seed sent when unsupported, rate limiter disabled. Steps 6 and the live half of step 7 stay open.
+
 **Interfaces:**
 - Consumes: `simready.copilot.tools.TOOL_SCHEMAS`; `parse_reply`, `classify_spec`.
 - Produces: `SYSTEM_PROMPT: str`; `BUILD_PART_TOOL: dict`; `build_messages(prompt) -> list[dict]`; `system_prompt_sha256() -> str`. `Provider` dataclass (`alias, base_url, model, key_env, rpm, max_tokens, supports_seed, extra_body`); `load_providers(path=PROVIDERS_JSON) -> dict[str, Provider]`; `resolve_key(provider, env=os.environ, dotenv_path=...) -> str`; `RateLimiter(rpm, clock, sleep).wait()`; `InfraError`, `QuotaExhausted`; `ModelClient(provider, client=None, sleep=time.sleep, max_retries=6, initial_backoff=2.0, max_backoff=120.0).complete(messages, tools, temperature, seed=None) -> dict` with keys `tool_calls, content, finish_reason, model_returned, usage, latency_s`. CLI `main(argv) -> int`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `tests/test_bench_providers.py`:
 
@@ -1855,12 +1859,12 @@ def test_providers_json_is_complete():
         assert p.key_env and not p.key_env.startswith("sk-")
 ```
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run: `C:/mm/sr/python.exe -m pytest tests/test_bench_providers.py -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'simready.bench.prompting'`
 
-- [ ] **Step 3: Write `simready/bench/prompting.py`**
+- [x] **Step 3: Write `simready/bench/prompting.py`**
 
 ```python
 """System prompt and tool schema shared by every benchmarked model.
@@ -1913,7 +1917,7 @@ def system_prompt_sha256() -> str:
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()
 ```
 
-- [ ] **Step 4: Write `simready/bench/providers.py`**
+- [x] **Step 4: Write `simready/bench/providers.py`**
 
 ```python
 """Provider config, API-key lookup and a retrying, rate-limited chat client.
@@ -2082,7 +2086,7 @@ class ModelClient:
         raise InfraError(last)
 ```
 
-- [ ] **Step 5: Write `providers.json` with `<VERIFY>` markers, plus the smoke CLI**
+- [x] **Step 5: Write `providers.json` with `<VERIFY>` markers, plus the smoke CLI**
 
 `simready/bench/providers.json`. The `<VERIFY ...>` markers are deliberate: the values are only known after step 6, and `test_providers_json_is_complete` fails until they are filled in.
 
@@ -2176,7 +2180,7 @@ if __name__ == "__main__":
 
 - [ ] **Step 6: Verify keys and model IDs live (needs the user)**
 
-1. Ask the user which provider issued each key (GLM-5.3 and DeepSeek V4.1 Flash) and to add the keys to `.env` as `GLM_API_KEY` and `DEEPSEEK_API_KEY` themselves. As of 2026-10-04, `.env` holds only `OPENAI_API_KEY` (NIM), `OPENAI_BASE_URL`, `OPENAI_MODEL` and `KIMI_API_KEY`. If both models are served on NIM with the existing key, set `key_env` to `OPENAI_API_KEY` instead.
+1. *(Superseded 2026-11-16 by the provider update above: both aliases use `VULTR_API_KEY`; check that one key and skip to 3.)* Ask the user which provider issued each key (GLM-5.3 and DeepSeek V4.1 Flash) and to add the keys to `.env` as `GLM_API_KEY` and `DEEPSEEK_API_KEY` themselves. As of 2026-10-04, `.env` holds only `OPENAI_API_KEY` (NIM), `OPENAI_BASE_URL`, `OPENAI_MODEL` and `KIMI_API_KEY`. If both models are served on NIM with the existing key, set `key_env` to `OPENAI_API_KEY` instead.
 2. Check the keys load without printing them:
    `C:/mm/sr/python.exe -c "from dotenv import dotenv_values as d; v=d('.env'); print({k: len(v.get(k) or '') for k in ('GLM_API_KEY','DEEPSEEK_API_KEY')})"`
    Expected: both lengths > 0.
@@ -2193,7 +2197,7 @@ Run: `C:/mm/sr/python.exe -m pytest tests/test_bench_providers.py -v`
 Expected: 9 passed, 1 deselected (`test_providers_json_is_complete` is `live_llm`).
 After Task 6-live (step 6), also run `C:/mm/sr/python.exe -m pytest tests/test_bench_providers.py -m live_llm -v`; expected: 1 passed.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add simready/bench/prompting.py simready/bench/providers.py simready/bench/providers.json simready/bench/__main__.py tests/test_bench_providers.py
