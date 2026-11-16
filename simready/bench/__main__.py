@@ -69,6 +69,26 @@ def _run(args: argparse.Namespace) -> int:
     return 0 if summary.stopped_reason is None else 2
 
 
+def _regrade(args: argparse.Namespace) -> int:
+    from simready.bench import CHECKER_VERSION
+    from simready.bench.replay import regrade
+
+    run = Path(args.run)
+    stem = run.name.removesuffix(".gz").removesuffix(".jsonl")
+    out = Path(args.out) if args.out else run.with_name(f"{stem}.regrade-{CHECKER_VERSION}.jsonl")
+    n = regrade(run, out)
+    print(f"{out}: re-graded {n} attempts with checker {CHECKER_VERSION}")
+    return 0
+
+
+def _replay(args: argparse.Namespace) -> int:
+    from simready.bench.replay import replay
+
+    match, logged, rebuilt = replay(Path(args.run), args.attempt_id)
+    print(json.dumps({"match": match, "logged": logged, "rebuilt": rebuilt}, indent=2))
+    return 0 if match else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m simready.bench")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -81,8 +101,14 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--run-id")
     r.add_argument("--workers", type=int, default=4)
     r.add_argument("--official", action="store_true")
+    g = sub.add_parser("regrade", help="re-check logged specs with the current checker")
+    g.add_argument("run")
+    g.add_argument("--out")
+    p = sub.add_parser("replay", help="rebuild one attempt and verify its fingerprint")
+    p.add_argument("run")
+    p.add_argument("attempt_id")
     args = ap.parse_args(argv)
-    handlers = {"smoke": _smoke, "run": _run}
+    handlers = {"smoke": _smoke, "run": _run, "regrade": _regrade, "replay": _replay}
     return handlers[args.cmd](args)
 
 

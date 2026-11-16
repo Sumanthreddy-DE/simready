@@ -2646,6 +2646,8 @@ git commit -m "feat(bench): resumable threaded runner with pinned run header and
 
 ### Task 8: `regrade` and `replay`
 
+**Verified 2026-11-16:** plan code as written. Under OCP: 5 passed; full suite 20 failed / 236 passed before, 20 failed / 241 passed after. Break checks, one at a time, each failing exactly one test: overwrite of an existing output allowed, prompt-text check skipped, no-parse rows re-graded, replay always reports a match, replay of an unbuilt attempt allowed. End to end with the real OCP grader (scratch script, fake model returning each concept's reference spec): `run_benchmark` limit 3 wrote 3 passing attempts, `replay` matched all 3 fingerprints, `regrade` re-graded 3 and all still pass. A script that calls the grader needs an `if __name__ == "__main__":` guard, because the spawn child re-imports the main module; without it every attempt came back `F8_timeout`. `python -m simready.bench` has the guard.
+
 **Files:**
 - Create: `simready/bench/replay.py`
 - Modify: `simready/bench/__main__.py` (add `regrade`, `replay`)
@@ -2655,7 +2657,7 @@ git commit -m "feat(bench): resumable threaded runner with pinned run header and
 - Consumes: `runlog`, `load_concepts`, `file_sha256`, `CHECKER_VERSION`, `ParsedReply`, `evaluate_reply`, `grade_spec`.
 - Produces: `regrade(run_path, out_path, concepts_path=CONCEPTS_V1, grade=grade_spec) -> int` (attempts re-graded); `replay(run_path, attempt_id, concepts_path=CONCEPTS_V1, grade=grade_spec) -> tuple[bool, dict, dict]` (match, logged fingerprint, rebuilt fingerprint).
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `tests/test_bench_replay.py`:
 
@@ -2744,12 +2746,12 @@ def test_replay_unbuilt_attempt_is_an_error(tmp_path):
         replay(run, "c001/explicit/0", concepts_path=_concepts(tmp_path), grade=grade_pass)
 ```
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run: `C:/mm/sr/python.exe -m pytest tests/test_bench_replay.py -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'simready.bench.replay'`
 
-- [ ] **Step 3: Write `simready/bench/replay.py`**
+- [x] **Step 3: Write `simready/bench/replay.py`**
 
 ```python
 """regrade: re-run the current checker on logged specs (no API calls).
@@ -2822,7 +2824,7 @@ def replay(
     return rebuilt == att["fingerprint"], att["fingerprint"], rebuilt
 ```
 
-- [ ] **Step 4: Add `regrade` and `replay` to the CLI**
+- [x] **Step 4: Add `regrade` and `replay` to the CLI**
 
 In `simready/bench/__main__.py`, add these functions above `main`:
 
@@ -2860,12 +2862,12 @@ In `main`:
 
 and `handlers = {"smoke": _smoke, "run": _run, "regrade": _regrade, "replay": _replay}`.
 
-- [ ] **Step 5: Run the tests**
+- [x] **Step 5: Run the tests**
 
 Run: `C:/mm/sr/python.exe -m pytest tests/test_bench_replay.py -v`
 Expected: 5 passed
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add simready/bench/replay.py simready/bench/__main__.py tests/test_bench_replay.py
