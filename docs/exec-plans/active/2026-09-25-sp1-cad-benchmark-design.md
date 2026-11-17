@@ -1,7 +1,7 @@
 # SP1: Checker-scored text-to-CAD benchmark + harness (design)
 
 **Status:** active
-**Last verified:** 2026-10-04
+**Last verified:** 2026-11-17
 **Stage:** reviewed by user 2026-10-04 (changes folded in below). Next: implementation plan.
 
 **Context:** First of three sub-projects (SP1 benchmark + harness → SP2 generation vocabulary v2 →
@@ -13,8 +13,8 @@ only). Neither repo scores its output; this benchmark is the piece they lack.
 
 Measure single-shot text-to-CAD generation with code-checkable constraints, so that "is model A
 better than B" and (in SP3) "did training help" have defensible numbers. Deliverables: 50-concept
-prompt file, checker, runner with replayable logs, `bench_v1.md` report for GLM-5.3 and DeepSeek V4.1
-Flash. The small-model baseline is run at the start of SP3 (D5).
+prompt file, checker, runner with replayable logs, `bench_v1.md` report for Gemini-4-Argon and GPT-6.1
+Sol (D5, changed 2026-11-17). The small-model baseline is run at the start of SP3 (D5).
 
 ## Done when
 
@@ -22,7 +22,7 @@ Flash. The small-model baseline is run at the start of SP3 (D5).
    Every in-vocab concept carries a hand-built `reference_spec` that builds and passes all of its
    own checks (§1 rule 7).
 2. Every check type has unit tests on hand-built STEP parts (known pass and known fail per type).
-3. Official runs are complete for GLM-5.3 and DeepSeek V4.1 Flash. The small-model baseline run is
+3. Official runs are complete for Gemini-4-Argon and GPT-6.1 Sol (D5). The small-model baseline run is
    **not** an SP1 criterion: it is SP3's first task and SP3's entry gate (decided 2026-10-04).
 4. `bench_v1.md` has all §3 tables; official logs committed per D7.
 5. The README "Reproduce the benchmark" commands have been run on a clean clone and give the
@@ -84,9 +84,20 @@ extension, not a rewrite. v1.1 lands before SP3 starts.
 
 ### D5. Models and attempts (decided 2026-09-25)
 
-- **Reference models (API, user's keys, ~2,000 requests/day each):** GLM-5.3 (full, not Flash)
-  and DeepSeek V4.1 Flash. They are graded only, never trained: they set the ceiling that gives
-  the SP3 result a scale.
+- **Reference models (API, user's key):** Gemini-4-Argon and GPT-6.1 Sol, both on D Labs
+  (`https://api.dlabkeys.com/v1`, one shared key). They are graded only, never trained: they set
+  the ceiling that gives the SP3 result a scale. Ranking strong models against each other is not
+  a goal of v1.
+- **Changed 2026-11-17 (user decision); was GLM-5.3 and DeepSeek V4.1 Flash on Vultr.** Reasons:
+  D Labs stopped injecting a `reason` key into tool-call arguments (provider fix, 2026-11-17;
+  re-checked with the 12-call repro and 36 bench attempts, 0 affected), and it avoids a Vultr top-up
+  (the GLM-5.3 official run was estimated at about $11 there; D Labs prices not recorded). Headroom check the same day,
+  k=1 over all 150 prompts: pass@1 on in-vocab prompts Gemini 94.6% [90.1, 98.2], GPT 95.5%
+  [91.9, 99.1]; the two are not separable, which is accepted because the pair only marks the
+  ceiling. Known caveats: both models share one provider and one daily quota (not measured);
+  intent-phrasing passes lean on weak checks (see `sp1-concepts-proofread`). DeepSeek V4.1 Flash
+  on D Labs was not chosen: it used about 2.5x fewer completion tokens than on Vultr and 3 of 12
+  replies were unparseable (spec sent as a string with arithmetic inside).
 - **Model IDs:** the exact API ids, base URLs and tool-calling support of both reference models are
   verified with a live list-models / one-call smoke test before the prompt file is frozen; the
   verified ids go into the report setup table.

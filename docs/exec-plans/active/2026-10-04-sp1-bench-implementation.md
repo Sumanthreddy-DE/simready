@@ -1,12 +1,12 @@
 # SP1 Benchmark + Harness Implementation Plan
 
 **Status:** active
-**Last verified:** 2026-10-04
+**Last verified:** 2026-11-17
 **Spec:** `docs/exec-plans/active/2026-09-25-sp1-cad-benchmark-design.md` (reviewed 2026-10-04, `c99ace2`)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build `simready/bench/`, a checker-scored, replayable text-to-CAD benchmark (50 concepts × 3 phrasings, k=5), run it on GLM-5.3 and DeepSeek V4.1 Flash, and publish `docs/validation/bench_v1.md` with committed logs that anyone can re-grade.
+**Goal:** Build `simready/bench/`, a checker-scored, replayable text-to-CAD benchmark (50 concepts × 3 phrasings, k=5), run it on Gemini-4-Argon and GPT-6.1 Sol (spec D5, changed 2026-11-17), and publish `docs/validation/bench_v1.md` with committed logs that anyone can re-grade.
 
 **Architecture:** A pydantic concept file defines prompts and range checks. Each attempt goes: model reply → parse (tool call or JSON in text) → pre-build classification (F1/F2/F3/F9) → build + gate + checks in a killable spawn subprocess (F4–F8) → one append-only JSONL line. The OCC-free modules (`concepts`, `runlog`, `report`) let `report` run in plain Python; geometry lives only in `geometry`/`checker`, which are imported inside the subprocess.
 
@@ -3296,18 +3296,20 @@ Each fix goes in its own commit with a specific message if they're unrelated.
 
 **Gate:** the user has finished proofreading `concepts_v1.jsonl` (Task 2), and all reference-spec tests pass.
 
+**Changed 2026-11-17:** the reference pair is Gemini-4-Argon and GPT-6.1 Sol on D Labs (spec D5), not GLM-5.3 and DeepSeek V4.1 Flash on Vultr. Run on the VPS: the D Labs key is `OPENAI_API_KEY` there, which is what both `providers.json` entries read (on the laptop the same key is `DLAB_API_KEY`). The interpreter is `~/.venvs/simready-ocp/bin/python` (OCP). Under OCP the full suite is not green (2026-11-16 record: 20 failed / 246 passed, none of them bench tests), so the green check is the bench tests. Both models share one key, so any daily quota (not measured) must cover 1,500 calls, not 750; the runner resumes the next day if it stops with `quota exhausted`.
+
 **Files:**
 - Create: `simready/bench/prompts/concepts_v1.sha256`
 - Modify: `simready/bench/__init__.py` (`CHECKER_VERSION = "1.0.0"`)
-- Create: `docs/validation/bench_v1/runs-glm-5.3.jsonl.gz`, `docs/validation/bench_v1/runs-deepseek-v4.1-flash.jsonl.gz`
+- Create: `docs/validation/bench_v1/runs-gemini-4-argon.jsonl.gz`, `docs/validation/bench_v1/runs-gpt-6.1-sol.jsonl.gz`
 
 - [ ] **Step 1: Freeze the prompt file and tag the checker**
 
 ```bash
-C:/mm/sr/python.exe -c "from simready.bench.concepts import CONCEPTS_V1, CONCEPTS_V1_FROZEN, file_sha256; CONCEPTS_V1_FROZEN.write_text(file_sha256(CONCEPTS_V1) + '\n', encoding='utf-8'); print(CONCEPTS_V1_FROZEN.read_text())"
+~/.venvs/simready-ocp/bin/python -c "from simready.bench.concepts import CONCEPTS_V1, CONCEPTS_V1_FROZEN, file_sha256; CONCEPTS_V1_FROZEN.write_text(file_sha256(CONCEPTS_V1) + '\n', encoding='utf-8'); print(CONCEPTS_V1_FROZEN.read_text())"
 ```
 
-Set `CHECKER_VERSION = "1.0.0"` in `simready/bench/__init__.py`. Run `C:/mm/sr/python.exe -m pytest -q` (expect green).
+Set `CHECKER_VERSION = "1.0.0"` in `simready/bench/__init__.py`. Run `~/.venvs/simready-ocp/bin/python -m pytest -q tests/test_bench_*.py` (expect green; 121 passed, 1 deselected on 2026-11-17).
 
 ```bash
 git add simready/bench/prompts/concepts_v1.sha256 simready/bench/__init__.py
@@ -3318,8 +3320,8 @@ git tag bench-checker-1.0.0
 - [ ] **Step 2: Official runs (resumable; may span more than one day per model)**
 
 ```bash
-C:/mm/sr/python.exe -m simready.bench run --model glm-5.3 --k 5 --official --run-id official-glm-5.3
-C:/mm/sr/python.exe -m simready.bench run --model deepseek-v4.1-flash --k 5 --official --run-id official-deepseek-v4.1-flash
+~/.venvs/simready-ocp/bin/python -m simready.bench run --model gemini-4-argon --k 5 --official --run-id official-gemini-4-argon
+~/.venvs/simready-ocp/bin/python -m simready.bench run --model gpt-6.1-sol --k 5 --official --run-id official-gpt-6.1-sol
 ```
 
 Expected: each ends with `stopped: no` after 750 written attempts. If it stops with `quota exhausted`, re-run the same command the next day (resume skips finished attempts). After that, re-run once more to retry any `infra_error`, until the report's `incomplete prompts` column is 0.
@@ -3327,20 +3329,20 @@ Expected: each ends with `stopped: no` after 750 written attempts. If it stops w
 - [ ] **Step 3: Publish the logs gzipped**
 
 ```bash
-C:/mm/sr/python.exe -c "import gzip, shutil, pathlib; d = pathlib.Path('docs/validation/bench_v1'); d.mkdir(parents=True, exist_ok=True); [shutil.copyfileobj(open(f'data/bench_runs/official-{m}.jsonl', 'rb'), gzip.open(d / f'runs-{m}.jsonl.gz', 'wb')) for m in ('glm-5.3', 'deepseek-v4.1-flash')]"
+~/.venvs/simready-ocp/bin/python -c "import gzip, shutil, pathlib; d = pathlib.Path('docs/validation/bench_v1'); d.mkdir(parents=True, exist_ok=True); [shutil.copyfileobj(open(f'data/bench_runs/official-{m}.jsonl', 'rb'), gzip.open(d / f'runs-{m}.jsonl.gz', 'wb')) for m in ('gemini-4-argon', 'gpt-6.1-sol')]"
 ls -la docs/validation/bench_v1/
 ```
 
 Expected: two `.jsonl.gz` files of about 1–2 MB each. Check that no key leaked:
 
 ```bash
-C:/mm/sr/python.exe -c "import gzip, re, pathlib; hits = [p.name for p in pathlib.Path('docs/validation/bench_v1').glob('*.gz') if re.search(r'(sk-|nvapi-|Bearer )', gzip.open(p, 'rt', encoding='utf-8').read())]; print('key-like strings in:', hits)"
+~/.venvs/simready-ocp/bin/python -c "import gzip, re, pathlib; hits = [p.name for p in pathlib.Path('docs/validation/bench_v1').glob('*.gz') if re.search(r'(sk-|nvapi-|Bearer )', gzip.open(p, 'rt', encoding='utf-8').read())]; print('key-like strings in:', hits)"
 ```
 
 Expected: `key-like strings in: []`. Also scan for the actual key values, per Rule 3:
 
 ```bash
-C:/mm/sr/python.exe -c "import gzip, pathlib; from dotenv import dotenv_values; vals = [v for k, v in dotenv_values('.env').items() if 'KEY' in k and v]; blob = ''.join(gzip.open(p, 'rt', encoding='utf-8').read() for p in pathlib.Path('docs/validation/bench_v1').glob('*.gz')); print('key values found:', sum(v in blob for v in vals))"
+~/.venvs/simready-ocp/bin/python -c "import gzip, pathlib; from dotenv import dotenv_values; vals = [v for k, v in dotenv_values('.env').items() if 'KEY' in k and v]; blob = ''.join(gzip.open(p, 'rt', encoding='utf-8').read() for p in pathlib.Path('docs/validation/bench_v1').glob('*.gz')); print('key values found:', sum(v in blob for v in vals))"
 ```
 
 Expected: `key values found: 0`
@@ -3349,7 +3351,7 @@ Expected: `key values found: 0`
 
 ```bash
 git add docs/validation/bench_v1/
-git commit -m "data(bench): official v1 run logs for GLM-5.3 and DeepSeek V4.1 Flash"
+git commit -m "data(bench): official v1 run logs for Gemini-4-Argon and GPT-6.1 Sol"
 ```
 
 ---
@@ -3363,7 +3365,7 @@ git commit -m "data(bench): official v1 run logs for GLM-5.3 and DeepSeek V4.1 F
 - [ ] **Step 1: Generate the tables**
 
 ```bash
-C:/mm/sr/python.exe -m simready.bench report docs/validation/bench_v1/runs-glm-5.3.jsonl.gz docs/validation/bench_v1/runs-deepseek-v4.1-flash.jsonl.gz --out data/bench_runs/tables.md
+C:/mm/sr/python.exe -m simready.bench report docs/validation/bench_v1/runs-gpt-6.1-sol.jsonl.gz docs/validation/bench_v1/runs-gemini-4-argon.jsonl.gz --out data/bench_runs/tables.md
 ```
 
 - [ ] **Step 2: Write `docs/validation/bench_v1.md` around the generated tables**
@@ -3392,7 +3394,7 @@ rebuilt from the committed run logs in `docs/validation/bench_v1/`. No API keys 
 
 ```bash
 pip install pydantic
-python -m simready.bench report docs/validation/bench_v1/runs-glm-5.3.jsonl.gz docs/validation/bench_v1/runs-deepseek-v4.1-flash.jsonl.gz
+python -m simready.bench report docs/validation/bench_v1/runs-gpt-6.1-sol.jsonl.gz docs/validation/bench_v1/runs-gemini-4-argon.jsonl.gz
 ```
 
 **Full path (re-grade every logged spec with the checker, rebuild any attempt):**
@@ -3400,14 +3402,14 @@ python -m simready.bench report docs/validation/bench_v1/runs-glm-5.3.jsonl.gz d
 ```bash
 micromamba env create -f environment.yml   # ~10-15 min, installs pythonocc
 micromamba activate simready
-python -m simready.bench regrade docs/validation/bench_v1/runs-glm-5.3.jsonl.gz --out regraded-glm.jsonl
-python -m simready.bench replay docs/validation/bench_v1/runs-glm-5.3.jsonl.gz <attempt_id>
+python -m simready.bench regrade docs/validation/bench_v1/runs-gpt-6.1-sol.jsonl.gz --out regraded-gpt.jsonl
+python -m simready.bench replay docs/validation/bench_v1/runs-gpt-6.1-sol.jsonl.gz <attempt_id>
 ```
 
 **Run it yourself (needs your own API key):**
 
 ```bash
-python -m simready.bench run --model glm-5.3 --k 5
+python -m simready.bench run --model gpt-6.1-sol --k 5
 ```
 ````
 
@@ -3421,12 +3423,12 @@ The README example must run on a fresh clone (spec done-criterion 5). Run it fro
 SP="C:/Users/suman/AppData/Local/Temp/claude/C--Users-suman-Desktop-Docs-Job-Projects-Mech-SimReady/3fb58c4d-463b-4adf-a155-8cb9cb78dc5d/scratchpad"
 git clone --depth 1 https://github.com/Sumanthreddy-DE/simready "$SP/clean"
 cd "$SP/clean"
-python -m simready.bench report docs/validation/bench_v1/runs-glm-5.3.jsonl.gz docs/validation/bench_v1/runs-deepseek-v4.1-flash.jsonl.gz > quick.md
-C:/mm/sr/python.exe -m simready.bench regrade docs/validation/bench_v1/runs-glm-5.3.jsonl.gz --out "$SP/regraded-glm.jsonl"
-C:/mm/sr/python.exe -m simready.bench report "$SP/regraded-glm.jsonl" > "$SP/regraded.md"
+python -m simready.bench report docs/validation/bench_v1/runs-gpt-6.1-sol.jsonl.gz docs/validation/bench_v1/runs-gemini-4-argon.jsonl.gz > quick.md
+C:/mm/sr/python.exe -m simready.bench regrade docs/validation/bench_v1/runs-gpt-6.1-sol.jsonl.gz --out "$SP/regraded-gpt.jsonl"
+C:/mm/sr/python.exe -m simready.bench report "$SP/regraded-gpt.jsonl" > "$SP/regraded.md"
 ```
 
-Expected: the tables in `quick.md` equal those in `bench_v1.md` (diff them). The regraded GLM headline equals the published GLM headline. `replay` on the README's attempt id prints `"match": true`. The quick path used base Python (no OCC).
+Expected: the tables in `quick.md` equal those in `bench_v1.md` (diff them). The regraded GPT-6.1 Sol headline equals the published GPT-6.1 Sol headline. `replay` on the README's attempt id prints `"match": true`. The quick path used base Python (no OCC).
 
 - [ ] **Step 5: Commit**
 
