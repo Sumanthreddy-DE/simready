@@ -113,6 +113,14 @@ def run_benchmark(
     lock = threading.Lock()
     state: dict[str, Any] = {"written": 0, "infra": 0, "consecutive_infra": 0, "stopped": None}
 
+    def count_infra() -> None:
+        with lock:
+            state["infra"] += 1
+            state["consecutive_infra"] += 1
+            if state["consecutive_infra"] >= MAX_CONSECUTIVE_INFRA:
+                stop.set()
+                state["stopped"] = state["stopped"] or f"{MAX_CONSECUTIVE_INFRA} consecutive infra errors"
+
     def work(item: WorkItem) -> None:
         if stop.is_set():
             return
@@ -140,13 +148,9 @@ def run_benchmark(
                 state["stopped"] = state["stopped"] or f"quota exhausted: {exc}"
             return
         except InfraError as exc:
-            runlog.append(out_path, {**base, "failure_class": INFRA, "passed": False, "error": str(exc)})
-            with lock:
-                state["infra"] += 1
-                state["consecutive_infra"] += 1
-                if state["consecutive_infra"] >= MAX_CONSECUTIVE_INFRA:
-                    stop.set()
-                    state["stopped"] = state["stopped"] or f"{MAX_CONSECUTIVE_INFRA} consecutive infra errors"
+            runlog.append(out_path, {**base, "failure_class": INFRA, "passed": None, "partial": None,
+                                    "error": str(exc), "error_type": "provider_exception"})
+            count_infra()
             return
         if reply["model_returned"] != model_id:
             # Vultr answers an unknown or retired id with its default model; never score that.
@@ -156,8 +160,6 @@ def run_benchmark(
                     f"model substituted: asked {model_id!r}, got {reply['model_returned']!r}"
                 )
             return
-        with lock:
-            state["consecutive_infra"] = 0
         parsed = parse_reply(reply["tool_calls"], reply["content"])
         outcome = evaluate_reply(parsed, getattr(item.concept.checks, item.phrasing), item.concept.solids, grade=grade)
         record = {
@@ -173,7 +175,11 @@ def run_benchmark(
             **outcome,
         }
         runlog.append(out_path, record)
+        if outcome["failure_class"] in runlog.EXCLUDED_CLASSES:
+            count_infra()
+            return
         with lock:
+            state["consecutive_infra"] = 0
             state["written"] += 1
 
     with ThreadPoolExecutor(max_workers=workers) as pool:

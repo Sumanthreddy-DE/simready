@@ -127,3 +127,37 @@ def test_runlog_reads_gzip(tmp_path, concepts):
     with open(out, "rb") as src, gzip.open(gz, "wb") as dst:
         shutil.copyfileobj(src, dst)
     assert len(runlog.attempts(gz)) == 2
+
+
+@pytest.mark.parametrize("stage", ["infra_error", "checker_error"])
+def test_checker_infrastructure_is_excluded_retryable_and_counted(tmp_path, concepts, stage):
+    from simready.bench.report import load_run, failure_distribution
+
+    out = tmp_path / "run.jsonl"
+    def broken_grade(*args):
+        return {"stage": stage, "error": "grader unavailable", "error_type": "test_fault"}
+
+    summary = run_benchmark(client=FakeClient(), model_alias="fake", model_id="m", base_url="http://x",
+                            k=2, out_path=out, concepts_path=concepts, workers=1, grade=broken_grade, limit=1)
+    assert summary.written == 0 and summary.infra_errors == 1
+    record = runlog.attempts(out)[0]
+    assert record["partial"] is None and record["passed"] is None
+    assert not runlog.done_attempt_ids(out)
+    report = load_run(out)
+    assert report.excluded == 1 and report.attempts == []
+    assert all(not counts for counts in failure_distribution(report).values())
+    assert _run(FakeClient(), out, concepts, limit=1).written == 1
+    assert runlog.attempts(out)[0]["passed"] is True
+
+
+def test_repeated_checker_errors_stop_the_runner(monkeypatch, tmp_path, concepts):
+    monkeypatch.setattr("simready.bench.runner.MAX_CONSECUTIVE_INFRA", 2)
+    client = FakeClient()
+    def broken_grade(*args):
+        return {"stage": "checker_error", "error": "bug"}
+
+    summary = run_benchmark(client=client, model_alias="fake", model_id="m", base_url="http://x",
+                            k=2, out_path=tmp_path / "run.jsonl", concepts_path=concepts,
+                            workers=1, grade=broken_grade)
+    assert summary.infra_errors == 2 and summary.written == 0
+    assert len(client.calls) == 2 and "consecutive infra errors" in summary.stopped_reason

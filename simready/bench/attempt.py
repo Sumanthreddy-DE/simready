@@ -12,9 +12,14 @@ from __future__ import annotations
 
 import json
 import multiprocessing as mp
+import os
+import pickle
 import queue as queue_mod
 import re
+import tempfile
+import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Callable
 
 from pydantic import ValidationError
@@ -118,24 +123,91 @@ def classify_spec(spec: dict) -> tuple[str | None, list[str]]:
 def _grade_worker(spec_dict: dict, checks_json: list, expected_solids: int, out_queue) -> None:
     """Spawn-child entry point. Build errors and checker errors are kept apart:
     the first is the model's failure, the second is ours."""
-    from simready.gen.build import build_shape
-
     try:
-        shape = build_shape(PartSpec.model_validate(spec_dict))
-        if shape is None or shape.IsNull():
-            raise RuntimeError("build produced a null shape")
-    except Exception as exc:  # noqa: BLE001 — any kernel failure is F4
-        out_queue.put({"stage": "build_error", "error": f"{type(exc).__name__}: {exc}"})
-        return
-    try:
+        from simready.occ_compat import OCC_AVAILABLE
+        from simready.gen.build import build_shape
         from simready.bench.checker import grade_shape
         from simready.bench.concepts import CHECK_LIST
         from simready.bench.geometry import fingerprint
 
-        report = grade_shape(shape, CHECK_LIST.validate_python(checks_json), expected_solids)
+        if not OCC_AVAILABLE:
+            raise RuntimeError("OCCT backend unavailable; install simready[bench] (OCP) or use pythonocc")
+    except Exception as exc:
+        out_queue.put({"stage": INFRA, "error_type": "backend_setup", "error": f"{type(exc).__name__}: {exc}"})
+        return
+    try:
+        spec = PartSpec.model_validate(spec_dict)
+        validated_checks = CHECK_LIST.validate_python(checks_json)
+    except Exception as exc:
+        out_queue.put({"stage": CHECKER_ERROR, "error_type": "checker_setup", "error": f"{type(exc).__name__}: {exc}"})
+        return
+    out_queue.put({"stage": "ready"})
+    try:
+        shape = build_shape(spec)
+        if shape is None or shape.IsNull():
+            out_queue.put({"stage": "build_error", "error": "build produced a null shape"})
+            return
+    except (ImportError, OSError) as exc:
+        out_queue.put({"stage": INFRA, "error_type": "backend_runtime", "error": f"{type(exc).__name__}: {exc}"})
+        return
+    except Exception as exc:
+        # Native geometry exceptions are model failures; Python executor bugs
+        # must never be turned into zero rewards.
+        native = type(exc).__module__ in ("OCP.OCP.Standard", "OCP.Standard", "OCC.Core.Standard")
+        out_queue.put({"stage": "build_error" if native else CHECKER_ERROR,
+                       "error_type": "kernel_build" if native else "builder_exception",
+                       "error": f"{type(exc).__name__}: {exc}"})
+        return
+    try:
+        report = grade_shape(shape, validated_checks, expected_solids)
         out_queue.put({"stage": "graded", "fingerprint": fingerprint(shape), "report": report})
     except Exception as exc:  # noqa: BLE001 — our bug, excluded from scoring
-        out_queue.put({"stage": "checker_error", "error": f"{type(exc).__name__}: {exc}"})
+        out_queue.put({"stage": "checker_error", "error_type": "checker_exception", "error": f"{type(exc).__name__}: {exc}"})
+
+
+@dataclass
+class _GradeMailbox:
+    """Private parent/child mailbox; atomic publication avoids partial pipe reads.
+
+    Pickle is read only from our own child in a private TemporaryDirectory.
+    A crashed writer leaves an unpublished .tmp file, never a partial result.
+    """
+    directory: str
+
+    def put(self, result: dict) -> None:
+        name = "ready" if result.get("stage") == "ready" else "result"
+        target = Path(self.directory) / name
+        with target.with_suffix(".tmp").open("wb") as stream:
+            pickle.dump(result, stream)
+        os.replace(target.with_suffix(".tmp"), target)
+
+    def get_nowait(self) -> dict:
+        target = Path(self.directory) / "result"
+        if target.exists():
+            with target.open("rb") as stream:
+                return pickle.load(stream)
+        raise queue_mod.Empty
+
+def _wait_for_grade(proc, mailbox, timeout_s: float) -> dict:
+    deadline = time.monotonic() + timeout_s
+    while True:
+        remaining = deadline - time.monotonic()
+        try:
+            return mailbox.get_nowait()
+        except queue_mod.Empty:
+            if not proc.is_alive():
+                # Publication can race the first poll; reread after observing exit.
+                try:
+                    return mailbox.get_nowait()
+                except queue_mod.Empty:
+                    return {"stage": INFRA, "error_type": "child_exit", "exitcode": proc.exitcode,
+                            "error": f"grader child exited without a result (exitcode={proc.exitcode})"}
+            if remaining <= 0:
+                if (Path(mailbox.directory) / "ready").exists():
+                    return {"stage": "timeout", "error": f"build/check over {timeout_s:g}s"}
+                return {"stage": INFRA, "error_type": "startup_timeout",
+                        "error": f"grader startup did not complete within {timeout_s:g}s"}
+            time.sleep(min(0.05, remaining))
 
 
 def grade_spec(
@@ -144,24 +216,60 @@ def grade_spec(
     expected_solids: int = 1,
     timeout_s: float = GRADE_TIMEOUT_S,
 ) -> dict:
-    """Build + gate + check in a spawn child; killed after ``timeout_s``."""
-    checks_json = [c.model_dump() if hasattr(c, "model_dump") else c for c in checks]
-    ctx = mp.get_context("spawn")
-    out_queue = ctx.Queue()
-    proc = ctx.Process(target=_grade_worker, args=(spec_dict, checks_json, expected_solids, out_queue))
-    proc.start()
+    """Build + check in a killable child. Setup/exit faults are unscored infra.
+
+    The wall-clock budget includes startup; expiration before the worker's
+    ready signal is infrastructure, after it is the model's F8 timeout.
+    """
+    with tempfile.TemporaryDirectory(prefix="simready-grade-") as directory:
+        return _spawn_grade(spec_dict, checks, expected_solids, timeout_s, _GradeMailbox(directory))
+
+
+def _spawn_grade(spec_dict, checks, expected_solids, timeout_s, mailbox) -> dict:
+    proc = None
     try:
-        result = out_queue.get(timeout=timeout_s)  # read before join: large payloads block the child
-    except queue_mod.Empty:
-        result = {"stage": "timeout", "error": f"build/check over {timeout_s:g}s"}
+        checks_json = [c.model_dump() if hasattr(c, "model_dump") else c for c in checks]
+        ctx = mp.get_context("spawn")
+        proc = ctx.Process(target=_grade_worker, args=(spec_dict, checks_json, expected_solids, mailbox))
+        proc.start()
+        return validate_grade_result(_wait_for_grade(proc, mailbox, timeout_s))
+    except Exception as exc:
+        return {"stage": INFRA, "error_type": "supervisor_exception", "error": f"{type(exc).__name__}: {exc}"}
     finally:
-        proc.join(1)
-        if proc.is_alive():
-            proc.terminate()
-            proc.join(5)
-            if proc.is_alive():
-                proc.kill()
-    return result
+        if proc is not None:
+            if proc.pid is not None:
+                proc.join(0.1)
+                if proc.is_alive():
+                    proc.terminate()
+                    proc.join(1)
+                if proc.is_alive():
+                    proc.kill()
+                    proc.join()
+            proc.close()
+
+
+def validate_grade_result(result: dict) -> dict:
+    """Normalize a broken grader protocol to an explicit unscored error."""
+    try:
+        stage = result["stage"]
+        if stage == "graded":
+            report = result["report"]
+            if not isinstance(result["fingerprint"], dict):
+                raise ValueError("missing fingerprint")
+            if type(report["passed"]) is not bool or not 0 <= report["partial"] <= 1:
+                raise ValueError("invalid score fields")
+            if report["failure_class"] is not None and report["failure_class"] not in {
+                "F5_invalid_solid", "F6_dimension_miss", "F7_feature_miss"
+            }:
+                raise ValueError("invalid checker failure class")
+        elif stage in ("build_error", "timeout", INFRA, CHECKER_ERROR):
+            if not isinstance(result["error"], str) or not result["error"]:
+                raise ValueError("missing error detail")
+        else:
+            raise ValueError(f"unknown stage {stage!r}")
+        return result
+    except (KeyError, TypeError, ValueError) as exc:
+        return {"stage": CHECKER_ERROR, "error_type": "grader_protocol", "error": f"Invalid grader result: {exc}"}
 
 
 def evaluate_reply(
@@ -181,6 +289,8 @@ def evaluate_reply(
         "partial": 0.0,
         "passed": False,
         "failure_class": None,
+        "error": None,
+        "error_type": None,
     }
     if parsed.spec is None:
         out.update(failure_class=F1, schema_errors=[parsed.error])
@@ -189,10 +299,18 @@ def evaluate_reply(
     if cls is not None:
         out.update(failure_class=cls, schema_errors=errors)
         return out
-    result = grade(parsed.spec, checks, expected_solids)
-    stage_class = {"timeout": F8, "build_error": F4, "checker_error": CHECKER_ERROR}
+    try:
+        result = validate_grade_result(grade(parsed.spec, checks, expected_solids))
+    except Exception as exc:
+        result = {"stage": CHECKER_ERROR, "error_type": "grader_exception", "error": f"{type(exc).__name__}: {exc}"}
+    stage_class = {"timeout": F8, "build_error": F4, "checker_error": CHECKER_ERROR, INFRA: INFRA}
     if result["stage"] in stage_class:
-        out.update(failure_class=stage_class[result["stage"]], build_error=result["error"])
+        cls = stage_class[result["stage"]]
+        out.update(failure_class=cls, error=result["error"], error_type=result.get("error_type"))
+        if cls in (INFRA, CHECKER_ERROR):
+            out.update(partial=None, passed=None)
+        else:
+            out["build_error"] = result["error"]
         return out
     report = result["report"]
     out.update(

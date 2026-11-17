@@ -3295,6 +3295,8 @@ Each fix goes in its own commit with a specific message if they're unrelated.
 
 ### Task 11: Freeze, tag the checker, official runs, publish logs
 
+**2026-11-17 infrastructure prerequisite:** Task 5's original queue supervisor and broad build-exception catch misclassified infrastructure as F4/F8. Repair record: `2026-11-17-attempt-infrastructure-errors.md`. Use the repaired `grade_spec`/`evaluate_reply`: `infra_error` and `checker_error` have null `partial`/`passed` and explicit `error`/`error_type`; runner excludes/counts/retries them. Proposed package patch tag `v0.5.1` is independent of this checker freeze and must not move v0.5.0. User approved the repair commit; release/tag/publication remain gated. The original Task 5 code blocks earlier in this plan are historical implementation scaffolding; current source and repair record supersede their supervision/error handling.
+
 **Gate:** the user has finished proofreading `concepts_v1.jsonl` (Task 2), and all reference-spec tests pass.
 
 **Changed 2026-11-17:** the reference pair is Gemini-4-Argon and GPT-6.1 Sol on D Labs (spec D5), not GLM-5.3 and DeepSeek V4.1 Flash on Vultr. Run on the VPS: the D Labs key is `OPENAI_API_KEY` there, which is what both `providers.json` entries read (on the laptop the same key is `DLAB_API_KEY`). The interpreter is `~/.venvs/simready-ocp/bin/python` (OCP). Under OCP the full suite is not green (2026-11-16 record: 20 failed / 246 passed, none of them bench tests), so the green check is the bench tests. Both models share one key, so any daily quota (not measured) must cover 1,500 calls, not 750; the runner resumes the next day if it stops with `quota exhausted`.

@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Callable
 
 from simready.bench import CHECKER_VERSION, runlog
-from simready.bench.attempt import ParsedReply, evaluate_reply, grade_spec
+from simready.bench.attempt import ParsedReply, evaluate_reply, grade_spec, validate_grade_result
 from simready.bench.concepts import CONCEPTS_V1, file_sha256, load_concepts
 
 
@@ -63,6 +63,8 @@ def replay(
     if att.get("fingerprint") is None:
         raise ValueError(f"{attempt_id} never built a shape ({att.get('failure_class')}); nothing to replay")
     concept = {c.concept_id: c for c in load_concepts(concepts_path)}[att["concept_id"]]
-    result = grade(att["spec"], getattr(concept.checks, att["phrasing"]), concept.solids)
+    result = validate_grade_result(grade(att["spec"], getattr(concept.checks, att["phrasing"]), concept.solids))
+    if result["stage"] in runlog.EXCLUDED_CLASSES:
+        raise RuntimeError(f"replay {result['stage']}: {result['error']}")
     rebuilt = result.get("fingerprint")
     return rebuilt == att["fingerprint"], att["fingerprint"], rebuilt

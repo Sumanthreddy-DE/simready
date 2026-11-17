@@ -80,3 +80,24 @@ def test_replay_unbuilt_attempt_is_an_error(tmp_path):
     run = _log(tmp_path, [_attempt(0, spec=None, fingerprint=None, failure_class="F1_no_parse")])
     with pytest.raises(ValueError, match="never built"):
         replay(run, "c001/explicit/0", concepts_path=_concepts(tmp_path), grade=grade_pass)
+
+
+@pytest.mark.parametrize("stage", ["infra_error", "checker_error"])
+def test_replay_infrastructure_is_an_error_not_fingerprint_mismatch(tmp_path, stage):
+    run = _log(tmp_path, [_attempt(0)])
+    def unavailable(*args):
+        return {"stage": stage, "error": "backend unavailable"}
+
+    with pytest.raises(RuntimeError, match="backend unavailable"):
+        replay(run, "c001/explicit/0", concepts_path=_concepts(tmp_path), grade=unavailable)
+
+
+def test_regrade_infrastructure_remains_excluded(tmp_path):
+    from simready.bench.report import load_run
+    run = _log(tmp_path, [_attempt(0)])
+    def unavailable(*args):
+        return {"stage": "infra_error", "error": "backend unavailable"}
+    out = tmp_path / "regraded.jsonl"
+    regrade(run, out, concepts_path=_concepts(tmp_path), grade=unavailable)
+    assert load_run(out).attempts == []
+    assert runlog.attempts(out)[0]["partial"] is None

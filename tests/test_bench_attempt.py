@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+import multiprocessing as mp
+import os
+import time
 
 import pytest
 
@@ -21,6 +24,7 @@ from simready.bench.attempt import (
     parse_reply,
 )
 from simready.occ_compat import OCC_AVAILABLE
+from simready.bench import attempt
 
 needs_occ = pytest.mark.skipif(not OCC_AVAILABLE, reason="needs pythonocc or OCP")
 
@@ -95,6 +99,201 @@ def test_grade_spec_in_subprocess_end_to_end():
 
 
 @needs_occ
-def test_grade_spec_timeout_is_reported_not_raised():
+def test_grade_spec_startup_budget_is_not_a_model_timeout():
     out = grade_spec(SPEC, [], 1, timeout_s=0.01)
-    assert out["stage"] == "timeout"
+    assert out["stage"] == "infra_error"
+
+
+# Spawn-safe fault injection: exercise the real worker/supervisor rather than
+# substituting grade_spec's result. Patches are made inside the fresh child.
+def _missing_backend(spec, checks, solids, out):
+    import simready.occ_compat as compat
+    compat.OCC_AVAILABLE = False
+    compat.BRepPrimAPI_MakeBox = None
+    attempt._grade_worker(spec, checks, solids, out)
+
+
+def _broken_import(spec, checks, solids, out):
+    import builtins
+    original = builtins.__import__
+
+    def blocked(name, *args, **kwargs):
+        if name == "simready.gen.build":
+            raise ImportError("broken native library")
+        return original(name, *args, **kwargs)
+
+    builtins.__import__ = blocked
+    attempt._grade_worker(spec, checks, solids, out)
+
+
+def _exit_zero(*args):
+    os._exit(0)
+
+
+def _exit_crashed(*args):
+    os._exit(17)
+
+
+def _running_hang(spec, checks, solids, out):
+    out.put({"stage": "ready"})
+    time.sleep(60)
+
+
+@pytest.mark.parametrize("worker", [_missing_backend, _broken_import, _exit_zero, _exit_crashed])
+def test_worker_infrastructure_fault_is_unscored_and_reaped(monkeypatch, worker):
+    monkeypatch.setattr(attempt, "_grade_worker", worker)
+    before = {p.pid for p in mp.active_children()}
+    started = time.monotonic()
+    result = grade_spec(SPEC, [], timeout_s=10)
+    assert result["stage"] == "infra_error", result
+    assert result["error"] and result["error_type"]
+    assert time.monotonic() - started < 8  # exited children fail before budget
+    assert {p.pid for p in mp.active_children()} == before
+    outcome = evaluate_reply(ParsedReply(SPEC, "tool", 1), [], 1, grade=lambda *a: result)
+    assert outcome["failure_class"] == "infra_error"
+    assert outcome["partial"] is None and outcome["passed"] is None
+    assert outcome["error"] and outcome["error_type"]
+
+
+def test_running_timeout_is_model_failure_and_reaped(monkeypatch):
+    monkeypatch.setattr(attempt, "_grade_worker", _running_hang)
+    before = {p.pid for p in mp.active_children()}
+    result = grade_spec(SPEC, [], timeout_s=8)
+    assert result["stage"] == "timeout", result
+    outcome = evaluate_reply(ParsedReply(SPEC, "tool", 1), [], 1, grade=lambda *a: result)
+    assert outcome["failure_class"] == F8 and outcome["partial"] == 0.0
+    assert {p.pid for p in mp.active_children()} == before
+
+
+@needs_occ
+def test_model_kernel_build_failure_remains_f4():
+    # Schema-valid positive length below OCCT's construction tolerance.
+    spec = {"steps": [{"op": "box", "dx": 1e-12, "dy": 30, "dz": 5}]}
+    result = evaluate_reply(ParsedReply(spec, "tool", 1), [], 1)
+    assert result["failure_class"] == F4, result
+    assert result["partial"] == 0.0 and result["passed"] is False
+
+
+@needs_occ
+def test_checker_exception_is_unscored():
+    # Invalid checker configuration reaches the real checker after a good build.
+    result = evaluate_reply(ParsedReply(SPEC, "tool", 1), [{"type": "broken_check"}], 1)
+    assert result["failure_class"] == CHECKER_ERROR
+    assert result["partial"] is None and result["passed"] is None
+    assert result["error"]
+
+
+def test_grader_exception_is_unscored():
+    def broken(*args):
+        raise RuntimeError("checker bug")
+    result = evaluate_reply(ParsedReply(SPEC, "tool", 1), [], 1, grade=broken)
+    assert result["failure_class"] == CHECKER_ERROR
+    assert result["partial"] is None and result["error"]
+
+
+def test_process_start_exception_is_infrastructure(monkeypatch):
+    from multiprocessing.process import BaseProcess
+
+    def broken_start(self):
+        raise OSError("cannot spawn")
+
+    monkeypatch.setattr(BaseProcess, "start", broken_start)
+    result = grade_spec(SPEC, [])
+    assert result["stage"] == "infra_error" and "cannot spawn" in result["error"]
+
+
+def _ignore_terminate(spec, checks, solids, out):
+    import signal
+    signal.signal(signal.SIGTERM, signal.SIG_IGN)
+    _running_hang(spec, checks, solids, out)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX SIGTERM escalation")
+def test_timeout_kill_escalation_reaps_child(monkeypatch):
+    monkeypatch.setattr(attempt, "_grade_worker", _ignore_terminate)
+    before = {p.pid for p in mp.active_children()}
+    result = grade_spec(SPEC, [], timeout_s=8)
+    assert result["stage"] == "timeout"
+    assert {p.pid for p in mp.active_children()} == before
+
+
+def _exit_after_ready(spec, checks, solids, out):
+    out.put({"stage": "ready"})
+
+
+def test_exit_after_ready_is_infrastructure(monkeypatch):
+    monkeypatch.setattr(attempt, "_grade_worker", _exit_after_ready)
+    result = grade_spec(SPEC, [], timeout_s=10)
+    assert result["stage"] == "infra_error" and result["exitcode"] == 0
+
+
+def _builder_bug(spec, checks, solids, out):
+    import simready.gen.build as build
+    def broken(spec):
+        raise NameError("builder bug")
+    build.build_shape = broken
+    attempt._grade_worker(spec, checks, solids, out)
+
+
+def test_unexpected_builder_exception_is_unscored(monkeypatch):
+    monkeypatch.setattr(attempt, "_grade_worker", _builder_bug)
+    result = evaluate_reply(ParsedReply(SPEC, "tool", 1), [], 1)
+    assert result["failure_class"] == CHECKER_ERROR
+    assert result["partial"] is None and "builder bug" in result["error"]
+
+
+@pytest.mark.parametrize("envelope", [{}, {"stage": "unknown"}, {"stage": "graded"},
+                                      {"stage": "graded", "report": {}, "fingerprint": {}},
+                                      {"stage": "infra_error"}])
+def test_invalid_grader_envelope_is_unscored(envelope):
+    result = evaluate_reply(ParsedReply(SPEC, "tool", 1), [], 1, grade=lambda *a: envelope)
+    assert result["failure_class"] == CHECKER_ERROR and result["partial"] is None
+    assert result["error_type"] == "grader_protocol"
+
+
+def _slow_checker_import(spec, checks, solids, out):
+    import builtins
+    original = builtins.__import__
+    def delayed(name, *args, **kwargs):
+        if name == "simready.bench.checker":
+            time.sleep(60)
+        return original(name, *args, **kwargs)
+    builtins.__import__ = delayed
+    attempt._grade_worker(spec, checks, solids, out)
+
+
+def test_checker_setup_timeout_is_unscored(monkeypatch):
+    monkeypatch.setattr(attempt, "_grade_worker", _slow_checker_import)
+    result = grade_spec(SPEC, [], timeout_s=8)
+    assert result["stage"] == "infra_error", result
+
+
+def _large_error_then_exit(spec, checks, solids, out):
+    out.put({"stage": "checker_error", "error": "x" * 2_000_000})
+    os._exit(17)
+
+
+def test_crash_during_result_delivery_does_not_timeout(monkeypatch):
+    monkeypatch.setattr(attempt, "_grade_worker", _large_error_then_exit)
+    result = grade_spec(SPEC, [], timeout_s=10)
+    assert result["stage"] in ("checker_error", "infra_error"), result
+
+
+def _partial_result_exit(spec, checks, solids, out):
+    import pickle
+    def interrupted_dump(value, stream):
+        stream.write(b"partial pickle")
+        stream.flush()
+        os._exit(17)
+    pickle.dump = interrupted_dump
+    out.put({"stage": "graded", "report": {}})
+
+
+def test_partial_message_child_crash_is_bounded_and_reaped(monkeypatch):
+    monkeypatch.setattr(attempt, "_grade_worker", _partial_result_exit)
+    before = {p.pid for p in mp.active_children()}
+    started = time.monotonic()
+    result = grade_spec(SPEC, [], timeout_s=10)
+    assert result["stage"] == "infra_error" and result["exitcode"] == 17
+    assert time.monotonic() - started < 8
+    assert {p.pid for p in mp.active_children()} == before
