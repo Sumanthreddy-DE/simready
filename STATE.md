@@ -37,9 +37,11 @@ MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processi
 - 2026-11-16: cad-rl-env items 1-4 (OCC/OCP shim + Task 3, Task 4, pyproject `c255c60`, tag `v0.5.0`); SP1 Tasks 5-10 incl. Task 6-live on Vultr (`b36c625` .. `a8b902a`); D Labs tool-call probe + provider report.
 - 2026-11-17: D Labs `reason`-key fix verified (repro 0/12, bench 0/36); provider entries for Gemini-4-Argon and GPT-6.1 Sol (`6bec0f8`); headroom k=1 over 150 prompts (94.6% / 95.5%, not separable, accepted as ceiling); spec D5 + plan Tasks 11-12 for the new pair (`63cccc3`); `sp1-reference-models` closed.
 
+- 2026-11-17: `sp1-typed-tool-schema` decided — no typed schema (0 `F2_schema` in ~300 headroom attempts); `build_part` description now states every `PartSpec` bound (`6d5fb47` on `sp1-bench`, spec D8); new `system_prompt_sha256` `3dd19661...`; D Labs re-smoke passed on both reference models. BACKLOG `12a89b4`.
+
 ## Doing
 - **GenCAD follow-ups:** Gemma-3-4B (`apply-gencad-vlm-track`, optional). MecAgent test sent 2026-11-15; waiting on Senet (follow-up 2027-03-15 in career-ops).
-- **SP1 checker-scored text-to-CAD benchmark** (`sp1-resume`, branch `sp1-bench` @ `63cccc3`). Tasks 1-10 done (2026-11-16); reference pair decided 2026-11-17 (Gemini-4-Argon + GPT-6.1 Sol on D Labs, spec D5). Task 11 official runs gated on `sp1-concepts-proofread` (user) and the `sp1-typed-tool-schema` decision.
+- **SP1 checker-scored text-to-CAD benchmark** (`sp1-resume`, branch `sp1-bench` @ `6d5fb47`). Tasks 1-10 done (2026-11-16); reference pair Gemini-4-Argon + GPT-6.1 Sol on D Labs (spec D5); `sp1-typed-tool-schema` decided 2026-11-17 (prose kept, bounds stated, spec D8). Task 11 official runs gated only on `sp1-concepts-proofread` (user).
 - QLoRA chat-SFT gold-set eval (GGUF + llama-server), then close. Low priority.
 
 ## Pipeline
@@ -51,6 +53,8 @@ MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processi
 - Weekly mini-build loop (2026-11-02): take the week's most testable AI-CAD item from the Muse digest, test it in ~2 h on 5 GenCAD rows or score its output with `analyze_file_safe`, write a short result note, then a LinkedIn post. Skip weeks with nothing testable. Pipeline: `Projects/_ideas/muse-pipeline.md`.
 
 ## Resume here
+Launch and edit in `Mech/SimReady` (VPS; SP1 worktree `/tmp/simready-sp1-review` on `sp1-bench`, `6d5fb47`, push pending; `main` push pending). `sp1-typed-tool-schema` decided: prose schema kept, PartSpec bounds stated in the tool description (spec D8), new `system_prompt_sha256` `3dd19661...`, both D Labs smokes pass. Next: user finishes `sp1-concepts-proofread` (add c030/c031 engineer ranges), then run plan Task 11 on the VPS as written. Optional before freeze: S3 `sp1-dlab-gpt-model-id`. Do not commit or push without user approval. Handoff: harness/sessions/SimReady/2026-11-17-typed-schema-decision-session.tmp
+
 Launch and edit in `Mech/SimReady` (VPS; SP1 worktree `/tmp/simready-sp1-review` on `sp1-bench`, `63cccc3`, push pending). D Labs fixed the `reason`-key bug (re-checked 0/48); reference pair is now Gemini-4-Argon + GPT-6.1 Sol on D Labs as a ceiling pair (headroom k=1: 94.6% / 95.5%); spec D5 and plan Tasks 11-12 updated. Next: user finishes `sp1-concepts-proofread` (add c030/c031 engineer ranges), decide `sp1-typed-tool-schema`, then run plan Task 11 on the VPS as written. Handoff: harness/sessions/SimReady/2026-11-17-dlab-fix-reference-pair-session.tmp
 
 Launch and edit in `Mech/SimReady` (VPS; SP1 worktree `/tmp/simready-sp1-review` on `sp1-bench`, `a8b902a`, pushed). SP1 Tasks 3-10, pyproject and tag `v0.5.0` done; D Labs `reason`-key bug reported to the provider. Next: on the provider's reply, decide `sp1-reference-models` (GPT-6.1 Sol + DeepSeek vs GLM + DeepSeek on Vultr), then Task 11 once the proofread and budget are settled. Do not commit or push without user approval. Handoff: harness/sessions/SimReady/2026-11-16-sp1-tasks-5-10-dlab-probe-session.tmp
