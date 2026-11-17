@@ -16,5 +16,23 @@
     "max_tokens": 8192,
     "supports_seed": true,
     "extra_body": {}
+  },
+  "gemini-4-argon": {
+    "base_url": "https://api.dlabkeys.com/v1",
+    "model": "gemini-4-argon",
+    "key_env": "OPENAI_API_KEY",
+    "rpm": 20,
+    "max_tokens": 16384,
+    "supports_seed": true,
+    "extra_body": {}
+  },
+  "gpt-6.1-sol": {
+    "base_url": "https://api.dlabkeys.com/v1",
+    "model": "gpt-6.1-sol",
+    "key_env": "OPENAI_API_KEY",
+    "rpm": 20,
+    "max_tokens": 16384,
+    "supports_seed": true,
+    "extra_body": {}
   }
 }
