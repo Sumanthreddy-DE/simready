@@ -127,6 +127,7 @@ def test_bench_tool_drops_agent_only_instructions():
     desc = BUILD_PART_TOOL["function"]["description"]
     assert "analyze_geometry" not in desc and "axis is +Z" in desc
     assert f"at most {STEPS_MAX} steps" in desc  # the PartSpec cap is stated, not hidden (Task 10 smoke)
+    assert "(0, 1000]" in desc and "(0, 500]" in desc and "[-10000, 10000]" in desc  # PartSpec bounds stated too
     assert "timeout_seconds" not in BUILD_PART_TOOL["function"]["parameters"]["properties"]
     assert "say so" in SYSTEM_PROMPT
     assert len(system_prompt_sha256()) == 64

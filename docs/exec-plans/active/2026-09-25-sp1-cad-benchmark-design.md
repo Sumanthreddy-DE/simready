@@ -143,6 +143,29 @@ starts from the stored failures; the single-shot run is never repeated. Tracked 
 **Why commit the official logs:** "every attempt is replayable" is only checkable if the logs
 are public; a reviewer can re-grade the run themselves.
 
+### D8. Tool schema stays prose; every validation bound is stated (decided 2026-11-17)
+
+`build_part`'s `spec` parameter stays `"type": "object"` with the grammar in prose. It is not
+replaced by a typed JSON schema generated from `PartSpec.model_json_schema()`.
+
+**Why:**
+- **No error to fix.** About 300 headroom attempts by the two reference models had 0 `F2_schema`.
+  The failures that raised the question came from DeepSeek V4.1 Flash on D Labs, which is not a
+  reference model, and its replies were not valid JSON, which a schema fixes only where the
+  provider enforces it while decoding.
+- **It would make the number depend on the server.** Some servers (llama-server is believed to,
+  unverified) compile a tool's JSON schema into a decoding grammar. The SP3 baseline would then
+  have its schema errors blocked by the server while the API models are graded on what they
+  write, and the before-number and the ceiling would measure different things.
+- **Schema errors are a signal for SP3.** They are what a small model gets wrong first; RL can
+  learn from them only if they are graded.
+
+**Rule kept from this:** the description states every bound `PartSpec` enforces (step cap,
+dimension, radius and placement limits), generated from the `simready/gen/spec.py` constants, so
+no model is graded on a rule it was never told. A new bound in `PartSpec` goes into the
+description in the same change. Revisit if a reference model's official run shows `F2_schema`
+above a few percent.
+
 ## Design §1: Concept format and checker (approved 2026-09-25)
 
 One JSONL line per concept: `concept_id`, `name`, `in_vocab`, `prompts{explicit, engineer,
