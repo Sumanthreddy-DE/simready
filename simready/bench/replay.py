@@ -3,6 +3,8 @@ replay: rebuild one attempt and verify its geometric fingerprint.
 
 Logged specs are never edited. regrade writes a new log whose header names
 the source run and the new checker version; the report cites that version.
+Provider-argument errors are carried unchanged: a logged spec alone cannot
+recover their original tool envelope. Backend infrastructure can be retried.
 """
 
 from __future__ import annotations
@@ -37,7 +39,9 @@ def regrade(
     regraded = 0
     for att in runlog.attempts(run_path):
         record = dict(att)
-        if att.get("spec") is not None:
+        provider_error = (att.get("failure_class") == "infra_error"
+                          and att.get("error_type") == "provider_arguments")
+        if att.get("spec") is not None and not provider_error:
             concept = concepts[att["concept_id"]]
             if getattr(concept.prompts, att["phrasing"]) != att["prompt"]:
                 raise ValueError(f"{att['attempt_id']}: prompt text changed since the run; regrade re-checks, never re-asks")

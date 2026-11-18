@@ -7,6 +7,7 @@ import json
 import pytest
 
 from simready.bench import runlog
+from simready.bench.attempt import evaluate_reply, parse_reply
 from simready.bench.replay import regrade, replay
 
 SPEC = {"steps": [{"op": "box", "dx": 40, "dy": 30, "dz": 5}]}
@@ -101,3 +102,51 @@ def test_regrade_infrastructure_remains_excluded(tmp_path):
     regrade(run, out, concepts_path=_concepts(tmp_path), grade=unavailable)
     assert load_run(out).attempts == []
     assert runlog.attempts(out)[0]["partial"] is None
+
+
+@pytest.mark.parametrize("arguments", [
+    {"spec": SPEC, "reason": "provider envelope"},
+    {"spec": dict(SPEC, reason="provider root")},
+    {"spec": {"reason": "provider replaced steps"}},
+], ids=["valid-spec", "contaminated-spec", "no-spec"])
+def test_regrade_preserves_provider_arguments_evidence(tmp_path, arguments):
+    from simready.bench.report import load_run
+
+    def must_not_grade(*args):
+        pytest.fail("provider contamination must not reach the grader, including during regrade")
+
+    parsed = parse_reply([{"name": "build_part", "arguments": json.dumps(arguments)}], None)
+    outcome = evaluate_reply(parsed, [], 1, grade=must_not_grade)
+    original = _attempt(0, **outcome, checker_version="original-checker")
+    assert original["failure_class"] == "infra_error"
+    assert original["error_type"] == "provider_arguments"
+    run = _log(tmp_path, [original])
+    source_bytes = run.read_bytes()
+    out = tmp_path / "regraded.jsonl"
+
+    n = regrade(run, out, concepts_path=_concepts(tmp_path), grade=must_not_grade)
+
+    assert n == 0
+    assert runlog.attempts(out) == [original]
+    assert run.read_bytes() == source_bytes
+    assert load_run(out).attempts == []
+    assert runlog.done_attempt_ids(out) == set()
+
+
+@pytest.mark.parametrize("error_type", ["backend_setup", "backend_runtime", None])
+def test_regrade_backend_infrastructure_can_recover(tmp_path, error_type):
+    from simready.bench.report import load_run
+
+    original = _attempt(0, failure_class="infra_error", error_type=error_type,
+                        error="backend temporarily unavailable", partial=None,
+                        passed=None, fingerprint=None)
+    run = _log(tmp_path, [original])
+    out = tmp_path / "regraded.jsonl"
+    n = regrade(run, out, concepts_path=_concepts(tmp_path), grade=grade_pass)
+    assert n == 1
+    recovered = runlog.attempts(out)[0]
+    assert recovered["failure_class"] is None and recovered["passed"] is True
+    assert recovered["partial"] == 1.0 and recovered["error_type"] is None
+    assert recovered["error"] is None
+    assert len(load_run(out).attempts) == 1
+    assert runlog.done_attempt_ids(out) == {"c001/explicit/0"}
