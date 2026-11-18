@@ -1,4 +1,4 @@
-"""Attempt pipeline: reply parsing, pre-build classes, subprocess grading."""
+"""Attempt pipeline: provider attribution, pre-build classes, subprocess grading."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import json
 import multiprocessing as mp
 import os
 import time
+from copy import deepcopy
 
 import pytest
 
@@ -68,6 +69,115 @@ def test_classify_schema_vs_reference():
     orphan = {"steps": [{"op": "box", "dx": 1, "dy": 1, "dz": 1}, {"op": "cyl", "r": 1, "h": 1}]}
     assert classify_spec(orphan)[0] == F3
     assert classify_spec(SPEC) == (None, [])
+
+
+def _provider_args(spec, location):
+    if location == "envelope":
+        return {"spec": spec, "reason": "proxy explanation"}
+    root = dict(spec, reason="proxy explanation")
+    if location == "direct":
+        return root
+    return {"spec": json.dumps(root) if location == "stringified" else root}
+
+
+def _must_not_grade(*args):
+    pytest.fail("pre-build failure must never invoke grade")
+
+
+@pytest.mark.parametrize("location", ["envelope", "root", "direct", "stringified"])
+@pytest.mark.parametrize("encoded", [False, True], ids=["object", "json"])
+def test_provider_arguments_known_reason_is_unscored(location, encoded):
+    # Removing the guard must turn these into scored failures or call grade.
+    args = _provider_args(SPEC, location)
+    original = deepcopy(args)
+    parsed = parse_reply([{"name": "build_part", "arguments": json.dumps(args) if encoded else args}], None)
+    spec_before = deepcopy(parsed.spec)
+    out = evaluate_reply(parsed, [], 1, grade=_must_not_grade)
+    assert out["failure_class"] == "infra_error", out
+    assert out["error_type"] == "provider_arguments" and out["error"]
+    assert out["passed"] is None and out["partial"] is None
+    assert args == original and parsed.spec == spec_before
+
+
+@pytest.mark.parametrize("args", [
+    {"spec": {"reason": "replaced steps"}},
+    {"spec": json.dumps({"reason": "replaced steps"})},
+    {"reason": "replaced steps"},
+    {"spec": {"reason": "replaced steps"}, "reason": "envelope too"},
+])
+def test_provider_arguments_reason_replacing_steps_is_unscored(args):
+    parsed = parse_reply([{"name": "build_part", "arguments": args}], None)
+    out = evaluate_reply(parsed, [], 1, grade=_must_not_grade)
+    assert out["failure_class"] == "infra_error", out
+    assert out["error_type"] == "provider_arguments" and out["error"]
+    assert out["passed"] is None and out["partial"] is None
+
+
+@pytest.mark.parametrize("location", ["envelope", "root", "direct", "stringified"])
+@pytest.mark.parametrize("spec, expected", [
+    ({"steps": [{"op": "box", "dx": -1, "dy": 30, "dz": 5}]}, F2),
+    ({"steps": [{"op": "box", "dx": 1}]}, F2),
+    (dict(SPEC, typo="extra root key"), F2),
+    ({"steps": [{"op": "fillet"}]}, F9),
+    ({"steps": [SPEC["steps"][0], SPEC["steps"][0]]}, F3),
+    ({"steps": [SPEC["steps"][0], {"op": "cut", "a": 0, "b": 4}]}, F3),
+    ({"steps": [dict(SPEC["steps"][0], reason="nested op is not provider signature")]}, F2),
+    ({"unrelated": "missing steps too"}, F2),
+])
+def test_provider_arguments_independent_defects_keep_model_class(spec, expected, location):
+    args = _provider_args(spec, location)
+    original = deepcopy(args)
+    parsed = parse_reply([{"name": "build_part", "arguments": args}], None)
+    out = evaluate_reply(parsed, [], 1, grade=_must_not_grade)
+    assert out["failure_class"] == expected, out
+    assert out["passed"] is False and out["partial"] == 0 and out["schema_errors"]
+    assert args == original
+
+
+@pytest.mark.parametrize("args, expected", [
+    (None, F1), ("{not json", F1), ("", F1),
+    ({"spec": "{not json", "reason": "x"}, F1),
+    ({"spec": None, "reason": "x"}, F1),
+    ({"spec": {}, "reason": "x"}, F2),
+    ({"spec": SPEC, "typo": "x"}, F2),
+    ({"spec": SPEC, "typo": "x", "reason": "x"}, F2),
+    ({"spec": dict(SPEC, reason="x"), "typo": "x"}, F2),
+    ({"spec": {"reason": "x"}, "typo": "x"}, F2),
+    ({"spec": {"reason": "x", "typo": "x"}}, F2),
+    ({"spec": {"spec": SPEC, "reason": "unrelated wrapper"}}, F2),
+    ({"spec": {"steps": [dict(SPEC["steps"][0], reason="nested only")]}}, F2),
+])
+def test_provider_arguments_negative_and_mixed_controls(args, expected):
+    parsed = parse_reply([{"name": "build_part", "arguments": args}], json.dumps(SPEC))
+    out = evaluate_reply(parsed, [], 1, grade=_must_not_grade)
+    assert out["failure_class"] == expected, out
+    assert out["passed"] is False and out["partial"] == 0
+
+
+@pytest.mark.parametrize("args", [{"spec": SPEC}, SPEC, {"spec": json.dumps(SPEC)}])
+def test_provider_arguments_clean_controls_still_grade(args):
+    def grade(spec, checks, solids):
+        assert spec == SPEC and checks == [] and solids == 1
+        return {"stage": "graded", "fingerprint": {},
+                "report": {"passed": True, "partial": 1.0, "failure_class": None}}
+    out = evaluate_reply(parse_reply([{"name": "build_part", "arguments": args}], None), [], 1, grade=grade)
+    assert out["passed"] is True and out["partial"] == 1.0
+
+
+@pytest.mark.parametrize("tool_calls", [[], [{"name": "other_tool", "arguments": "{}"}]])
+def test_provider_arguments_text_reason_remains_model_error(tool_calls):
+    out = evaluate_reply(parse_reply(tool_calls, json.dumps(dict(SPEC, reason="text"))),
+                         [], 1, grade=_must_not_grade)
+    assert out["via"] == "text" and out["failure_class"] == F2 and out["partial"] == 0
+
+
+def test_provider_arguments_direct_classification_and_positional_reply_unchanged():
+    spec = dict(SPEC, reason="direct callers are not provider replies")
+    assert classify_spec(spec)[0] == F2
+    parsed = ParsedReply(spec, "tool", 1, "original fourth positional argument")
+    out = evaluate_reply(parsed, [], 1, grade=_must_not_grade)
+    assert parsed.error == "original fourth positional argument"
+    assert out["failure_class"] == F2 and out["partial"] == 0
 
 
 def _fake_grade(stage, **extra):

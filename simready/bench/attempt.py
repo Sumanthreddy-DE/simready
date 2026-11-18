@@ -6,6 +6,8 @@ failing stage wins: F1 no_parse, F2 schema, F3 reference, F9 out_of_vocab
 (checked before schema, because the DSL's discriminator would otherwise
 report an unknown op as F2), F4 build_error, F8 timeout, then the checker's
 F5/F6/F7. ``infra_error`` and ``checker_error`` are excluded from scoring.
+Known tool-argument ``reason`` contamination is infrastructure only when
+removing that key exposes no independent model defect; it is never graded.
 """
 
 from __future__ import annotations
@@ -45,6 +47,7 @@ class ParsedReply:
     via: str | None  # "tool" | "text" | None
     n_tool_calls: int
     error: str = ""
+    tool_arguments: dict | None = None  # Original envelope, before _as_spec unwraps it.
 
 
 _FENCE = re.compile(r"```(?:json)?\s*([\s\S]*?)```")
@@ -85,13 +88,20 @@ def _spec_in_text(text: str) -> dict | None:
 
 
 def parse_reply(tool_calls: list[dict], content: str | None) -> ParsedReply:
-    """Accept a ``build_part`` tool call or a JSON spec in text (logged as ``via``)."""
+    """Accept tool/text specs, retaining tool-envelope evidence for attribution."""
     for call in tool_calls:
         if call.get("name") == "build_part":
-            spec = _as_spec(call.get("arguments") or "")
+            arguments = call.get("arguments")
+            if isinstance(arguments, str):
+                try:
+                    arguments = json.loads(arguments)
+                except json.JSONDecodeError:
+                    arguments = None
+            metadata = arguments if isinstance(arguments, dict) else None
+            spec = _as_spec(arguments)
             if spec is not None:
-                return ParsedReply(spec, "tool", len(tool_calls))
-            return ParsedReply(None, "tool", len(tool_calls), "build_part arguments are not a spec")
+                return ParsedReply(spec, "tool", len(tool_calls), tool_arguments=metadata)
+            return ParsedReply(None, "tool", len(tool_calls), "build_part arguments are not a spec", metadata)
     if content:
         spec = _spec_in_text(content)
         if spec is not None:
@@ -118,6 +128,39 @@ def classify_spec(spec: dict) -> tuple[str | None, list[str]]:
             return F3, messages
         return F2, messages
     return None, []
+
+
+def _tool_argument_failure(arguments: dict) -> tuple[str | None, list[str]]:
+    """Inspect only the build_part envelope and PartSpec root, without mutation.
+
+    Validate a copy minus known ``reason`` keys so extra-forbid validation
+    cannot mask reference errors. Only a reason-only root may replace steps;
+    other missing fields, extra keys and nested operation keys remain scored.
+    """
+    root = arguments
+    extra_keys: set[str] = set()
+    has_reason = "reason" in arguments
+    if "steps" not in arguments and "spec" in arguments:
+        extra_keys = set(arguments) - {"spec", "reason"}
+        root = arguments["spec"]
+        if isinstance(root, str):
+            try:
+                root = json.loads(root)
+            except json.JSONDecodeError:
+                return None, []  # Malformed JSON retains F1 precedence.
+    if not isinstance(root, dict):
+        return None, []
+    has_reason = has_reason or "reason" in root
+    if not has_reason and not extra_keys:
+        return None, []
+    clean = {key: value for key, value in root.items() if key != "reason"}
+    if set(root) != {"reason"}:
+        cls, errors = classify_spec(clean)
+        if cls is not None:
+            return cls, errors
+    if extra_keys:
+        return F2, [f"build_part arguments: unexpected keys {sorted(extra_keys)}"]
+    return INFRA, ["Known provider reason key in build_part arguments or PartSpec root"]
 
 
 def _grade_worker(spec_dict: dict, checks_json: list, expected_solids: int, out_queue) -> None:
@@ -278,6 +321,7 @@ def evaluate_reply(
     expected_solids: int,
     grade: Callable[[dict, list, int], dict] = grade_spec,
 ) -> dict:
+    """Classify provider evidence and independent model defects before grading."""
     out: dict[str, Any] = {
         "via": parsed.via,
         "n_tool_calls": parsed.n_tool_calls,
@@ -292,6 +336,15 @@ def evaluate_reply(
         "error": None,
         "error_type": None,
     }
+    if parsed.via == "tool" and parsed.tool_arguments is not None:
+        cls, errors = _tool_argument_failure(parsed.tool_arguments)
+        if cls == INFRA:
+            out.update(failure_class=INFRA, error_type="provider_arguments",
+                       error="; ".join(errors), passed=None, partial=None)
+            return out
+        if cls is not None:
+            out.update(failure_class=cls, schema_errors=errors)
+            return out
     if parsed.spec is None:
         out.update(failure_class=F1, schema_errors=[parsed.error])
         return out
