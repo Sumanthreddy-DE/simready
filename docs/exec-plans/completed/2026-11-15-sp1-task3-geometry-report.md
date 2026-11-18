@@ -1,4 +1,9 @@
 # sp1-task3-geometry report
+
+**Status:** done
+**Last verified:** 2026-11-18
+**Status evidence:** 5f8681e, b9804bb, 96747fd are ancestors of main (verified 2026-11-18)
+
 Branch: gpt/sp1-task3-geometry   Base: 58a6906   Head: 3716151
 ## Result
 DONE -- Task 3 and a pythonocc-first/OCP shim run under OCP, with exact-nominal benchmark extents and no lost baseline passes.

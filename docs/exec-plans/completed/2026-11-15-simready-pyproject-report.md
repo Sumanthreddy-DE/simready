@@ -1,4 +1,9 @@
 # simready-pyproject report
+
+**Status:** done
+**Last verified:** 2026-11-18
+**Status evidence:** f3b80a6 is an ancestor of main (verified 2026-11-18)
+
 Branch: gpt/simready-pyproject   Base: 5f830dbc4fcfbc81134ff9a2413217ee2160d71d   Head: f3b80a6c686c29686f4be197ba1f6ef660b4a37c
 ## Result
 DONE -- SimReady builds an installable benchmark wheel with packaged concepts and an optional OCP backend.
