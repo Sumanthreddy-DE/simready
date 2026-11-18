@@ -97,6 +97,21 @@ def test_persistent_connection_error_is_infra():
         client.complete(build_messages("x"), [], 0.7)
 
 
+def test_empty_or_null_choices_retries_then_raises_infra():
+    null_choices = SimpleNamespace(choices=None, model="m-2026", usage=None)
+    empty_choices = SimpleNamespace(choices=[], model="m-2026", usage=None)
+    null_msg = SimpleNamespace(choices=[SimpleNamespace(message=None, finish_reason="stop")], model="m-2026", usage=None)
+
+    client, comp = _client([null_choices, empty_choices, null_msg, _resp(content="recovered")], max_retries=4)
+    assert client.complete(build_messages("x"), [], 0.7)["content"] == "recovered"
+    assert len(comp.calls) == 4
+
+    exhausted, comp2 = _client([null_choices, empty_choices], max_retries=2)
+    with pytest.raises(InfraError, match="empty choices"):
+        exhausted.complete(build_messages("x"), [], 0.7)
+    assert len(comp2.calls) == 2
+
+
 def test_client_error_is_infra_without_retry():
     bad = openai.BadRequestError("bad param", response=httpx.Response(400, request=REQ), body=None)
     client, comp = _client([bad, _resp(content="never")])

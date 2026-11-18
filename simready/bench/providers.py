@@ -81,7 +81,10 @@ class RateLimiter:
 
 
 def _reply(resp: Any, latency_s: float) -> dict:
-    choice = resp.choices[0]
+    choices = getattr(resp, "choices", None)
+    if not choices or getattr(choices[0], "message", None) is None:
+        raise ValueError("empty choices in completion response")
+    choice = choices[0]
     msg = choice.message
     usage = resp.usage
     return {
@@ -155,7 +158,10 @@ class ModelClient:
             except openai.APIStatusError as exc:
                 raise InfraError(f"HTTP {exc.status_code}: {exc}") from exc
             else:
-                return _reply(resp, time.monotonic() - started)
+                try:
+                    return _reply(resp, time.monotonic() - started)
+                except ValueError as exc:
+                    last = str(exc)
             if attempt < self.max_retries:
                 self._sleep(min(backoff, self.max_backoff))
                 backoff *= 2
