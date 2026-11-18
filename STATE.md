@@ -47,7 +47,7 @@ MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processi
 - **SP1 checker version check (S1 `bench-checker-tag-moved`):** regrade official logs under `1e70789`; keep `cad-rl-env-ownership` open until cad-rl-env Phase B/C delivery finishes.
 - **SP2 (`sp2-vocab-v2`):** write spec + plan for generation vocabulary v2.
 - **CAE interviews (`cae-interviews`, user):** outreach + first calls from `docs/strategy/cae-interview-script-2026-11-18.md`.
-- **GenCAD follow-ups:** Gemma-3-4B deferred (`apply-gencad-vlm-track`, plan `docs/exec-plans/active/2026-11-18-gencad-gemma-3-4b.md`, untracked). MecAgent test sent 2026-11-15; waiting on Senet (follow-up 2027-03-15 in career-ops).
+- **GenCAD follow-ups:** Gemma-3-4B deferred by user on 2026-11-18 (`apply-gencad-vlm-track`, paused plan `docs/exec-plans/active/2026-11-18-gencad-gemma-3-4b.md`). Plan and backlog resume instructions saved; notebook implementation and GPU runs have not started. MecAgent test sent 2026-11-15; waiting on Senet (follow-up 2027-03-15 in career-ops).
 - **SP3 entry gate (`sp3-entry-gate`):** survey ~3–4B instruct models with Unsloth GRPO + GGUF support (spec D5 "Open"), run the small-model baseline on SP1 (`k = 5` via local `llama-server`), then start SP3.
 - QLoRA chat-SFT gold-set eval (GGUF + llama-server), then close. Low priority.
 
@@ -60,4 +60,6 @@ MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processi
 - Weekly mini-build loop (2026-11-02): take the week's most testable AI-CAD item from the Muse digest, test it in ~2 h on 5 GenCAD rows or score its output with `analyze_file_safe`, write a short result note, then a LinkedIn post. Skip weeks with nothing testable. Pipeline: `Projects/_ideas/muse-pipeline.md`.
 
 ## Resume here
+2026-11-18 Gemma-3-4B GenCAD plan written, self-reviewed and paused at the user's request; `BACKLOG.md` `apply-gencad-vlm-track` now points to `docs/exec-plans/active/2026-11-18-gencad-gemma-3-4b.md` with exact resume instructions. No notebook implementation or GPU runs started. When the user requests Gemma work, review the saved experiment contract, then execute inline; start with portable runtime paths and safe manifests, and obtain approval before remote GPU launches. Existing SP1 checker-tag regrade → SP2 priorities remain recorded below. Handoff: harness/sessions/SimReady/2026-11-18-gencad-gemma-plan-paused-session.tmp
+
 2026-11-18 SP1 published: `sp1-bench` merged into `main` (`1e70789`), `main` at `30caa19` on origin; tags `v0.5.1` and `bench-checker-1.0.0` on origin, both at `1e70789`. README reworked (`c8a4d10`, SP2 → SP3 roadmap, CAE interview script); pre-processing evidence brief (`30caa19`). Next: S1 `bench-checker-tag-moved` (regrade `cd5d693` under `1e70789` because the checker changed after the official run and `CHECKER_VERSION` stayed 1.0.0), then S2 `sp2-vocab-v2` (SP2 spec); in parallel S2 `cae-interviews` (user). Another session's uncommitted Gemma plan files and `BACKLOG.md` edit are still in the tree, not committed by this save. Handoff: harness/sessions/SimReady/2026-11-18-sp1-published-readme-evidence-session.tmp
