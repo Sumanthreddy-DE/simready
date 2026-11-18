@@ -1,9 +1,19 @@
 # SimReady
 
-An AI copilot for FEA pre-processing, and a geometry checker used to score AI-generated
-CAD. Point it at a STEP file; it analyzes B-Rep geometry for meshing/manufacturability
-problems, scores simulation-readiness 0–100, and explains the findings through a
-multi-turn LLM agent.
+A geometry checker for CAD, used to score AI-generated parts, plus the AI copilot for FEA
+pre-processing it grew out of. The checker backs a text-to-CAD benchmark (`bench_v1`) and
+is being prepared as a training reward. Point it at a STEP file; it analyzes B-Rep geometry
+for meshing/manufacturability problems, scores simulation-readiness 0–100, and explains the
+findings through a multi-turn LLM agent.
+
+**At a glance** — what exists, what is being built, what comes after:
+
+| | |
+|---|---|
+| **Have** | STEP analysis + rule checks + copilot; typed-DSL generation; GenCAD image → CadQuery model (VSR 0 → 88/100); `bench_v1`, a 150-prompt checker-scored text-to-CAD benchmark with replayable logs |
+| **Building** | SP2: a wider generation vocabulary for the 13 concepts `bench_v1` cannot express, and DSL vs free-form code measured on the same benchmark |
+| **Next** | SP3: post-train a small open model with the checker as the reward, scored as pass@1 before vs after |
+| **Parked idea** | An independent checker for FE *models*, not just geometry — see [Parked direction](#parked-direction-an-independent-fe-model-checker) |
 
 **Scope: analysis and validation, plus constrained generation.** SimReady reads geometry
 and reports on it (healing is a best-effort OCC ShapeFix pass, not a design edit).
@@ -406,18 +416,15 @@ that can be checked.
   GPT-6.1 Sol **96.2% pass@1** (98.2% pass@5, reasoning gap 3.2%), Gemini-4-Argon **95.5% pass@1**
   (97.3% pass@5, reasoning gap 4.9%); official replayable logs committed in
   `docs/validation/bench_v1/`.
+- **GenCAD follow-ups** (`docs/validation/gencad_eval.md`, "Next steps"): stopping problem
+  solved offline 2026-11-12 (trimming to the last complete `solid=` line lifts VSR
+  88 → 100/100, IoU flat 0.225 → 0.230); stronger baseline run 2026-11-15 (one example program
+  in the prompt: 1/100 valid, the model copies the example for 99 of 100 images). Optional
+  still: a second model, Gemma-3-4B, against its own untuned base.
 
-**Now — GenCAD follow-ups** (`docs/validation/gencad_eval.md`, "Next steps")
+**Now and next — text → CAD (SP2 → SP3)**
 
-1. **Stopping problem:** all 12 failures are runaway generations. Done offline 2026-11-12:
-   trimming to the last complete `solid=` line lifts VSR 88 → 100/100, IoU flat (0.225 → 0.230).
-2. **Stronger baseline:** the same untuned model with one example program in the prompt.
-   Done 2026-11-15: 1/100 valid; the model copies the example program for 99 of 100 images.
-3. **Second model:** Gemma-3-4B with the same two notebooks, against its own untuned base.
-
-**Next — text → CAD (SP2 → SP3)**
-
-1. **SP2: generation vocabulary v2.** Extend the 4-op DSL where SP1 shows concepts it cannot
+1. **SP2: generation vocabulary v2 (now).** Extend the 4-op DSL where SP1 shows concepts it cannot
    express (13 out-of-vocab concepts in `concepts_v1`). Then compare the DSL against free-form
    build123d code on the same benchmark, so "DSL vs code" becomes a measurement, not an opinion.
    A repair pass (feed checker errors back, up to 2 retries, starting from SP1's logged failures)
@@ -435,6 +442,33 @@ that can be checked.
   training; synthetic augmentation is exhausted.
 - Evaluate the copilot chat-SFT adapter on the gold set once, then stop.
 - Mesher (Gmsh) hook — correlate the 0–100 score with actual meshability.
+
+## Parked direction: an independent FE-model checker
+
+Not being built now; written down so the idea is not lost. SimReady checks *geometry*.
+The step after that is checking the *simulation model* built on it — by an engineer or,
+more and more often, by a general AI agent driving the usual FE tools.
+
+The idea: before a solve, an independent tool reads the FE model and flags setup errors —
+bodies with no constraints, unit mismatches, contact definitions that cannot work, mesh too
+coarse at stress hot spots, loads that disagree with a hand calculation — and explains each
+one, the way the copilot explains geometry findings today. Rules first, learned components
+only where a rule cannot decide. It would run locally, because simulation models are
+customer IP.
+
+Why it might matter: AI is making simulation faster, but someone still has to say whether a
+result can be trusted, and an agent that sets up a model does not know when it got it wrong.
+Why it is parked: it is a hypothesis without customer evidence yet. It gets picked up only
+after conversations with practising CAE engineers show the problem costs them real time.
+
+## What this is not
+
+I know this is not what most industrial users would want today. SimReady is tested
+on single parts only, not on assemblies with hundreds of components; it does not read solver decks; its
+readiness score is a heuristic screen that has not been checked against real mesher outcomes;
+and its learned defect head flags every clean real part it was tested on (11/11, see
+[Known limits](#known-limits)). It is a research and portfolio project that measures AI-generated
+CAD honestly — not a replacement for a pre-processor like ANSA or HyperMesh.
 
 ## Project layout
 
