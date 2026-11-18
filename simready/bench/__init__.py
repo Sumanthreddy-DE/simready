@@ -7,4 +7,4 @@ Python so ``python -m simready.bench report`` works without pythonocc.
 
 # Bump on any checker change. Drop "-dev" when tagging the official run;
 # ``run --official`` refuses a "-dev" version.
-CHECKER_VERSION = "1.0.0-dev"
+CHECKER_VERSION = "1.0.0"
