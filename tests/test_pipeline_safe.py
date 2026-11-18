@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import pytest
 
+pytestmark = pytest.mark.occ
+
 occ = pytest.importorskip(
     "OCC.Core.BRepPrimAPI",
     reason="pythonocc-core not available (run under the sr env)",

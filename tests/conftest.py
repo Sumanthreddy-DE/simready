@@ -2,6 +2,13 @@ from __future__ import annotations
 
 import pytest
 
+
+def pytest_collection_modifyitems(items):
+    for item in items:
+        if "valid_step_file" in item.fixturenames:
+            item.add_marker(pytest.mark.occ)
+
+
 try:
     from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeBox
     from OCC.Core.IFSelect import IFSelect_RetDone

@@ -1,3 +1,5 @@
+import pytest
+
 from simready.splitter import split_bodies
 from simready.validator import validate_step_file
 
@@ -9,6 +11,7 @@ def test_split_bodies_single_body(valid_step_file):
     assert len(result.bodies) == 1
 
 
+@pytest.mark.occ
 def test_split_bodies_multi_body_fixture():
     validation = validate_step_file("tests/data/multi_body.step")
     result = split_bodies(validation.shape)

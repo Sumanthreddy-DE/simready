@@ -56,7 +56,7 @@ try:
 except ImportError:  # pragma: no cover
     TopTools_IndexedMapOfShape = None
 
-from simready.occ_utils import build_edge_face_map, count_topology, edge_length, uv_bounds
+from simready.occ_utils import build_edge_face_map, count_topology, edge_length, iter_faces, uv_bounds
 
 
 SURFACE_TYPE_MAP = {
@@ -107,21 +107,10 @@ def _shape_hash(shape: Any) -> int | None:
 
 
 def _iter_faces(shape: Any) -> list[FaceEntry]:
-    if TopExp_Explorer is None or TopAbs_FACE is None:
-        return []
-    try:
-        explorer = TopExp_Explorer(shape, TopAbs_FACE)
-    except Exception:
-        return []
-
-    faces: list[FaceEntry] = []
-    index = 0
-    while explorer.More():
-        face = topods.Face(explorer.Current()) if topods is not None else explorer.Current()
-        faces.append(FaceEntry(index=index, face=face, hash_code=_shape_hash(face) or index))
-        index += 1
-        explorer.Next()
-    return faces
+    return [
+        FaceEntry(index=i, face=f, hash_code=_shape_hash(f) or i)
+        for i, f in iter_faces(shape)
+    ]
 
 
 def _iter_edges(shape: Any) -> list[EdgeEntry]:

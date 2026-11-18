@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, is_dataclass
+from io import StringIO
 from typing import Any
 
 from simready.checks import summarize_findings
 
 try:
+    from rich import box
     from rich.console import Console
     from rich.table import Table
 except ImportError:  # pragma: no cover
@@ -62,7 +64,7 @@ def render_terminal_report(report: dict[str, Any], verbose: bool = False) -> str
     if Console is None or Table is None:
         return json.dumps(report, indent=2)
 
-    console = Console(record=True, width=120)
+    console = Console(file=StringIO(), record=True, width=120)
     score = report.get("score", {})
     status = report.get("status", "")
     color = {"SimulationReady": "green", "ReviewRecommended": "yellow", "NeedsAttention": "dark_orange", "NotReady": "red", "InvalidInput": "red"}.get(status, "white")
@@ -72,7 +74,7 @@ def render_terminal_report(report: dict[str, Any], verbose: bool = False) -> str
     if complexity:
         console.print(f"Complexity: {complexity.get('label', 'Unknown')} (confidence: {complexity.get('confidence', 'n/a')})")
 
-    table = Table(show_header=True, header_style="bold cyan")
+    table = Table(show_header=True, header_style="bold cyan", box=box.ASCII)
     table.add_column("Category")
     table.add_column("Value")
     table.add_row("Validation", "PASS" if report.get("validation", {}).get("is_valid") else "FAIL")
@@ -86,13 +88,21 @@ def render_terminal_report(report: dict[str, Any], verbose: bool = False) -> str
     table.add_row("Elapsed", str(report.get("elapsed_seconds", "n/a")))
     console.print(table)
 
+    validation = report.get("validation", {})
+    if status == "InvalidInput" or not validation.get("is_valid", True):
+        console.print("[bold]Validation errors:[/bold]")
+        for error in validation.get("errors", []):
+            console.print(f"[{error.get('severity', 'Critical')}] {error.get('check')}: {error.get('detail')}")
+            if error.get("suggestion"):
+                console.print(f"  -> {error['suggestion']}")
+
     findings = report.get("findings", [])
     if findings:
         console.print("[bold]Top issues:[/bold]")
         for finding in findings[:8]:
             console.print(f"[{finding.get('severity', 'Info')}] {finding.get('check')}: {finding.get('detail')}")
             console.print(f"  -> {finding.get('suggestion')}")
-    else:
+    elif status != "InvalidInput" and validation.get("is_valid", True):
         console.print("No findings. Clean geometry.")
 
     ml = report.get("ml") or {}

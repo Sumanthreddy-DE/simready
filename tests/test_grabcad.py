@@ -9,6 +9,8 @@ from pathlib import Path
 
 from simready.pipeline import analyze_file
 
+pytestmark = pytest.mark.occ
+
 GRABCAD_DIR = Path("tests/data/grabcad")
 GRABCAD_FILES = list(GRABCAD_DIR.glob("*.step")) + list(GRABCAD_DIR.glob("*.stp"))
 

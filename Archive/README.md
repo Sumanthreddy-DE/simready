@@ -13,6 +13,7 @@ Archive/
 ├── memory/            # Deprecated auto-memory files (open-questions migrated to BACKLOG.md)
 ├── sessions/          # Local only since 2026-10-10 (gitignored); see below
 ├── gencad-colab-download-2026-10-07/   # Local only; raw Colab download of the GenCAD results
+├── gencad-oneshot-2026-11-15/         # Local only; raw files of the one-shot baseline run
 ├── ChaGPT-deep-research-report-2.md   # Pre-existing deep-research artefacts
 └── ChatGPT-deep-research-report-1.md
 ```
@@ -44,12 +45,16 @@ Archive/
 ### `gencad-colab-download-2026-10-07/` (local only, not in git)
 - Raw Colab/Drive download of the first GenCAD eval: generations, both score files, and the 88 generated STEPs as a zip. Verified 2026-10-13 to match the committed copy in `docs/validation/gencad/` (JSON content identical; all 88 STEPs identical apart from line endings). Kept only as the original download; the committed copy is canonical. Excluded locally via `.git/info/exclude`.
 
+### `gencad-oneshot-2026-11-15/` (local only, not in git)
+- Raw Colab download of the one-shot prompted baseline: `gen_qwen25vl3b_base_1shot.jsonl`, `scores_qwen25vl3b_base_1shot.json`, `oneshot_example.json` (with the program text). Not committed because 99 of 100 generations and the example file contain GenCAD-Code training program text (no dataset license). The committed scores and a hash-only example file are in `docs/validation/gencad/`. Excluded locally via `.git/info/exclude`.
+
 ### `planning/`
 - `next-iteration-notes.md` — End-of-wk-2 contrarian review (2026-05-18). All action items migrated to `BACKLOG.md` Strategic Context section on 2026-05-19. Kept for full narrative.
 
 ## Source of truth (live, not here)
 
 - Open issues: `<repo>/BACKLOG.md`
-- Current plan: `<repo>/docs/exec-plans/path-c-4week.md`
-- Live status: `~/.claude/projects/C--Users-suman-Desktop-Docs-Job-Projects-Mech-SimReady/memory/project_simready.md`
-- Locked decisions: same memory dir, `project_path-c-decisions.md`
+- Current plans: `<repo>/docs/exec-plans/active/`; completed plans: `<repo>/docs/exec-plans/completed/`
+- Live status: `<repo>/STATE.md`
+- Local artifact paths/provenance: `<repo>/docs/impl/workspace-artifacts.md`
+- Locked Path C decisions: Citadel SimReady memory `project_path-c-decisions.md`

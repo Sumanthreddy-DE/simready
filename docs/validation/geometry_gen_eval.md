@@ -47,6 +47,8 @@ Both Llama failures have the same shape: the model emits the correct primitives,
 
 The exec plan budgeted ~60 s wall per prompt and flagged anything above as a regression: 8/10 first-run prompts exceeded it (Llama mean ≈ 95 s, GLM mean ≈ 92 s; range 39.8–142.9 s). The stack-up per prompt is: 2–4 NIM round-trips against a long system prompt, a spawn-subprocess OCC build (~5–10 s, by design per the hang-protection decision), and — the biggest avoidable chunk — a full in-process `analyze_file` with BRepSAGE inference, PNG render, and best-effort STEP heal on a 6-face box, including first-call torch + sentence-transformers model loads inside the test process. None of this is new regression in the build path; it is the analyze path doing demo-grade work in an eval loop. Fixes, in leverage order: a persistent build worker (already noted in the v1 plan risks), a `render_image=False` / slim mode for eval callers of `analyze_geometry`, and the open `analyze-file-occ-hang-per-check` S2 item whose subprocess isolation would also amortize model loads. Flagged here per the plan; not gated on.
 
+**Measured 2026-11-12 (offline, no LLM):** the analyze step is no longer in-process — `analyze_geometry` runs `analyze_file_safe` in a spawn child since the OCC-hang guard (same day as this run). Per call on the five gate specs: build ~1.2 s, analysis child ~9.0 s (at least 3.9 s of it start-up and imports), PNG 0.03 s, healed-STEP export 0.02 s. Local work is about 20 s per prompt (one build, two analyses); LLM round-trips are the rest. Record: `docs/exec-plans/completed/2026-11-12-gen-eval-latency.md`.
+
 ## v2.1 — Llama re-run after orphan-step rule + sequential tool calls (2026-07-19)
 
 Three changes landed between the runs above and this one:
@@ -147,3 +149,71 @@ through.
 - **Wall times are not comparable to legs 1–3.** They mix provider (Vultr vs NIM) and model;
   the 5–10× drop says more about the endpoint than about the models.
 - **Verdict prose was not assessed** in this run; the gate scores artifacts only.
+
+## v2.3 — strengthened mechanical + final-analysis gate (2026-10-24)
+
+The harness now requires, in addition to the historical artifact gate:
+
+- declared box dimensions (±0.1 mm) and centered through-hole diameter/full thickness;
+- `analyze_geometry` succeeds on the exact final generated STEP;
+- the agent's analyze call used that same final path.
+
+`simready/gen/verify.py` provides deterministic spec and final-analysis checks. Unit coverage:
+`tests/test_gen_verify.py`. This does not retroactively promote the historical runs above to the
+new gate.
+
+Fresh live run: Vultr `glm-5.3`, one run per prompt, no retries:
+`python -m pytest tests/test_gen_e2e.py -m live_llm -v` → **5 passed in 175.06 s**.
+All five had `occ_valid=true`, no mechanical errors, successful final analysis and matching
+final path after the selected build. Sum of per-prompt wall times: 116.20 s; no prompt crossed
+the 60 s slow flag. The L-bracket gate explicitly checks both boxes and upright placement;
+a failed final build invalidates the run rather than mixing an older artifact with a newer spec.
+
+| Prompt | Faces | Mechanical gate | Final analysis/path | Gate |
+|---|---:|---|---|---|
+| normal_box | 6 | 60 × 40 × 30 mm box | pass | pass |
+| thin_plate | 6 | 100 × 80 × 0.5 mm box | pass | pass |
+| l_bracket | 11 | base + upright + fuse | pass | pass |
+| bracket_with_hole | 7 | centered 10 mm through-hole | pass | pass |
+| small_feature_box | 7 | centered 1 mm through-hole | pass | pass |
+
+Compact provenance: `docs/validation/generation_gate_2026-10-24.json`. Raw local JSONL remains
+under `data/gen_eval/` and generated STEPs under `data/gen_parts/`, both ignored.
+
+**Evidence boundary:** one model/provider, one run per prompt. Verdict prose is not gated;
+`normal_box` still said "ready for meshing", which exceeds SimReady's heuristic evidence.
+The gate establishes mechanical spec conformance and successful analysis, not meshability or
+truthful prose.
+
+## v2.4 — Kimi K3 on D Labs (2026-11-12)
+
+Kimi K2.6 on NIM (the planned 2026-07-19 second leg) is dropped; Kimi K3 replaces it. It is
+only available to us through D Labs (`https://api.dlabkeys.com/v1`, model `kimi-k3`), so this
+leg runs on a different provider from the graded Vultr legs above. Same v2.3 gate, `main` at
+`1666ff4`, one run per prompt, no retries:
+`OPENAI_BASE_URL=https://api.dlabkeys.com/v1 OPENAI_MODEL=kimi-k3 python -m pytest tests/test_gen_e2e.py -m live_llm -v`
+→ **4 passed, 1 failed in 406.58 s**.
+
+| Prompt | Turns | `build_part` calls | Faces | Wall s | Gate |
+|---|--:|--:|--:|--:|---|
+| normal_box | 4 | 2 | 6 | 40.6 | pass |
+| thin_plate | 6 | 6 | — | 194.2 | fail (`max_iterations`, no valid build) |
+| l_bracket | 5 | 2 | 11 | 49.7 | pass |
+| bracket_with_hole | 4 | 2 | 7 | 36.3 | pass |
+| small_feature_box | 5 | 2 | 7 | 42.5 | pass |
+
+**Every prompt lost a call to an injected `reason` key.** Our tool schemas have no `reason`
+field. In a logged re-run of `normal_box`, the first call was
+`{"spec": {...}, "reason": "User asked to create a 60x40x30 mm rectangular block"}` →
+`BadArguments: unexpected keyword argument 'reason'`; the model then retried without it. On
+`thin_plate`, all six calls put a `reason` string *inside* `spec` in place of `steps`
+(`ValidationError: steps Field required`), and the loop ran out of turns. This is the same
+signature recorded for every model on D Labs on 2026-10-05 (injected `reason` keys; the same
+models were clean on Vultr), so it is most likely the proxy, not Kimi. It cannot be separated
+from the model here: no other provider we use serves Kimi K3. A simple single-tool probe the
+same day (3 calls each on `kimi-k3`, `kimi-k3-1-pro`, `glm-5-3`) came back clean, so the
+injection is intermittent or depends on the schema or system prompt.
+
+**Evidence boundary:** one provider with a known tool-call defect, one run per prompt. Report
+this leg as "Kimi K3 via D Labs, 4/5, with proxy tool-call noise", never as a clean Kimi K3
+result next to the Vultr legs.

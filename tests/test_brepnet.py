@@ -1,3 +1,5 @@
+import pytest
+
 import simready.ml.brepnet as brepnet_module
 from simready.ml.brepnet import EMBEDDING_DIM, NEUTRAL_FACE_SCORE, run_brepnet_inference
 from simready.ml.graph_extractor import extract_brep_graph
@@ -11,6 +13,7 @@ def _force_heuristic(monkeypatch):
     monkeypatch.delenv("SIMREADY_BREPNET_WEIGHTS", raising=False)
 
 
+@pytest.mark.occ
 def test_brepnet_fallback_returns_per_face_scores_and_embeddings(monkeypatch):
     _force_heuristic(monkeypatch)
     validation = validate_step_file("tests/data/smoke_box.step")
@@ -41,6 +44,7 @@ def test_brepnet_fallback_handles_empty_graph(monkeypatch):
     assert result.aggregate_score == NEUTRAL_FACE_SCORE
 
 
+@pytest.mark.occ
 def test_brepsage_backend_engages_when_checkpoint_exists(tmp_path):
     """When a usable BRepSAGE checkpoint is present, run_brepnet_inference
     must load it instead of falling back to the heuristic."""

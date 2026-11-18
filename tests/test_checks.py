@@ -1,3 +1,5 @@
+import pytest
+
 from simready.checks import (
     CheckResult,
     THIN_SOLID_ASPECT_RATIO,
@@ -45,6 +47,7 @@ def test_short_edge_check_on_fake_summary():
     assert result.per_face == {}
 
 
+@pytest.mark.occ
 def test_thin_plate_flags_thin_walls():
     validation = validate_step_file("tests/data/thin_plate.step")
     geometry = parse_geometry(validation.shape)
@@ -53,6 +56,7 @@ def test_thin_plate_flags_thin_walls():
     assert "ThinWalls" in check_names
 
 
+@pytest.mark.occ
 def test_small_feature_fixture_flags_small_geometry():
     validation = validate_step_file("tests/data/small_feature_hole.step")
     geometry = parse_geometry(validation.shape)
@@ -61,6 +65,7 @@ def test_small_feature_fixture_flags_small_geometry():
     assert "SmallFilletsOrHoles" in check_names or "SmallFeatures" in check_names
 
 
+@pytest.mark.occ
 def test_open_face_flags_orientation_nuance():
     validation = validate_step_file("tests/data/open_face.step")
     geometry = parse_geometry(validation.shape)
@@ -69,6 +74,7 @@ def test_open_face_flags_orientation_nuance():
     assert "OrientationNuance" in check_names
 
 
+@pytest.mark.occ
 def test_duplicate_body_fixture_flags_duplicate_body_heuristic():
     validation = validate_step_file("tests/data/duplicate_body.step")
     geometry = parse_geometry(validation.shape)
@@ -77,6 +83,7 @@ def test_duplicate_body_fixture_flags_duplicate_body_heuristic():
     assert "DuplicateBodyHeuristic" in check_names
 
 
+@pytest.mark.occ
 def test_duplicate_face_fixture_flags_duplicate_face_heuristic():
     validation = validate_step_file("tests/data/duplicate_face_compound.step")
     geometry = parse_geometry(validation.shape)
@@ -115,6 +122,7 @@ def test_thin_solid_no_solids_returns_no_finding():
     assert result.findings == []
 
 
+@pytest.mark.occ
 def test_thin_solid_fires_on_sliver_compound():
     """The synth sliver_face generator yields a Compound with a 0.001-thick
     sliver solid; ThinSolid must flag at Major and report the worst ratio."""

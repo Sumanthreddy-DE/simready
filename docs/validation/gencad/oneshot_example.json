@@ -1,0 +1,8 @@
+{
+ "train_idx": 87,
+ "split": "train",
+ "code_sha256": "49faa11247cd91ff16f99f76a668ea2ed140d431d78ad21008472237f33fc292",
+ "code_chars": 669,
+ "selection_rule": "first 2,000 train rows; one cq.Plane( (one sketch); token length closest to the eval-set median reference length (notebooks/gencad_baseline.ipynb cell 3)",
+ "note": "Program text not committed: GenCAD-Code declares no license. Load CADCODER/GenCAD-Code split=train row train_idx to reproduce."
+}

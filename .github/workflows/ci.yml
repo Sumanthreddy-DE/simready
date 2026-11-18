@@ -30,9 +30,8 @@ jobs:
           cache-environment: true
       - name: Install pip deps
         shell: bash -el {0}
-        # torch_geometric is not in requirements.txt because its Windows pip
-        # install needs manual wheel picking; on linux the plain install works.
-        run: pip install -r requirements.txt torch_geometric
+        # PyG and Pydantic are direct dependencies in requirements.txt.
+        run: pip install -r requirements.txt
       - name: Run suite (no live-LLM tests)
         shell: bash -el {0}
         run: pytest -m "not live_llm" -q

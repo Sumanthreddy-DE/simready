@@ -175,10 +175,6 @@ def _run_brepsage(graph: GraphData, weights_file: Path) -> BRepNetInferenceResul
     if torch is None:
         return None
     try:
-        from simready.ml.dataset import build_edge_index_from_adjacency
-    except ImportError:
-        build_edge_index_from_adjacency = None
-    try:
         from simready.ml.model import (
             DEFECT_CLASSES,
             BRepSAGE,
