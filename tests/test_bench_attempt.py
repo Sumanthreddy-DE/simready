@@ -71,6 +71,41 @@ def test_classify_schema_vs_reference():
     assert classify_spec(SPEC) == (None, [])
 
 
+@pytest.mark.parametrize("bad_op", [["box"], {"name": "fillet"}])
+def test_classify_unhashable_op_is_f2_not_type_error(bad_op):
+    spec = {"steps": [{"op": bad_op, "dx": 40, "dy": 30, "dz": 5}]}
+    cls, errors = classify_spec(spec)
+    assert cls == F2 and errors
+    out = evaluate_reply(ParsedReply(spec, "tool", 1), [], 1, grade=_must_not_grade)
+    assert out["failure_class"] == F2 and out["passed"] is False and out["partial"] == 0.0
+
+
+def test_deeply_nested_json_and_spec_wrappers_return_f1_not_recursion_error():
+    deep_json = '{"spec":' * 1500 + "{}" + "}" * 1500
+    deep_brackets = "[" * 10_000 + "]" * 10_000
+    deep_braces = '{"x":' + deep_brackets + "}"
+    deep_dict: dict = {}
+    for _ in range(1500):
+        deep_dict = {"spec": deep_dict}
+
+    with pytest.raises(RecursionError):
+        json.JSONDecoder().raw_decode(deep_braces, 0)
+
+    cases = [
+        ([{"name": "build_part", "arguments": deep_json}], None),
+        ([{"name": "build_part", "arguments": deep_brackets}], None),
+        ([{"name": "build_part", "arguments": deep_dict}], None),
+        ([{"name": "build_part", "arguments": {"spec": deep_brackets, "reason": "x"}}], None),
+        ([], f"```json\n{deep_brackets}\n```"),
+        ([], f"Plan: {deep_braces}"),
+    ]
+    for tool_calls, content in cases:
+        parsed = parse_reply(tool_calls, content)
+        assert parsed.spec is None
+        out = evaluate_reply(parsed, [], 1, grade=_must_not_grade)
+        assert out["failure_class"] == F1 and out["passed"] is False and out["partial"] == 0.0
+
+
 def _provider_args(spec, location):
     if location == "envelope":
         return {"spec": spec, "reason": "proxy explanation"}

@@ -20,6 +20,7 @@ import queue as queue_mod
 import re
 import tempfile
 import time
+from collections.abc import Hashable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
@@ -57,14 +58,17 @@ def _as_spec(obj: Any) -> dict | None:
     if isinstance(obj, str):
         try:
             obj = json.loads(obj)
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, RecursionError):
             return None
     if not isinstance(obj, dict):
         return None
     if "steps" in obj:
         return obj
     if "spec" in obj:
-        return _as_spec(obj["spec"])
+        try:
+            return _as_spec(obj["spec"])
+        except RecursionError:
+            return None
     return None
 
 
@@ -79,7 +83,7 @@ def _spec_in_text(text: str) -> dict | None:
             continue
         try:
             obj, _ = decoder.raw_decode(text, i)
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, RecursionError):
             continue
         spec = _as_spec(obj)
         if spec is not None:
@@ -95,7 +99,7 @@ def parse_reply(tool_calls: list[dict], content: str | None) -> ParsedReply:
             if isinstance(arguments, str):
                 try:
                     arguments = json.loads(arguments)
-                except json.JSONDecodeError:
+                except (json.JSONDecodeError, RecursionError):
                     arguments = None
             metadata = arguments if isinstance(arguments, dict) else None
             spec = _as_spec(arguments)
@@ -114,7 +118,14 @@ def classify_spec(spec: dict) -> tuple[str | None, list[str]]:
     steps = spec.get("steps")
     if isinstance(steps, list):
         unknown = sorted(
-            {str(s["op"]) for s in steps if isinstance(s, dict) and "op" in s and s["op"] not in KNOWN_OPS}
+            {
+                str(s["op"])
+                for s in steps
+                if isinstance(s, dict)
+                and "op" in s
+                and isinstance(s["op"], Hashable)
+                and s["op"] not in KNOWN_OPS
+            }
         )
         if unknown:
             return F9, [f"unknown ops: {unknown}"]
@@ -146,7 +157,7 @@ def _tool_argument_failure(arguments: dict) -> tuple[str | None, list[str]]:
         if isinstance(root, str):
             try:
                 root = json.loads(root)
-            except json.JSONDecodeError:
+            except (json.JSONDecodeError, RecursionError):
                 return None, []  # Malformed JSON retains F1 precedence.
     if not isinstance(root, dict):
         return None, []
