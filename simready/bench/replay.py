@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Callable
 
 from simready.bench import CHECKER_VERSION, runlog
-from simready.bench.attempt import ParsedReply, evaluate_reply, grade_spec, validate_grade_result
+from simready.bench.attempt import ParsedReply, evaluate_reply, grade_spec, parse_reply, validate_grade_result
 from simready.bench.concepts import CONCEPTS_V1, file_sha256, load_concepts
 
 
@@ -45,7 +45,11 @@ def regrade(
             concept = concepts[att["concept_id"]]
             if getattr(concept.prompts, att["phrasing"]) != att["prompt"]:
                 raise ValueError(f"{att['attempt_id']}: prompt text changed since the run; regrade re-checks, never re-asks")
-            parsed = ParsedReply(att["spec"], att.get("via"), att.get("n_tool_calls", 0))
+            resp = att.get("response")
+            if isinstance(resp, dict):
+                parsed = parse_reply(resp.get("tool_calls") or [], resp.get("content"))
+            else:
+                parsed = ParsedReply(att["spec"], att.get("via"), att.get("n_tool_calls", 0))
             record.update(evaluate_reply(parsed, getattr(concept.checks, att["phrasing"]), concept.solids, grade=grade))
             record["checker_version"] = CHECKER_VERSION
             record["in_vocab"] = concept.in_vocab

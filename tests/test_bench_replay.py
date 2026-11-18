@@ -150,3 +150,21 @@ def test_regrade_backend_infrastructure_can_recover(tmp_path, error_type):
     assert recovered["error"] is None
     assert len(load_run(out).attempts) == 1
     assert runlog.done_attempt_ids(out) == {"c001/explicit/0"}
+
+
+def test_regrade_preserves_unexpected_envelope_key_as_f2(tmp_path):
+    tool_calls = [{"name": "build_part", "arguments": json.dumps({"spec": SPEC, "unexpected": True})}]
+    parsed = parse_reply(tool_calls, None)
+    outcome = evaluate_reply(parsed, [], 1, grade=grade_pass)
+    assert outcome["failure_class"] == "F2_schema"
+    original = _attempt(
+        0,
+        **outcome,
+        response={"content": None, "tool_calls": tool_calls, "finish_reason": "tool_calls", "model_returned": "m"},
+    )
+    run = _log(tmp_path, [original])
+    out = tmp_path / "regraded.jsonl"
+    regrade(run, out, concepts_path=_concepts(tmp_path), grade=grade_pass)
+    regraded = runlog.attempts(out)[0]
+    assert regraded["failure_class"] == "F2_schema"
+    assert regraded["passed"] is False and regraded["partial"] == 0.0

@@ -112,6 +112,38 @@ def test_resume_refuses_changed_prompt_file(tmp_path, concepts):
         _run(FakeClient(), out, concepts)
 
 
+@pytest.mark.parametrize(
+    "override,match_key",
+    [
+        ({"base_url": "http://other"}, "base_url"),
+        ({"max_tokens": 999}, "max_tokens"),
+        ({"supports_seed": False}, "supports_seed"),
+        ({"extra_body": {"thinking": False}}, "extra_body"),
+    ],
+)
+def test_resume_refuses_changed_request_conditions(tmp_path, concepts, override, match_key):
+    out = tmp_path / "run.jsonl"
+    base_kw = dict(
+        client=FakeClient(),
+        model_alias="fake",
+        model_id="m",
+        base_url="http://x",
+        k=2,
+        out_path=out,
+        concepts_path=concepts,
+        workers=1,
+        grade=fake_grade,
+        limit=1,
+        max_tokens=512,
+        supports_seed=True,
+        extra_body={},
+    )
+    run_benchmark(**base_kw)
+    assert runlog.read_header(out)["expected_prompts"] == 6
+    with pytest.raises(RuntimeError, match=match_key):
+        run_benchmark(**{**base_kw, **override})
+
+
 def test_official_requires_frozen_hash(tmp_path, concepts):
     with pytest.raises(RuntimeError, match="frozen"):
         _run(FakeClient(), tmp_path / "run.jsonl", concepts, official=True)

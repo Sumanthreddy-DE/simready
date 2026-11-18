@@ -12,7 +12,7 @@ import copy
 import hashlib
 import json
 
-from simready.copilot.tools import TOOL_SCHEMAS
+from simready.gen.spec import BUILD_PART_TOOL_SCHEMA
 
 _AGENT_ONLY_MARKER = "After calling this, ALWAYS call analyze_geometry"
 
@@ -26,8 +26,7 @@ SYSTEM_PROMPT = (
 
 
 def _bench_tool() -> dict:
-    source = next(t for t in TOOL_SCHEMAS if t["function"]["name"] == "build_part")
-    tool = copy.deepcopy(source)
+    tool = copy.deepcopy(BUILD_PART_TOOL_SCHEMA)
     description = tool["function"]["description"]
     if _AGENT_ONLY_MARKER not in description:
         raise RuntimeError("build_part description changed; update _AGENT_ONLY_MARKER in prompting.py")

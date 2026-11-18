@@ -22,7 +22,18 @@ from simready.bench.providers import InfraError, QuotaExhausted
 
 TEMPERATURE = 0.7
 MAX_CONSECUTIVE_INFRA = 20
-_PINNED = ("model", "prompt_sha256", "checker_version", "system_prompt_sha256", "k")
+_PINNED = (
+    "model",
+    "base_url",
+    "temperature",
+    "max_tokens",
+    "official",
+    "prompt_sha256",
+    "checker_version",
+    "system_prompt_sha256",
+    "k",
+)
+_OPTIONAL_PINNED = ("supports_seed", "extra_body")
 
 
 @dataclass
@@ -73,6 +84,8 @@ def run_benchmark(
     official: bool = False,
     grade: Callable[[dict, list, int], dict] = grade_spec,
     max_tokens: int | None = None,
+    supports_seed: bool | None = None,
+    extra_body: dict | None = None,
 ) -> RunSummary:
     from simready.bench.prompting import BUILD_PART_TOOL, build_messages, system_prompt_sha256
 
@@ -84,7 +97,8 @@ def run_benchmark(
         if CHECKER_VERSION.endswith("-dev"):
             raise RuntimeError("official run needs a tagged CHECKER_VERSION (no -dev suffix)")
 
-    header = {
+    concepts = load_concepts(concepts_path)
+    header: dict[str, Any] = {
         "record": "header",
         "run_id": out_path.name.removesuffix(".gz").removesuffix(".jsonl"),
         "model_alias": model_alias,
@@ -93,6 +107,7 @@ def run_benchmark(
         "k": k,
         "temperature": TEMPERATURE,
         "max_tokens": max_tokens,
+        "expected_prompts": len(concepts) * len(PHRASINGS),
         "prompt_file": Path(concepts_path).name,
         "prompt_sha256": prompt_sha,
         "checker_version": CHECKER_VERSION,
@@ -100,15 +115,22 @@ def run_benchmark(
         "official": official,
         "started": _now(),
     }
+    if supports_seed is not None:
+        header["supports_seed"] = supports_seed
+    if extra_body is not None:
+        header["extra_body"] = extra_body
     if out_path.exists():
         existing = runlog.read_header(out_path)
         for key in _PINNED:
             if existing.get(key) != header[key]:
                 raise RuntimeError(f"resume mismatch on {key}: log has {existing.get(key)!r}, now {header[key]!r}")
+        for key in _OPTIONAL_PINNED:
+            if key in existing and key in header and existing[key] != header[key]:
+                raise RuntimeError(f"resume mismatch on {key}: log has {existing.get(key)!r}, now {header[key]!r}")
     else:
         runlog.append(out_path, header)
 
-    items = plan_items(load_concepts(concepts_path), k, runlog.done_attempt_ids(out_path), limit)
+    items = plan_items(concepts, k, runlog.done_attempt_ids(out_path), limit)
     stop = threading.Event()
     lock = threading.Lock()
     state: dict[str, Any] = {"written": 0, "infra": 0, "consecutive_infra": 0, "stopped": None}

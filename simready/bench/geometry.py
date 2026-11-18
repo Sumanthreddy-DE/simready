@@ -25,7 +25,7 @@ Vec3 = tuple[float, float, float]
 # Geometric tolerances (mm / unitless). Far below any benchmark tolerance (±0.1 mm).
 _LEN_TOL = 1e-4
 _ANG_TOL = 1e-6
-_PROBE_MM = 0.5  # how far past a hole's end the through-probe looks
+_PROBE_OFFSETS_MM = (2e-3, 0.02, 0.1, 0.25, 0.5)  # multi-step end probes block thin-floor jump-over
 
 
 def _sub(a: Vec3, b: Vec3) -> Vec3:
@@ -214,13 +214,19 @@ def _probe_open(shape: Any, feat: CylFeature, t: float) -> bool:
     return True
 
 
+def _end_open(shape: Any, feat: CylFeature, t_end: float, sign: float) -> bool:
+    """True if every axial probe step past ``t_end`` is outside material (blocks thin floors)."""
+    return all(_probe_open(shape, feat, t_end + sign * d) for d in _PROBE_OFFSETS_MM)
+
+
 def cylindrical_features(shape: Any) -> list[CylFeature]:
     """All cylindrical features, merged per (axis, diameter, concavity).
 
     Coaxial same-diameter faces merge when their axial spans touch or overlap
     (OCC may split one hole into several faces). A hole is ``through`` when
-    probes ``_PROBE_MM`` past both ends, at 0.9 r, are all outside material —
-    so the small hole of a counterbore is through and the counterbore is not.
+    multi-step probes past both ends, at 0.9 r, are all outside material —
+    so the small hole of a counterbore is through, the counterbore is not,
+    and a thin floor at the bottom of a blind hole is never skipped over.
     """
     merged: list[CylFeature] = []
     for _, face in iter_faces(shape):
@@ -238,9 +244,7 @@ def cylindrical_features(shape: Any) -> list[CylFeature]:
             merged.append(patch)
     for feat in merged:
         if feat.concave:
-            feat.through = _probe_open(shape, feat, feat.t0 - _PROBE_MM) and _probe_open(
-                shape, feat, feat.t1 + _PROBE_MM
-            )
+            feat.through = _end_open(shape, feat, feat.t0, -1.0) and _end_open(shape, feat, feat.t1, 1.0)
     return merged
 
 

@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from simready.bench import runlog
-from simready.bench.concepts import PHRASINGS
+from simready.bench.concepts import CONCEPTS_V1, PHRASINGS, load_concepts
 
 N_BOOT = 2000
 BOOT_SEED = 20261004
@@ -139,7 +139,11 @@ def incomplete_prompts(run: ModelRun) -> int:
     k = run.header["k"]
     counts: Counter = Counter((a["concept_id"], a["phrasing"]) for a in run.attempts)
     keys = set(counts) | {(a["concept_id"], a["phrasing"]) for a in (run.excluded_attempts or [])}
-    return sum(1 for key in keys if counts[key] < k)
+    expected = run.header.get("expected_prompts")
+    if expected is None and run.header.get("prompt_file") == CONCEPTS_V1.name and CONCEPTS_V1.exists():
+        expected = len(load_concepts(CONCEPTS_V1)) * len(PHRASINGS)
+    missing = max((expected or len(keys)) - len(keys), 0)
+    return missing + sum(1 for key in keys if counts[key] < k)
 
 
 def _pct(x: float) -> str:

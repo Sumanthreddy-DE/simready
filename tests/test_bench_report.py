@@ -72,6 +72,35 @@ def test_incomplete_prompts_counts_short_prompts(tmp_path):
     assert incomplete_prompts(run) == 1  # c003/explicit has 2 of k=2; c003/engineer has 0 scored of 2
 
 
+def test_incomplete_prompts_counts_never_attempted_prompts(tmp_path):
+    out = tmp_path / "partial.jsonl"
+    runlog.append(
+        out,
+        {
+            "record": "header",
+            "model": "m",
+            "model_alias": "fake",
+            "k": 2,
+            "expected_prompts": 6,
+            "prompt_file": "concepts_v1.jsonl",
+        },
+    )
+    for i in range(2):
+        runlog.append(
+            out,
+            {
+                "record": "attempt",
+                "attempt_id": f"c001/explicit/{i}",
+                "concept_id": "c001",
+                "phrasing": "explicit",
+                "in_vocab": True,
+                "passed": True,
+                "failure_class": None,
+            },
+        )
+    assert incomplete_prompts(load_run(out)) == 5
+
+
 def test_render_markdown_has_all_generated_tables(tmp_path):
     md = render_markdown([load_run(_write(tmp_path))])
     for heading in ("## 1. Setup", "## 2. Headline", "## 3. By phrasing", "## 4. Failure classes",

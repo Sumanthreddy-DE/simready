@@ -67,6 +67,8 @@ def _run(args: argparse.Namespace) -> int:
         workers=args.workers,
         official=args.official,
         max_tokens=provider.max_tokens,
+        supports_seed=provider.supports_seed,
+        extra_body=provider.extra_body,
     )
     print(f"{summary.path}: wrote {summary.written}, infra errors {summary.infra_errors}, "
           f"stopped: {summary.stopped_reason or 'no'}")

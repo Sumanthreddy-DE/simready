@@ -148,6 +148,45 @@ def test_bench_tool_drops_agent_only_instructions():
     assert len(system_prompt_sha256()) == 64
 
 
+def test_wheel_includes_providers_json_and_prompting_skips_copilot_stack(tmp_path):
+    import subprocess
+    import sys
+    import tomllib
+    import zipfile
+    from pathlib import Path
+
+    repo = Path(__file__).resolve().parents[1]
+    pyproject = tomllib.loads((repo / "pyproject.toml").read_text(encoding="utf-8"))
+    extras = pyproject["project"]["optional-dependencies"]
+    assert "api" in extras and any("openai" in d for d in extras["api"])
+    assert any("python-dotenv" in d for d in extras["api"])
+
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import sys, simready.bench.prompting as p; "
+            "assert 'numpy' not in sys.modules and 'simready.copilot.rag' not in sys.modules; "
+            "print(p.system_prompt_sha256())",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert proc.stdout.strip() == system_prompt_sha256()
+
+    subprocess.run(
+        [sys.executable, "-m", "pip", "wheel", "--no-deps", "--no-build-isolation", str(repo), "-w", str(tmp_path)],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    (whl,) = tmp_path.glob("simready-*.whl")
+    with zipfile.ZipFile(whl) as zf:
+        assert "simready/bench/providers.json" in zf.namelist()
+
+
 @pytest.mark.live_llm  # deselected by default until Task 6-live fills in verified values
 def test_providers_json_is_complete():
     providers = load_providers(PROVIDERS_JSON)

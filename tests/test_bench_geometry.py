@@ -154,3 +154,14 @@ def test_nominal_cylinder_extent_within_engineer_range():
 def test_nominal_plate_extent_does_not_exceed_thickness():
     extents = geo.sorted_extents(mk([{"op": "box", "dx": 42, "dy": 42, "dz": 2}]))
     assert extents[0] <= 2.0
+
+
+@pytest.mark.parametrize("floor_mm", [0.2, 0.02])
+def test_blind_hole_with_thin_floor_is_not_through(floor_mm):
+    s = mk([
+        {"op": "box", "dx": 20, "dy": 20, "dz": 10},
+        {"op": "cyl", "r": 2.5, "h": 10.0 - floor_mm, "at": [10, 10, floor_mm]},
+        {"op": "cut", "a": 0, "b": 1},
+    ])
+    (hole,) = _holes(s)
+    assert hole.through is False

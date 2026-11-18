@@ -18,7 +18,7 @@ from typing import Any
 
 from simready.pipeline import analyze_file_safe
 from simready.copilot import rag
-from simready.gen.spec import DIM_MAX, PLACEMENT_MAX, PLACEMENT_MIN, RADIUS_MAX, STEPS_MAX
+from simready.gen.spec import BUILD_PART_TOOL_SCHEMA
 
 logger = logging.getLogger(__name__)
 
@@ -124,48 +124,7 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
             },
         },
     },
-    {
-        "type": "function",
-        "function": {
-            "name": "build_part",
-            "description": (
-                "Generate a new STEP file from a typed parametric spec. Use this when "
-                "the user asks you to CREATE a part (not to analyze an existing one). "
-                "The spec is a list of ops drawn from a tiny grammar: box(dx, dy, dz, at), "
-                "cyl(r, h, at) [axis is +Z], fuse(a, b), cut(a, b). 'a' and 'b' are "
-                "0-based indices into earlier steps. The last step is the part returned; "
-                "every other step MUST be referenced by a later fuse/cut, so multi-primitive "
-                "parts always end with the boolean op that combines them. "
-                f"A spec has at most {STEPS_MAX} steps in total; a longer one is rejected. "
-                f"Limits in mm: dx, dy, dz and h in (0, {DIM_MAX:g}], r in (0, {RADIUS_MAX:g}], "
-                f"each 'at' coordinate in [{PLACEMENT_MIN:g}, {PLACEMENT_MAX:g}]; a value outside is rejected. "
-                "After calling this, ALWAYS call analyze_geometry on the returned step_path "
-                "to validate it before describing the result to the user."
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "spec": {
-                        "type": "object",
-                        "description": (
-                            "Parametric spec. Shape: "
-                            "{\"steps\": [{\"op\": \"box\"|\"cyl\"|\"fuse\"|\"cut\", ...}, ...]}. "
-                            "Dims are in millimetres. Example for a bracket with a hole: "
-                            "{\"steps\": [{\"op\":\"box\",\"dx\":80,\"dy\":60,\"dz\":10},"
-                            "{\"op\":\"cyl\",\"r\":5,\"h\":10,\"at\":[40,30,0]},"
-                            "{\"op\":\"cut\",\"a\":0,\"b\":1}]}."
-                        ),
-                    },
-                    "timeout_seconds": {
-                        "type": "number",
-                        "description": "Optional hard wall-clock for the build, in seconds. Default 15.",
-                        "default": 15,
-                    },
-                },
-                "required": ["spec"],
-            },
-        },
-    },
+    BUILD_PART_TOOL_SCHEMA,
 ]
 
 

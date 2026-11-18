@@ -66,7 +66,7 @@ Three failed in-vocab attempts from the two most frequent failure classes in Sec
 - **Prompt:** An L-bracket 50 mm wide: a base leg 50 x 40 x 5 mm and an upright leg 5 mm thick rising 40 mm along one 50 mm edge. Two 5.5 mm through holes in the base leg only, 25 mm apart, centred across the width and 25 mm from the upright's outer face.
 - **Parsed spec:** `{"steps": [{"op": "box", "dx": 50, "dy": 40, "dz": 5, "at": [0, 0, 0]}, {"op": "box", "dx": 50, "dy": 5, "dz": 40, "at": [0, 0, 5]}, {"op": "fuse", "a": 0, "b": 1}, {"op": "cyl", "r": 2.75, "h": 5, "at": [12.5, 25, 0]}, {"op": "cut", "a": 2, "b": 3}, {"op": "cyl", "r": 2.75, "h": 5, "at": [37.5, 25, 0]}, {"op": "cut", "a": 4, "b": 5}]}`
 - **Checker report (`failure_class = F6_dimension_miss`):** `[{"type": "bbox_sorted", "status": "fail", "detail": "extents [40.0, 45.0, 50.0] vs [(39.9, 40.1), (39.9, 40.1), (49.9, 50.1)]"}, {"type": "hole_set", "status": "pass", "detail": "pairwise distances [25.0] vs [(24.9, 25.1)]"}]`
-- **Diagnosis:** The model stacked the `dz = 40` upright leg on top of the `dz = 5` base leg (`at: [0, 0, 5]`), yielding an overall height of 45.0 mm instead of a 40.0 mm upright measured from the bottom face.
+- **Diagnosis:** The model stacked the `dz = 40` upright leg on top of the `dz = 5` base leg (`at: [0, 0, 5]`), yielding an overall height of 45.0 mm whereas the checker's `bbox_sorted` range expects a 40.0 mm overall height measured from the bottom face. Note that `c027/explicit`'s wording (*"rising 40 mm along one 50 mm edge"*) does not state the vertical datum explicitly, so interpreting 40 mm above the 5 mm base top is a plausible reading (all 5 GPT-6.1 Sol explicit attempts built 45 mm, while Gemini-4-Argon built 40 mm; scheduled for explicit datum wording in `bench-v1.1`).
 
 ![c027/explicit/0 render](bench_v1/fail-1.png)
 
@@ -94,7 +94,8 @@ Three failed in-vocab attempts from the two most frequent failure classes in Sec
 
 - gpt-6.1-sol: 199 `not_checked` results across scored attempts.
 - gemini-4-argon: 196 `not_checked` results across scored attempts.
-- **No minimum wall-thickness check in v1** (deferred to v1.1); unconstrained or uncheckable features are recorded explicitly as `not_checked` rather than silently passed.
+- **No minimum wall-thickness or blind-bore `depth_max` check in v1** (deferred to v1.1 per spec §1.5); unconstrained features are recorded explicitly as `not_checked`, and blind bores such as `c036` enforce `depth_min` plus non-through status rather than an upper bound on pocket depth.
+- **Prompt datum ambiguity on `c027/explicit`:** *"rising 40 mm"* leaves open whether the 40 mm height is measured from the bottom face or above the 5 mm base leg (see Section 7.1); scheduled for explicit datum wording in `bench-v1.1`.
 - **Weak intent checks on non-cylindrical features:** slots (`c010`), step heights (`c023`), and rectangular cavities (`c048` intent has only `not_checked`) are not directly measured by v1's cylindrical/bounding-box check primitives, inflating intent pass rates relative to engineer phrasing.
 - **Authoring scope:** tolerances and design ranges are author-chosen around cited engineering standards, with one author and one proofreader (`docs/exec-plans/completed/2026-11-12-sp1-task2-review.md`).
 - **Provider defaults:** thinking/reasoning parameters were left at the provider default for both `gpt-6.1-sol` and `gemini-4-argon` on D Labs (`seed = attempt_idx` sent; deterministic seed enforcement is not assumed; both models share one D Labs endpoint).
