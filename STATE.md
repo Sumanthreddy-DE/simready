@@ -3,12 +3,13 @@
 <!-- Machine-maintained by save-session Step 6b. Hand-edit 2026-07-19 authorized by user (triage session). -->
 
 Status: active
-Last touched: 2026-11-17
+Last touched: 2026-11-18
 
 ## What
 MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processing. LLM copilot over B-rep analysis pipeline + BRepSAGE (3-head GraphSAGE) defect classifier + geometry-generation DSL (`build_part` tool). **APPLICATION SENT 2026-10-05 (user confirmed).** Open follow-up work = the `apply-*` items in BACKLOG S1/S2, GenCAD VLM track first. History: `v0.4.0-apply` (2026-05) was prep only, not a send. Strategy doc: docs/strategy/mecagent-gap-and-drift-2026-05-26.md; wave plan: BACKLOG.md "Triage 2026-07-19".
 
 ## Done
+- 2026-11-18: **SP1 benchmark v1 (`bench_v1`) completed on `sp1-bench`** (`92fcbeb`..HEAD): merged `origin/main` (`92fcbeb`), ported `attempt-malformed-json-guards` (`27265f9`), bumped `0.5.1` + tagged `v0.5.1` (`5ed9c26`), applied approved `concepts_v1` proofread fixes + checker `_EPS = 1e-6` continuous-bound slack (`9c84dee`), froze `concepts_v1.sha256` (`3a662823...`) + tagged `bench-checker-1.0.0` (`4420e2b`), hardened `providers.py` against null/empty `choices` (`5f49df8`), completed official `k = 5` D Labs runs (`cd5d693`: 750/750 each, 0 excluded, 0 key leaks; GPT-6.1 Sol **96.2% pass@1** / 98.2% pass@5, Gemini-4-Argon **95.5% pass@1** / 97.3% pass@5), published `docs/validation/bench_v1.md` + 3 failure renders + README reproduce section (`44cf98a`), verified on a clean clone (OCC-free `report` + OCCT `regrade` 571/571 + `replay c001/explicit/0`). SP1 plans archived to `docs/exec-plans/completed/`. Push + merge to `main` pending.
 - 2026-11-17: Attempt infrastructure repair `efe3f15cf7ce92fd2ad8bc85ef402c28091e8b50` on `sp1-bench`: backend/process/checker errors excluded with null scoring fields; real F4/F8 retained; runner/replay consistent. Bench/OCP/spec 175 passed / 1 deselected; same 20 baseline full-suite failures. Both repair and main handoff commit `7882416` remotely verified by fetch, 0 ahead / 0 behind on each branch. Release approval pending.
 - Full pipeline + copilot, 202 tests green in sr env
 - Real-CAD OOD eval on 12 McMaster STEPs → docs/validation/real_eval.md (quantified the OOD gap)
@@ -41,9 +42,9 @@ MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processi
 - 2026-11-17: `sp1-typed-tool-schema` decided — no typed schema (0 `F2_schema` in ~300 headroom attempts); `build_part` description now states every `PartSpec` bound (`6d5fb47` on `sp1-bench`, spec D8); new `system_prompt_sha256` `3dd19661...`; D Labs re-smoke passed on both reference models. BACKLOG `12a89b4`.
 
 ## Doing
-- **cad-rl-env handoff (2026-11-17):** `grader-spawn-fail-fast` fixed in published `efe3f15cf7ce92fd2ad8bc85ef402c28091e8b50` on `sp1-bench`; fetch verified 0 ahead / 0 behind. v0.5.0 misclassifies backend/child faults. Proposed immutable patch tag `v0.5.1` awaits version-bump/tag/publication approval. cad-rl-env can pin corrected SHA now, imports `evaluate_reply`/`grade_spec`, handles null scoring fields for excluded errors, and owns its wrapper. Separate checker freeze still gated on proofread/Task 11.
-- **GenCAD follow-ups:** Gemma-3-4B (`apply-gencad-vlm-track`, optional). MecAgent test sent 2026-11-15; waiting on Senet (follow-up 2027-03-15 in career-ops).
-- **SP1 checker-scored text-to-CAD benchmark** (`sp1-resume`, branch `sp1-bench` @ `6d5fb47`). Tasks 1-10 done (2026-11-16); reference pair Gemini-4-Argon + GPT-6.1 Sol on D Labs (spec D5); `sp1-typed-tool-schema` decided 2026-11-17 (prose kept, bounds stated, spec D8). Task 11 official runs gated only on `sp1-concepts-proofread` (user).
+- **cad-rl-env handoff (2026-11-18):** `v0.5.1` (`5ed9c26`) and `bench-checker-1.0.0` (`4420e2b`) tagged locally on `sp1-bench` with `grader-spawn-fail-fast`, `bench-provider-key-guard`, and `attempt-malformed-json-guards`. Push `sp1-bench` + tags to publish; keep `cad-rl-env-ownership` open until Phase B/C delivery finishes.
+- **GenCAD follow-ups:** Gemma-3-4B (`apply-gencad-vlm-track`, Kaggle GPU after Gemma license accepted). MecAgent test sent 2026-11-15; waiting on Senet (follow-up 2027-03-15 in career-ops).
+- **SP3 entry gate (`sp3-entry-gate`):** survey ~3–4B instruct models with Unsloth GRPO + GGUF support (spec D5 "Open"), run the small-model baseline on SP1 (`k = 5` via local `llama-server`), then start SP3.
 - QLoRA chat-SFT gold-set eval (GGUF + llama-server), then close. Low priority.
 
 ## Pipeline
@@ -55,6 +56,8 @@ MecAgent ML/AI Founding Engineer portfolio project: AI-assisted FEA pre-processi
 - Weekly mini-build loop (2026-11-02): take the week's most testable AI-CAD item from the Muse digest, test it in ~2 h on 5 GenCAD rows or score its output with `analyze_file_safe`, write a short result note, then a LinkedIn post. Skip weeks with nothing testable. Pipeline: `Projects/_ideas/muse-pipeline.md`.
 
 ## Resume here
+2026-11-18 SP1 benchmark v1 (`bench_v1`) complete on `sp1-bench` (`/tmp/simready-sp1-review`): `v0.5.1` (`5ed9c26`), `bench-checker-1.0.0` (`4420e2b`), official D Labs `k = 5` logs (`cd5d693`: GPT-6.1 Sol 96.2% pass@1, Gemini-4-Argon 95.5% pass@1), and `docs/validation/bench_v1.md` + README reproduce section (`44cf98a`, clean-clone verified). User next: reset unpushed `main` stub `aaecf6d` to `origin/main`, visually review `docs/validation/bench_v1/fail-{1,2,3}.png`, merge `sp1-bench` into `main`, and push `main`, `sp1-bench`, `v0.5.1`, and `bench-checker-1.0.0`. Next work: Gemma-3-4B GenCAD (`apply-gencad-vlm-track`), then `sp3-entry-gate`.
+
 2026-11-17 infrastructure repair published: corrected dependency SHA `efe3f15cf7ce92fd2ad8bc85ef402c28091e8b50` on `sp1-bench` (175 passed / 1 deselected bench/OCP/spec); main handoff `7882416` also remotely verified. Next approval = version bump/release commit and NEW immutable `v0.5.1` tag/publication. cad-rl-env can pin corrected SHA now; do not repeat Phase A or packaging. `bench-checker-1.0.0` still requires separate proofread/freeze. Merge canonical main status into SP1 before its next session under branch rules. Handoff: harness/sessions/SimReady/2026-11-17-attempt-infrastructure-errors-session.tmp
 
 Launch and edit in `Mech/SimReady` (VPS; SP1 worktree `/tmp/simready-sp1-review` on `sp1-bench`, `6d5fb47`, push pending; `main` push pending). `sp1-typed-tool-schema` decided: prose schema kept, PartSpec bounds stated in the tool description (spec D8), new `system_prompt_sha256` `3dd19661...`, both D Labs smokes pass. Next: user finishes `sp1-concepts-proofread` (add c030/c031 engineer ranges), then run plan Task 11 on the VPS as written. Optional before freeze: S3 `sp1-dlab-gpt-model-id`. Do not commit or push without user approval. Handoff: harness/sessions/SimReady/2026-11-17-typed-schema-decision-session.tmp

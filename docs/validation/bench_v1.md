@@ -96,7 +96,7 @@ Three failed in-vocab attempts from the two most frequent failure classes in Sec
 - gemini-4-argon: 196 `not_checked` results across scored attempts.
 - **No minimum wall-thickness check in v1** (deferred to v1.1); unconstrained or uncheckable features are recorded explicitly as `not_checked` rather than silently passed.
 - **Weak intent checks on non-cylindrical features:** slots (`c010`), step heights (`c023`), and rectangular cavities (`c048` intent has only `not_checked`) are not directly measured by v1's cylindrical/bounding-box check primitives, inflating intent pass rates relative to engineer phrasing.
-- **Authoring scope:** tolerances and design ranges are author-chosen around cited engineering standards, with one author and one proofreader (`docs/exec-plans/active/2026-11-12-sp1-task2-review.md`, archived to `completed/` at SP1 close).
+- **Authoring scope:** tolerances and design ranges are author-chosen around cited engineering standards, with one author and one proofreader (`docs/exec-plans/completed/2026-11-12-sp1-task2-review.md`).
 - **Provider defaults:** thinking/reasoning parameters were left at the provider default for both `gpt-6.1-sol` and `gemini-4-argon` on D Labs (`seed = attempt_idx` sent; deterministic seed enforcement is not assumed; both models share one D Labs endpoint).
 - **Spec deviations affecting reading:** (1) `SYSTEM_PROMPT` permits explicit refusal when a part cannot be built with the 4-op DSL (populating Section 5's `declined / no spec (F1)` row on out-of-vocab concepts), and (2) `infra_error` and `checker_error` are excluded from scoring rather than counted as model failures (`0` excluded in both official runs).
 

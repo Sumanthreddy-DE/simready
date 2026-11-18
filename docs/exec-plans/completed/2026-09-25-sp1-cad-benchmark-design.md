@@ -1,8 +1,8 @@
 # SP1: Checker-scored text-to-CAD benchmark + harness (design)
 
-**Status:** active
-**Last verified:** 2026-11-17
-**Stage:** reviewed by user 2026-10-04 (changes folded in below). Next: implementation plan.
+**Status:** done
+**Last verified:** 2026-11-18
+**Stage:** complete — `bench_v1.md` and official logs published (`4420e2b`..`44cf98a`).
 
 **Context:** First of three sub-projects (SP1 benchmark + harness → SP2 generation vocabulary v2 →
 SP3 post-training with checker reward). Informed by `earthtojake/text-to-cad` (MIT: validity
@@ -294,3 +294,4 @@ seeing results; SP3's metric stays the one fixed in D6.
 4. The system prompt allows a refusal ("say so instead of calling the tool"), which gives table 5 its "admits it can't" path.
 5. Benchmark `sorted_extents` uses `brepbndlib.AddOptimal(shape, box, False, False)` to exclude OCC's 1e-7 mm per-side gap: nominal dimensions must pass engineer ranges capped at nominal. Shared `shape_bounding_box` retains its gap; bounding boxes use `CornerMin`/`CornerMax` for OCP 8 compatibility.
 6. A pythonocc-first `simready.occ_compat` shim also supports pip-installed OCP, because pythonocc-core has no usable PyPI release. Build, shared geometry, benchmark geometry and the validator import block use it; callers retain pythonocc spelling while OCP static methods, curve length and indexed shape-map types are adapted centrally. Other OCC importers remain outside this compatibility scope.
+7. Continuous range checks in `checker.py` (`BBoxSorted`, `VolumeCheck`, `HoleSet`/`Bore`/`Boss` diameters, and pairwise hole-pattern distances) apply the same `_EPS = 1e-6` mm slack already used on `BBoxMinDim`/`depth_min`/`height_min`, because OCCT `AddOptimal` on perpendicular-cylinder B-spline seams returns `10.0000002` mm (`2e-7` mm numerical noise) on exact 10 mm geometry (`9c84dee`). Integer hole/boss counts remain exact.

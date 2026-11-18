@@ -1,6 +1,6 @@
 """Checker-scored text-to-CAD benchmark (SP1).
 
-Design: docs/exec-plans/active/2026-09-25-sp1-cad-benchmark-design.md.
+Design: docs/exec-plans/completed/2026-09-25-sp1-cad-benchmark-design.md.
 OCC-free modules (concepts, runlog, report) must stay importable in plain
 Python so ``python -m simready.bench report`` works without pythonocc.
 """

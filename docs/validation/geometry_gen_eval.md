@@ -144,8 +144,9 @@ through.
 
 - **The 5-prompt gate is saturated.** GLM 5.2, GLM 5.3, DeepSeek V4.1 Flash and post-fix
   Llama all score 5/5, so this eval no longer separates models. That is the reason for the
-  checker-scored benchmark in `docs/exec-plans/active/2026-09-25-sp1-cad-benchmark-design.md`
-  (150 prompts, range checks on holes, bores and patterns, pass@k).
+  checker-scored benchmark in `docs/validation/bench_v1.md` (design:
+  `docs/exec-plans/completed/2026-09-25-sp1-cad-benchmark-design.md`; 150 prompts, range checks
+  on holes, bores and patterns, pass@k).
 - **Wall times are not comparable to legs 1–3.** They mix provider (Vultr vs NIM) and model;
   the 5–10× drop says more about the endpoint than about the models.
 - **Verdict prose was not assessed** in this run; the gate scores artifacts only.
