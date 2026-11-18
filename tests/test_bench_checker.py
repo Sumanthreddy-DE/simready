@@ -110,3 +110,20 @@ def test_gate_failure_short_circuits_checks():
 def test_all_pass_has_no_failure_class():
     report = grade(NEMA, [{"type": "bbox_min_dim", "min": 4.0}])
     assert report["passed"] is True and report["failure_class"] is None
+
+
+def test_bbox_sorted_tolerates_occt_bspline_submicron_noise():
+    from simready.occ_compat import BRepAlgoAPI_Cut, BRepPrimAPI_MakeCylinder, gp_Ax2, gp_Dir, gp_Pnt
+
+    shaft = BRepPrimAPI_MakeCylinder(5.0, 50.0).Shape()
+    cross = BRepPrimAPI_MakeCylinder(gp_Ax2(gp_Pnt(-10.0, 0.0, 25.0), gp_Dir(1.0, 0.0, 0.0)), 1.5, 20.0).Shape()
+    shape = BRepAlgoAPI_Cut(shaft, cross).Shape()
+    # AddOptimal on the perpendicular-cylinder B-spline seam yields 10.0000002 mm.
+    report = grade(shape, [{"type": "bbox_sorted", "ranges": [[9.991, 10.0], [9.991, 10.0], [49.9, 50.1]]}])
+    assert report["passed"] is True, report["checks"]
+    # Real misses (e.g. 9 microns over 10.0) still fail.
+    miss = grade(
+        BRepPrimAPI_MakeCylinder(5.0045, 50.0).Shape(),
+        [{"type": "bbox_sorted", "ranges": [[9.991, 10.0], [9.991, 10.0], [49.9, 50.1]]}],
+    )
+    assert miss["passed"] is False

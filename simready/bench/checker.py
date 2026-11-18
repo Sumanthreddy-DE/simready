@@ -22,6 +22,7 @@ from simready.bench.concepts import (
     Check,
     HoleSet,
     NotChecked,
+    Range,
     VolumeCheck,
     in_range,
 )
@@ -33,13 +34,18 @@ F7 = "F7_feature_miss"
 _EPS = 1e-6
 
 
+def _in_tol_range(value: float, rng: Range) -> bool:
+    lo, hi = rng
+    return (lo is None or value >= lo - _EPS) and (hi is None or value <= hi + _EPS)
+
+
 def _holes(features: list[geo.CylFeature], check: HoleSet | Bore) -> list[geo.CylFeature]:
     return [
         f
         for f in features
         if f.concave
         and f.full
-        and in_range(f.diameter, check.diameter)
+        and _in_tol_range(f.diameter, check.diameter)
         and (check.through is None or f.through == check.through)
         and (check.depth_min is None or f.depth >= check.depth_min - _EPS)
     ]
@@ -54,14 +60,14 @@ def _eval(check: Check, shape: Any, features: list[geo.CylFeature]) -> tuple[str
         return NOT_CHECKED, check.what
     if isinstance(check, BBoxSorted):
         ext = geo.sorted_extents(shape)
-        ok = all(in_range(e, r) for e, r in zip(ext, check.ranges))
+        ok = all(_in_tol_range(e, r) for e, r in zip(ext, check.ranges))
         return _status(ok), f"extents {[round(e, 3) for e in ext]} vs {list(check.ranges)}"
     if isinstance(check, BBoxMinDim):
         smallest = geo.sorted_extents(shape)[0]
         return _status(smallest >= check.min - _EPS), f"min extent {smallest:.3f} vs >= {check.min}"
     if isinstance(check, VolumeCheck):
         vol = geo.volume(shape)
-        return _status(in_range(vol, check.range)), f"volume {vol:.1f} vs {check.range}"
+        return _status(_in_tol_range(vol, check.range)), f"volume {vol:.1f} vs {check.range}"
     if isinstance(check, HoleSet):
         holes = _holes(features, check)
         if not in_range(len(holes), check.count):
@@ -70,7 +76,7 @@ def _eval(check: Check, shape: Any, features: list[geo.CylFeature]) -> tuple[str
             return PASS, f"{len(holes)} matching holes"
         dists = sorted(geo.axis_distance(a, b) for a, b in itertools.combinations(holes, 2))
         ranges = sorted(check.pattern, key=lambda r: float("-inf") if r[0] is None else r[0])
-        ok = all(in_range(d, r) for d, r in zip(dists, ranges))
+        ok = all(_in_tol_range(d, r) for d, r in zip(dists, ranges))
         return _status(ok), f"pairwise distances {[round(d, 3) for d in dists]} vs {ranges}"
     if isinstance(check, Bore):
         hits = _holes(features, check)
@@ -82,7 +88,7 @@ def _eval(check: Check, shape: Any, features: list[geo.CylFeature]) -> tuple[str
             for f in features
             if not f.concave
             and f.full
-            and in_range(f.diameter, check.diameter)
+            and _in_tol_range(f.diameter, check.diameter)
             and (check.height_min is None or f.depth >= check.height_min - _EPS)
         ]
         found = sorted(round(f.diameter, 3) for f in features if not f.concave and f.full)
