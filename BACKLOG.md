@@ -127,6 +127,7 @@ committed seed RAG index (`lookup_standard` now live on fresh clones), CI
 - [ ] **S2 · eval-integrity-trial** [later · claude] — Trial the probationary `eval-integrity` Citadel skill on `docs/validation/gencad_eval.md` (+ notebooks + MecAgent `dc94ef8`), verify findings by hand, then decide keep vs delete and log in `claude-lab/LOG.md`. *(found 2026-11-18, claude-lab session)*
   Prompt:
     Run the `eval-integrity` skill (global Citadel skill, on probation since 2026-11-18; ported from oh-my-openagent) on the GenCAD headline in `docs/validation/gencad_eval.md` (Qwen2.5-VL-3B QLoRA VSR 88/100, mean IoU 0.256 on `hundred_subset` vs 0/100 untuned and 1/100 one-shot), giving it that doc, the two notebooks, and MecAgent metric code (`dc94ef8`). Check each finding by hand against the record. Keep if it finds at least one unrecorded real gap or passes with traceable checks; remove (`citadel/harness/skills/eval-integrity/`, re-render) if it only restates the doc. Record verdict here and in claude-lab `LOG.md`.
+- [ ] **S2 · attempt-malformed-json-guards** [week · claude] — Port `cad-rl-env`'s pre-build guards (`isinstance(s["op"], Hashable)` in `classify_spec` and `RecursionError` catch in `_as_spec` / `_spec_in_text`) into `simready/bench/attempt.py` on `sp1-bench` before tagging `v0.5.1` so SP1's runner cannot crash on nested JSON or list/dict `"op"` values. *(found 2026-11-18, cad-rl-env session)*
 
 ### cad-rl-env handoff verification — 2026-11-17
 
