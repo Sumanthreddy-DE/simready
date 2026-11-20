@@ -13,12 +13,15 @@ _MODULE_NAMES = {
     "BRep": ("BRep_Builder",),
     "BRepAdaptor": ("BRepAdaptor_Curve", "BRepAdaptor_Surface"),
     "BRepAlgoAPI": ("BRepAlgoAPI_Cut", "BRepAlgoAPI_Fuse"),
+    "BRepBuilderAPI": ("BRepBuilderAPI_MakeFace", "BRepBuilderAPI_MakePolygon", "BRepBuilderAPI_Transform"),
     "BRepCheck": ("BRepCheck_Analyzer",),
     "BRepClass3d": ("BRepClass3d_SolidClassifier",),
+    "BRepFilletAPI": ("BRepFilletAPI_MakeChamfer", "BRepFilletAPI_MakeFillet"),
     "BRepGProp": ("BRepGProp_Face",),
-    "BRepPrimAPI": ("BRepPrimAPI_MakeBox", "BRepPrimAPI_MakeCylinder"),
+    "BRepPrimAPI": ("BRepPrimAPI_MakeBox", "BRepPrimAPI_MakeCone", "BRepPrimAPI_MakeCylinder",
+                    "BRepPrimAPI_MakePrism", "BRepPrimAPI_MakeSphere"),
     "GCPnts": ("GCPnts_AbscissaPoint",),
-    "GeomAbs": ("GeomAbs_Cylinder",),
+    "GeomAbs": ("GeomAbs_Cylinder", "GeomAbs_Line"),
     "GProp": ("GProp_GProps",),
     "IFSelect": ("IFSelect_RetDone",),
     "ShapeAnalysis": ("ShapeAnalysis_FreeBounds",),
@@ -27,7 +30,7 @@ _MODULE_NAMES = {
     "TopExp": ("TopExp_Explorer",),
     "TopoDS": ("TopoDS_Shell",),
     "TopTools": ("TopTools_IndexedDataMapOfShapeListOfShape",),
-    "gp": ("gp_Ax2", "gp_Dir", "gp_Pnt", "gp_Vec"),
+    "gp": ("gp_Ax1", "gp_Ax2", "gp_Dir", "gp_Pnt", "gp_Trsf", "gp_Vec"),
 }
 _ADAPTER_NAMES = ("brepbndlib", "brepgprop", "breptools", "topexp", "topods")
 __all__ = [name for names in _MODULE_NAMES.values() for name in names] + list(_ADAPTER_NAMES) + ["breptools_UVBounds"]
