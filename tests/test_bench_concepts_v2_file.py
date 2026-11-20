@@ -6,10 +6,8 @@ scripts/bench_concepts_v2.py, which also writes the file.
 
 from __future__ import annotations
 
-from simready.bench.concepts import BENCH_DIR, load_concepts
+from simready.bench.concepts import CONCEPTS_V2, file_sha256, frozen_path, frozen_sha256, load_concepts
 from simready.gen.spec import PartSpec
-
-CONCEPTS_V2 = BENCH_DIR / "prompts" / "concepts_v2.jsonl"
 
 
 def test_concepts_v2_parses_with_ids_after_v1():
@@ -28,3 +26,7 @@ def test_every_phrasing_has_a_gradable_check():
         for phrasing in ("explicit", "engineer"):
             checks = getattr(c.checks, phrasing)
             assert any(ch.type != "not_checked" for ch in checks), (c.concept_id, phrasing)
+
+
+def test_concepts_v2_is_frozen():
+    assert frozen_sha256(frozen_path(CONCEPTS_V2)) == file_sha256(CONCEPTS_V2)

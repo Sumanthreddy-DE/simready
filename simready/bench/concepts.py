@@ -18,6 +18,7 @@ PHRASINGS = ("explicit", "engineer", "intent")
 
 BENCH_DIR = Path(__file__).resolve().parent
 CONCEPTS_V1 = BENCH_DIR / "prompts" / "concepts_v1.jsonl"
+CONCEPTS_V2 = BENCH_DIR / "prompts" / "concepts_v2.jsonl"
 CONCEPTS_V1_FROZEN = BENCH_DIR / "prompts" / "concepts_v1.sha256"
 
 Bound = Optional[float]
@@ -173,6 +174,11 @@ def load_concepts(path: str | Path = CONCEPTS_V1) -> list[Concept]:
 
 def file_sha256(path: str | Path) -> str:
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def frozen_path(concepts_path: str | Path) -> Path:
+    """The .sha256 file that freezes ``concepts_path`` (same stem)."""
+    return Path(concepts_path).with_suffix(".sha256")
 
 
 def frozen_sha256(path: str | Path = CONCEPTS_V1_FROZEN) -> str | None:

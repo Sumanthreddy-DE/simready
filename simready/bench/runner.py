@@ -17,7 +17,9 @@ from typing import Any, Callable
 
 from simready.bench import CHECKER_VERSION, runlog
 from simready.bench.attempt import INFRA, evaluate_reply, grade_spec, parse_reply
-from simready.bench.concepts import CONCEPTS_V1, PHRASINGS, Concept, file_sha256, frozen_sha256, load_concepts
+from simready.bench.concepts import (
+    CONCEPTS_V1, PHRASINGS, Concept, file_sha256, frozen_path, frozen_sha256, load_concepts,
+)
 from simready.bench.providers import InfraError, QuotaExhausted
 
 TEMPERATURE = 0.7
@@ -92,8 +94,10 @@ def run_benchmark(
     out_path = Path(out_path)
     prompt_sha = file_sha256(concepts_path)
     if official:
-        if frozen_sha256() != prompt_sha:
-            raise RuntimeError("official run needs the frozen prompt file (concepts_v1.sha256 must match)")
+        if frozen_sha256(frozen_path(concepts_path)) != prompt_sha:
+            raise RuntimeError(
+                f"official run needs the frozen prompt file ({frozen_path(concepts_path).name} must match)"
+            )
         if CHECKER_VERSION.endswith("-dev"):
             raise RuntimeError("official run needs a tagged CHECKER_VERSION (no -dev suffix)")
 
