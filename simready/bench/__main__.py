@@ -51,11 +51,15 @@ def _smoke(args: argparse.Namespace) -> int:
 
 
 def _run(args: argparse.Namespace) -> int:
+    from simready.bench.concepts import CONCEPTS_V1
     from simready.bench.providers import ModelClient, load_providers
     from simready.bench.runner import run_benchmark
 
     provider = load_providers()[args.model]
-    run_id = args.run_id or f"{args.model}-k{args.k}" + (f"-smoke{args.limit}" if args.limit else "")
+    concepts = Path(args.concepts) if args.concepts else CONCEPTS_V1
+    # Deterministic id (no timestamp): re-running the same command resumes the same log.
+    run_id = args.run_id or (f"{args.model}-{args.arm}-{concepts.stem}-k{args.k}"
+                             + (f"-smoke{args.limit}" if args.limit else ""))
     summary = run_benchmark(
         client=ModelClient(provider),
         model_alias=args.model,
@@ -63,6 +67,8 @@ def _run(args: argparse.Namespace) -> int:
         base_url=provider.base_url,
         k=args.k,
         out_path=RUNS_DIR / f"{run_id}.jsonl",
+        concepts_path=concepts,
+        arm=args.arm,
         limit=args.limit,
         workers=args.workers,
         official=args.official,
@@ -82,7 +88,7 @@ def _regrade(args: argparse.Namespace) -> int:
     run = Path(args.run)
     stem = run.name.removesuffix(".gz").removesuffix(".jsonl")
     out = Path(args.out) if args.out else run.with_name(f"{stem}.regrade-{CHECKER_VERSION}.jsonl")
-    n = regrade(run, out)
+    n = regrade(run, out, concepts_path=args.concepts)
     print(f"{out}: re-graded {n} attempts with checker {CHECKER_VERSION}")
     return 0
 
@@ -90,7 +96,7 @@ def _regrade(args: argparse.Namespace) -> int:
 def _replay(args: argparse.Namespace) -> int:
     from simready.bench.replay import replay
 
-    match, logged, rebuilt = replay(Path(args.run), args.attempt_id)
+    match, logged, rebuilt = replay(Path(args.run), args.attempt_id, concepts_path=args.concepts)
     print(json.dumps({"match": match, "logged": logged, "rebuilt": rebuilt}, indent=2))
     return 0 if match else 1
 
@@ -120,12 +126,16 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--run-id")
     r.add_argument("--workers", type=int, default=4)
     r.add_argument("--official", action="store_true")
+    r.add_argument("--arm", choices=("dsl-v1", "dsl-v2", "build123d"), default="dsl-v1")
+    r.add_argument("--concepts", default=None, help="concept file (default concepts_v1.jsonl)")
     g = sub.add_parser("regrade", help="re-check logged specs with the current checker")
     g.add_argument("run")
     g.add_argument("--out")
+    g.add_argument("--concepts", default=None, help="concept file (default: the header's prompt_file)")
     p = sub.add_parser("replay", help="rebuild one attempt and verify its fingerprint")
     p.add_argument("run")
     p.add_argument("attempt_id")
+    p.add_argument("--concepts", default=None, help="concept file (default: the header's prompt_file)")
     rp = sub.add_parser("report", help="bench_v1.md tables from run logs (no OCC needed)")
     rp.add_argument("runs", nargs="+")
     rp.add_argument("--out")

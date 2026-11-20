@@ -27,7 +27,7 @@ from typing import Any, Callable
 
 from pydantic import ValidationError
 
-from simready.gen.spec import PartSpec
+from simready.gen.dsl import known_ops, spec_model
 
 KNOWN_OPS = frozenset({"box", "cyl", "fuse", "cut"})
 GRADE_TIMEOUT_S = 60.0
@@ -113,7 +113,7 @@ def parse_reply(tool_calls: list[dict], content: str | None) -> ParsedReply:
     return ParsedReply(None, None, len(tool_calls), "no tool call and no JSON spec in text")
 
 
-def classify_spec(spec: dict) -> tuple[str | None, list[str]]:
+def classify_spec(spec: dict, dsl: str = "v1") -> tuple[str | None, list[str]]:
     """Pre-build classification: (failure_class or None, error messages)."""
     steps = spec.get("steps")
     if isinstance(steps, list):
@@ -124,13 +124,13 @@ def classify_spec(spec: dict) -> tuple[str | None, list[str]]:
                 if isinstance(s, dict)
                 and "op" in s
                 and isinstance(s["op"], Hashable)
-                and s["op"] not in KNOWN_OPS
+                and s["op"] not in known_ops(dsl)
             }
         )
         if unknown:
             return F9, [f"unknown ops: {unknown}"]
     try:
-        PartSpec.model_validate(spec)
+        spec_model(dsl).model_validate(spec)
     except ValidationError as exc:
         errors = exc.errors()
         messages = [f"{'.'.join(map(str, e['loc'])) or '<root>'}: {e['msg']}" for e in errors]
@@ -141,7 +141,7 @@ def classify_spec(spec: dict) -> tuple[str | None, list[str]]:
     return None, []
 
 
-def _tool_argument_failure(arguments: dict) -> tuple[str | None, list[str]]:
+def _tool_argument_failure(arguments: dict, dsl: str = "v1") -> tuple[str | None, list[str]]:
     """Inspect only the build_part envelope and PartSpec root, without mutation.
 
     Validate a copy minus known ``reason`` keys so extra-forbid validation
@@ -166,7 +166,7 @@ def _tool_argument_failure(arguments: dict) -> tuple[str | None, list[str]]:
         return None, []
     clean = {key: value for key, value in root.items() if key != "reason"}
     if set(root) != {"reason"}:
-        cls, errors = classify_spec(clean)
+        cls, errors = classify_spec(clean, dsl)
         if cls is not None:
             return cls, errors
     if extra_keys:
@@ -174,12 +174,12 @@ def _tool_argument_failure(arguments: dict) -> tuple[str | None, list[str]]:
     return INFRA, ["Known provider reason key in build_part arguments or PartSpec root"]
 
 
-def _grade_worker(spec_dict: dict, checks_json: list, expected_solids: int, out_queue) -> None:
+def _grade_worker(spec_dict: dict, checks_json: list, expected_solids: int, out_queue, dsl: str = "v1") -> None:
     """Spawn-child entry point. Build errors and checker errors are kept apart:
     the first is the model's failure, the second is ours."""
     try:
         from simready.occ_compat import OCC_AVAILABLE
-        from simready.gen.build import build_shape
+        from simready.gen.dsl import build as dsl_build
         from simready.bench.checker import grade_shape
         from simready.bench.concepts import CHECK_LIST
         from simready.bench.geometry import fingerprint
@@ -190,14 +190,14 @@ def _grade_worker(spec_dict: dict, checks_json: list, expected_solids: int, out_
         out_queue.put({"stage": INFRA, "error_type": "backend_setup", "error": f"{type(exc).__name__}: {exc}"})
         return
     try:
-        spec = PartSpec.model_validate(spec_dict)
+        spec_model(dsl).model_validate(spec_dict)
         validated_checks = CHECK_LIST.validate_python(checks_json)
     except Exception as exc:
         out_queue.put({"stage": CHECKER_ERROR, "error_type": "checker_setup", "error": f"{type(exc).__name__}: {exc}"})
         return
     out_queue.put({"stage": "ready"})
     try:
-        shape = build_shape(spec)
+        shape = dsl_build(dsl, spec_dict)
         if shape is None or shape.IsNull():
             out_queue.put({"stage": "build_error", "error": "build produced a null shape"})
             return
@@ -207,7 +207,8 @@ def _grade_worker(spec_dict: dict, checks_json: list, expected_solids: int, out_
     except Exception as exc:
         # Native geometry exceptions are model failures; Python executor bugs
         # must never be turned into zero rewards.
-        native = type(exc).__module__ in ("OCP.OCP.Standard", "OCP.Standard", "OCC.Core.Standard")
+        native = (type(exc).__module__ in ("OCP.OCP.Standard", "OCP.Standard", "OCC.Core.Standard")
+                  or type(exc).__name__ == "KernelBuildError")
         out_queue.put({"stage": "build_error" if native else CHECKER_ERROR,
                        "error_type": "kernel_build" if native else "builder_exception",
                        "error": f"{type(exc).__name__}: {exc}"})
@@ -269,6 +270,7 @@ def grade_spec(
     checks: list,
     expected_solids: int = 1,
     timeout_s: float = GRADE_TIMEOUT_S,
+    dsl: str = "v1",
 ) -> dict:
     """Build + check in a killable child. Setup/exit faults are unscored infra.
 
@@ -276,15 +278,15 @@ def grade_spec(
     ready signal is infrastructure, after it is the model's F8 timeout.
     """
     with tempfile.TemporaryDirectory(prefix="simready-grade-") as directory:
-        return _spawn_grade(spec_dict, checks, expected_solids, timeout_s, _GradeMailbox(directory))
+        return _spawn_grade(spec_dict, checks, expected_solids, timeout_s, _GradeMailbox(directory), dsl)
 
 
-def _spawn_grade(spec_dict, checks, expected_solids, timeout_s, mailbox) -> dict:
+def _spawn_grade(spec_dict, checks, expected_solids, timeout_s, mailbox, dsl="v1") -> dict:
     proc = None
     try:
         checks_json = [c.model_dump() if hasattr(c, "model_dump") else c for c in checks]
         ctx = mp.get_context("spawn")
-        proc = ctx.Process(target=_grade_worker, args=(spec_dict, checks_json, expected_solids, mailbox))
+        proc = ctx.Process(target=_grade_worker, args=(spec_dict, checks_json, expected_solids, mailbox, dsl))
         proc.start()
         return validate_grade_result(_wait_for_grade(proc, mailbox, timeout_s))
     except Exception as exc:
@@ -331,6 +333,7 @@ def evaluate_reply(
     checks: list,
     expected_solids: int,
     grade: Callable[[dict, list, int], dict] = grade_spec,
+    dsl: str = "v1",
 ) -> dict:
     """Classify provider evidence and independent model defects before grading."""
     out: dict[str, Any] = {
@@ -348,7 +351,7 @@ def evaluate_reply(
         "error_type": None,
     }
     if parsed.via == "tool" and parsed.tool_arguments is not None:
-        cls, errors = _tool_argument_failure(parsed.tool_arguments)
+        cls, errors = _tool_argument_failure(parsed.tool_arguments, dsl)
         if cls == INFRA:
             out.update(failure_class=INFRA, error_type="provider_arguments",
                        error="; ".join(errors), passed=None, partial=None)
@@ -359,7 +362,7 @@ def evaluate_reply(
     if parsed.spec is None:
         out.update(failure_class=F1, schema_errors=[parsed.error])
         return out
-    cls, errors = classify_spec(parsed.spec)
+    cls, errors = classify_spec(parsed.spec, dsl)
     if cls is not None:
         out.update(failure_class=cls, schema_errors=errors)
         return out

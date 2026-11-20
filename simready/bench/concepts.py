@@ -186,3 +186,25 @@ def frozen_sha256(path: str | Path = CONCEPTS_V1_FROZEN) -> str | None:
     if not p.exists():
         return None
     return p.read_text(encoding="utf-8").strip() or None
+
+
+REFERENCE_SPECS_V2 = BENCH_DIR / "prompts" / "reference_specs_v2.json"
+
+
+def load_v2_reference_specs(path: str | Path = REFERENCE_SPECS_V2) -> dict[str, dict]:
+    """concept_id -> v2 reference spec. v1 in-vocab concepts fall back to their v1 spec."""
+    import json
+    p = Path(path)
+    return json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
+
+
+def v2_reference_ids() -> set[str]:
+    """Concept ids in DSL v2 vocabulary (design E2)."""
+    ids = {c.concept_id for c in load_concepts(CONCEPTS_V1) if c.in_vocab}
+    ids |= {c.concept_id for c in load_concepts(CONCEPTS_V2) if c.in_vocab}
+    return ids | set(load_v2_reference_specs())
+
+
+def in_vocab_for(arm: str, concept: Concept, v2_ids: set[str]) -> bool:
+    """In-vocab flag for one arm; shared by the runner and regrade."""
+    return {"dsl-v1": concept.in_vocab, "dsl-v2": concept.concept_id in v2_ids, "build123d": True}[arm]

@@ -18,7 +18,8 @@ from typing import Any, Callable
 from simready.bench import CHECKER_VERSION, runlog
 from simready.bench.attempt import INFRA, evaluate_reply, grade_spec, parse_reply
 from simready.bench.concepts import (
-    CONCEPTS_V1, PHRASINGS, Concept, file_sha256, frozen_path, frozen_sha256, load_concepts,
+    CONCEPTS_V1, PHRASINGS, Concept, file_sha256, frozen_path, frozen_sha256, in_vocab_for, load_concepts,
+    v2_reference_ids,
 )
 from simready.bench.providers import InfraError, QuotaExhausted
 
@@ -32,6 +33,7 @@ _PINNED = (
     "official",
     "prompt_sha256",
     "checker_version",
+    "arm",
     "system_prompt_sha256",
     "k",
 )
@@ -88,8 +90,19 @@ def run_benchmark(
     max_tokens: int | None = None,
     supports_seed: bool | None = None,
     extra_body: dict | None = None,
+    arm: str = "dsl-v1",
 ) -> RunSummary:
-    from simready.bench.prompting import BUILD_PART_TOOL, build_messages, system_prompt_sha256
+    from functools import partial
+
+    from simready.bench.prompting import bench_tool, build_messages, dsl_of, system_prompt_sha256
+
+    dsl = dsl_of(arm)
+    if dsl is None:
+        raise NotImplementedError("build123d arm: Task 7")
+    if grade is grade_spec:
+        grade = partial(grade_spec, dsl=dsl)
+    tools = [bench_tool(arm)]
+    in_vocab_v2 = v2_reference_ids()
 
     out_path = Path(out_path)
     prompt_sha = file_sha256(concepts_path)
@@ -115,7 +128,8 @@ def run_benchmark(
         "prompt_file": Path(concepts_path).name,
         "prompt_sha256": prompt_sha,
         "checker_version": CHECKER_VERSION,
-        "system_prompt_sha256": system_prompt_sha256(),
+        "arm": arm,
+        "system_prompt_sha256": system_prompt_sha256(arm),
         "official": official,
         "started": _now(),
     }
@@ -126,8 +140,9 @@ def run_benchmark(
     if out_path.exists():
         existing = runlog.read_header(out_path)
         for key in _PINNED:
-            if existing.get(key) != header[key]:
-                raise RuntimeError(f"resume mismatch on {key}: log has {existing.get(key)!r}, now {header[key]!r}")
+            had = existing.get(key, "dsl-v1" if key == "arm" else None)  # SP1 headers carry no arm
+            if had != header[key]:
+                raise RuntimeError(f"resume mismatch on {key}: log has {had!r}, now {header[key]!r}")
         for key in _OPTIONAL_PINNED:
             if key in existing and key in header and existing[key] != header[key]:
                 raise RuntimeError(f"resume mismatch on {key}: log has {existing.get(key)!r}, now {header[key]!r}")
@@ -156,7 +171,7 @@ def run_benchmark(
             "attempt_id": item.attempt_id,
             "concept_id": item.concept.concept_id,
             "name": item.concept.name,
-            "in_vocab": item.concept.in_vocab,
+            "in_vocab": in_vocab_for(arm, item.concept, in_vocab_v2),
             "phrasing": item.phrasing,
             "attempt_idx": item.idx,
             "prompt": prompt,
@@ -167,7 +182,7 @@ def run_benchmark(
             "ts": _now(),
         }
         try:
-            reply = client.complete(build_messages(prompt), [BUILD_PART_TOOL], TEMPERATURE, seed=item.idx)
+            reply = client.complete(build_messages(prompt, arm), tools, TEMPERATURE, seed=item.idx)
         except QuotaExhausted as exc:
             stop.set()
             with lock:
@@ -187,7 +202,8 @@ def run_benchmark(
                 )
             return
         parsed = parse_reply(reply["tool_calls"], reply["content"])
-        outcome = evaluate_reply(parsed, getattr(item.concept.checks, item.phrasing), item.concept.solids, grade=grade)
+        outcome = evaluate_reply(parsed, getattr(item.concept.checks, item.phrasing), item.concept.solids,
+                                grade=grade, dsl=dsl)
         record = {
             **base,
             "response": {

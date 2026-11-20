@@ -38,10 +38,38 @@ def _bench_tool() -> dict:
 BUILD_PART_TOOL = _bench_tool()
 
 
-def build_messages(prompt: str) -> list[dict]:
-    return [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": prompt}]
+ARMS = ("dsl-v1", "dsl-v2", "build123d")
 
 
-def system_prompt_sha256() -> str:
-    blob = json.dumps({"system": SYSTEM_PROMPT, "tool": BUILD_PART_TOOL}, sort_keys=True)
+def dsl_of(arm: str) -> str | None:
+    if arm not in ARMS:
+        raise ValueError(f"unknown arm {arm!r}; one of {ARMS}")
+    return None if arm == "build123d" else arm.removeprefix("dsl-")
+
+
+def bench_tool(arm: str = "dsl-v1") -> dict | None:
+    dsl = dsl_of(arm)
+    if dsl is None:
+        return None
+    if dsl == "v1":
+        return BUILD_PART_TOOL
+    from simready.gen.dsl import tool_schema
+    return copy.deepcopy(tool_schema(dsl))  # v2 schema carries no agent-only sentence and no timeout
+
+
+def system_prompt(arm: str = "dsl-v1") -> str:
+    if dsl_of(arm) is None:
+        from simready.bench.code_arm import CODE_SYSTEM_PROMPT
+        return CODE_SYSTEM_PROMPT
+    return SYSTEM_PROMPT
+
+
+def build_messages(prompt: str, arm: str = "dsl-v1") -> list[dict]:
+    return [{"role": "system", "content": system_prompt(arm)}, {"role": "user", "content": prompt}]
+
+
+def system_prompt_sha256(arm: str = "dsl-v1") -> str:
+    tool = bench_tool(arm)
+    payload = {"system": system_prompt(arm), "tool": tool} if tool is not None else {"system": system_prompt(arm), "arm": arm}
+    blob = json.dumps(payload, sort_keys=True)
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()

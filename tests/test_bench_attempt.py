@@ -251,14 +251,14 @@ def test_grade_spec_startup_budget_is_not_a_model_timeout():
 
 # Spawn-safe fault injection: exercise the real worker/supervisor rather than
 # substituting grade_spec's result. Patches are made inside the fresh child.
-def _missing_backend(spec, checks, solids, out):
+def _missing_backend(spec, checks, solids, out, dsl="v1"):
     import simready.occ_compat as compat
     compat.OCC_AVAILABLE = False
     compat.BRepPrimAPI_MakeBox = None
     attempt._grade_worker(spec, checks, solids, out)
 
 
-def _broken_import(spec, checks, solids, out):
+def _broken_import(spec, checks, solids, out, dsl="v1"):
     import builtins
     original = builtins.__import__
 
@@ -279,7 +279,7 @@ def _exit_crashed(*args):
     os._exit(17)
 
 
-def _running_hang(spec, checks, solids, out):
+def _running_hang(spec, checks, solids, out, dsl="v1"):
     out.put({"stage": "ready"})
     time.sleep(60)
 
@@ -347,7 +347,7 @@ def test_process_start_exception_is_infrastructure(monkeypatch):
     assert result["stage"] == "infra_error" and "cannot spawn" in result["error"]
 
 
-def _ignore_terminate(spec, checks, solids, out):
+def _ignore_terminate(spec, checks, solids, out, dsl="v1"):
     import signal
     signal.signal(signal.SIGTERM, signal.SIG_IGN)
     _running_hang(spec, checks, solids, out)
@@ -362,7 +362,7 @@ def test_timeout_kill_escalation_reaps_child(monkeypatch):
     assert {p.pid for p in mp.active_children()} == before
 
 
-def _exit_after_ready(spec, checks, solids, out):
+def _exit_after_ready(spec, checks, solids, out, dsl="v1"):
     out.put({"stage": "ready"})
 
 
@@ -372,7 +372,7 @@ def test_exit_after_ready_is_infrastructure(monkeypatch):
     assert result["stage"] == "infra_error" and result["exitcode"] == 0
 
 
-def _builder_bug(spec, checks, solids, out):
+def _builder_bug(spec, checks, solids, out, dsl="v1"):
     import simready.gen.build as build
     def broken(spec):
         raise NameError("builder bug")
@@ -396,7 +396,7 @@ def test_invalid_grader_envelope_is_unscored(envelope):
     assert result["error_type"] == "grader_protocol"
 
 
-def _slow_checker_import(spec, checks, solids, out):
+def _slow_checker_import(spec, checks, solids, out, dsl="v1"):
     import builtins
     original = builtins.__import__
     def delayed(name, *args, **kwargs):
@@ -413,7 +413,7 @@ def test_checker_setup_timeout_is_unscored(monkeypatch):
     assert result["stage"] == "infra_error", result
 
 
-def _large_error_then_exit(spec, checks, solids, out):
+def _large_error_then_exit(spec, checks, solids, out, dsl="v1"):
     out.put({"stage": "checker_error", "error": "x" * 2_000_000})
     os._exit(17)
 
@@ -424,7 +424,7 @@ def test_crash_during_result_delivery_does_not_timeout(monkeypatch):
     assert result["stage"] in ("checker_error", "infra_error"), result
 
 
-def _partial_result_exit(spec, checks, solids, out):
+def _partial_result_exit(spec, checks, solids, out, dsl="v1"):
     import pickle
     def interrupted_dump(value, stream):
         stream.write(b"partial pickle")

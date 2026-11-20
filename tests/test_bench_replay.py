@@ -168,3 +168,31 @@ def test_regrade_preserves_unexpected_envelope_key_as_f2(tmp_path):
     regraded = runlog.attempts(out)[0]
     assert regraded["failure_class"] == "F2_schema"
     assert regraded["passed"] is False and regraded["partial"] == 0.0
+
+
+def test_regrade_of_a_dsl_v2_log_uses_v2_in_vocab(tmp_path, monkeypatch):
+    from simready.bench import replay as replay_mod
+
+    concepts = tmp_path / "concepts_x.jsonl"
+    line = json.loads(_concepts(tmp_path).read_text(encoding="utf-8"))
+    line.update(concept_id="c041", in_vocab=False)
+    line.pop("reference_spec")
+    concepts.write_text(json.dumps(line) + "\n", encoding="utf-8")
+    run = tmp_path / "run.jsonl"
+    runlog.append(run, {"record": "header", "model": "m", "checker_version": "0.9", "prompt_sha256": "x",
+                        "arm": "dsl-v2", "prompt_file": concepts.name})
+    for i in range(2):
+        runlog.append(run, _attempt(i, attempt_id=f"c041/explicit/{i}", concept_id="c041", in_vocab=False))
+    monkeypatch.setattr(replay_mod, "BENCH_DIR", tmp_path.parent)
+    monkeypatch.setattr(replay_mod, "v2_reference_ids", lambda: {"c041"})
+    (tmp_path.parent / "prompts").mkdir(exist_ok=True)
+    (tmp_path.parent / "prompts" / concepts.name).write_bytes(concepts.read_bytes())
+    regrade(run, tmp_path / "o.jsonl", grade=grade_pass)
+    assert all(a["in_vocab"] is True for a in runlog.attempts(tmp_path / "o.jsonl"))
+
+
+def test_regrade_resolves_concepts_v2_from_the_header(tmp_path):
+    run = tmp_path / "run.jsonl"
+    runlog.append(run, {"record": "header", "model": "m", "checker_version": "0.9", "prompt_sha256": "x",
+                        "arm": "dsl-v2", "prompt_file": "concepts_v2.jsonl"})
+    assert regrade(run, tmp_path / "o.jsonl", grade=grade_pass) == 0  # no KeyError, no attempts

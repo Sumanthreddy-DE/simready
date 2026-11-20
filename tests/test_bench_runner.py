@@ -193,3 +193,22 @@ def test_repeated_checker_errors_stop_the_runner(monkeypatch, tmp_path, concepts
                             workers=1, grade=broken_grade)
     assert summary.infra_errors == 2 and summary.written == 0
     assert len(client.calls) == 2 and "consecutive infra errors" in summary.stopped_reason
+
+
+def test_header_pins_arm(tmp_path, concepts):
+    out = tmp_path / "r.jsonl"
+    _run(FakeClient(), out, concepts, arm="dsl-v2")
+    assert runlog.read_header(out)["arm"] == "dsl-v2"
+    with pytest.raises(RuntimeError, match="resume mismatch on arm"):
+        _run(FakeClient(), out, concepts, arm="dsl-v1")
+
+
+def test_header_without_arm_resumes_as_dsl_v1(tmp_path, concepts):
+    out = tmp_path / "r.jsonl"
+    _run(FakeClient(), out, concepts, limit=1)
+    lines = out.read_text(encoding="utf-8").splitlines()
+    header = json.loads(lines[0])
+    header.pop("arm")
+    out.write_text("\n".join([json.dumps(header)] + lines[1:]) + "\n", encoding="utf-8")
+    summary = _run(FakeClient(), out, concepts, arm="dsl-v1")  # an SP1-style header resumes as dsl-v1
+    assert summary.written == 11
