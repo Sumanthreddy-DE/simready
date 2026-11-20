@@ -76,10 +76,14 @@ regrade and replay keep their meaning; v2 lives in `simready/gen/spec_v2.py` and
   larger cap would hide whether models use the patterns.
 - A fillet/chamfer the kernel cannot build is `F4_build_error`, like any build failure.
 - Stays out of vocab: `c045` threaded rod, `c046` involute gear.
-- **Positive control:** every concept expressible in v2 (all 65 except c045, c046) gets a
-  hand-built v2 reference spec in `simready/bench/prompts/reference_specs_v2.json`; a test builds
-  each and asserts it passes its explicit and engineer checks. This file, not the concept files,
-  defines v2 in-vocab, so the frozen concept files are never edited.
+- **Positive control:** every concept expressible in v2 (all 65 except c045, c046 = 63) has a v2
+  reference spec. The 22 concepts that are out of vocab in v1 but in vocab in v2 get a hand-built
+  spec in `simready/bench/prompts/reference_specs_v2.json`. The 41 v1 in-vocab concepts (37 from
+  `concepts_v1`, 4 from `concepts_v2`) reuse their v1 `reference_spec`, which is valid v2. A test
+  builds all 63 with the v2 executor and asserts each passes all three phrasings. The v1 flags plus
+  this file, not edits to the concept files, define v2 in-vocab, so the frozen concept files are
+  never edited. (Decided in plan review 2026-11-20: 22 + fallback instead of 63 hand-written
+  entries.)
 - The copilot product keeps DSL v1 (`BUILD_PART_TOOL_SCHEMA`) until SP2 results are published;
   switching it is a separate decision.
 
@@ -123,8 +127,10 @@ weights is a separate approval at execution time.
   length), or the schema/build error text. **Never** the target ranges, check list, or check
   detail strings (they contain the ranges). A test asserts no range bound of the attempt's checks
   appears in the feedback.
-- Up to 2 retries per failed scored attempt, continuing the same conversation (original reply,
-  then the feedback as the tool result or user turn). Excluded attempts are never repaired.
+- Up to 2 retries per failed scored **in-vocab** attempt (in vocab for that log's arm), continuing
+  the same conversation (original reply, then the feedback as a user turn). Excluded attempts and
+  out-of-vocab attempts (a decline is the right answer there) are never repaired. SP1 has 21
+  (gpt-6.1-sol) and 25 (gemini-4-argon) failed in-vocab attempts to repair.
 - Reported as **pass@1 after repair**, next to single-shot pass@1, never merged into it (SP1 D6).
   Repair logs are separate files whose header names `repair_of`.
 - Runs first on SP1's logged failures (`cd5d693`, no new single-shot calls), then on the SP2 DSL v2
