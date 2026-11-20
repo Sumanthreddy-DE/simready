@@ -34,5 +34,14 @@
     "max_tokens": 16384,
     "supports_seed": true,
     "extra_body": {}
+  },
+  "qwen3-4b-instruct-2507": {
+    "base_url": "http://127.0.0.1:8080/v1",
+    "model": "qwen3-4b-instruct-2507",
+    "key_env": "LLAMA_SERVER_KEY",
+    "rpm": 0,
+    "max_tokens": 4096,
+    "supports_seed": true,
+    "extra_body": {}
   }
 }
