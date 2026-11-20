@@ -107,3 +107,42 @@ def test_render_markdown_has_all_generated_tables(tmp_path):
                     "## 5. Out-of-vocab concepts", "## 6. Cost", "## 8. Known limits (generated counts)"):
         assert heading in md
     assert "not comparable" in md
+
+
+# ---------------------------------------------------------------- SP2: arms and repair
+
+from simready.bench.report import ModelRun, paired_diff, repair_summary, subset_p1  # noqa: E402
+
+
+def _run(passes: dict[str, list[bool]]) -> ModelRun:
+    attempts = [{"concept_id": cid, "phrasing": "explicit", "in_vocab": True, "passed": p,
+                 "failure_class": None if p else "F6_dimension_miss"}
+                for cid, ps in passes.items() for p in ps]
+    return ModelRun({"model": "m"}, attempts, 0)
+
+
+def test_paired_diff_is_per_concept_mean_difference():
+    a = _run({"c1": [True, True], "c2": [True, False]})
+    b = _run({"c1": [True, False], "c2": [False, False]})
+    out = paired_diff(a, b, {"c1", "c2"})
+    assert out["diff"] == 0.5 and out["n_concepts"] == 2
+    lo, hi = out["diff_ci"]
+    assert lo <= 0.5 <= hi
+
+
+def test_subset_ignores_other_concepts():
+    r = _run({"c1": [True], "c2": [False]})
+    assert subset_p1(r, {"c1"})["p1"] == 1.0
+
+
+def test_repair_summary_uses_last_round(tmp_path):
+    single = _run({"c1": [False, True]})
+    single.attempts[0]["attempt_id"], single.attempts[1]["attempt_id"] = "c1/explicit/0", "c1/explicit/1"
+    log = tmp_path / "rep.jsonl"
+    runlog.append(log, {"record": "header"})
+    for rnd, ok in ((1, False), (2, True)):
+        runlog.append(log, {"record": "attempt", "attempt_id": f"c1/explicit/0/repair{rnd}",
+                            "repair_of_attempt": "c1/explicit/0", "round": rnd, "passed": ok,
+                            "failure_class": None if ok else "F6_dimension_miss"})
+    out = repair_summary(single, log, {"c1"})
+    assert out["p1_single"] == 0.5 and out["p1_after"] == 1.0 and out["fixed_in_round"] == {2: 1}

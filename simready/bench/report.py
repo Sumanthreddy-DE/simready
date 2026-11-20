@@ -146,6 +146,69 @@ def incomplete_prompts(run: ModelRun) -> int:
     return missing + sum(1 for key in keys if counts[key] < k)
 
 
+# ---------------------------------------------------------------- SP2: arms and repair
+# Comparisons average per concept (each concept weight 1); headline() averages per prompt.
+
+
+def pool_runs(runs: list[ModelRun]) -> ModelRun:
+    """One arm's results across several logs (concepts_v1 + concepts_v2), keyed by the first header."""
+    return ModelRun(runs[0].header, [a for r in runs for a in r.attempts], sum(r.excluded for r in runs),
+                    [a for r in runs for a in (r.excluded_attempts or [])])
+
+
+def _prompts_any(run: ModelRun) -> dict[tuple[str, str], list[bool]]:
+    table: dict[tuple[str, str], list[bool]] = defaultdict(list)
+    for a in run.attempts:
+        table[(a["concept_id"], a["phrasing"])].append(bool(a["passed"]))
+    return table
+
+
+def _per_concept_p1(run: ModelRun, concept_ids: set[str]) -> dict[str, float]:
+    by: dict[str, list[float]] = defaultdict(list)
+    for (cid, _), results in _prompts_any(run).items():
+        if cid in concept_ids:
+            by[cid].append(_mean([float(r) for r in results]))
+    return {cid: _mean(v) for cid, v in by.items()}
+
+
+def subset_p1(run: ModelRun, concept_ids: set[str]) -> dict:
+    per = _per_concept_p1(run, concept_ids)
+    return {"p1": _mean(list(per.values())), "p1_ci": _bootstrap({k: [v] for k, v in per.items()}),
+            "n_concepts": len(per)}
+
+
+def paired_diff(a: ModelRun, b: ModelRun, concept_ids: set[str]) -> dict:
+    """Mean per-concept pass@1 difference a - b, paired bootstrap over concepts."""
+    pa, pb = _per_concept_p1(a, concept_ids), _per_concept_p1(b, concept_ids)
+    common = sorted(set(pa) & set(pb))
+    diffs = {cid: [pa[cid] - pb[cid]] for cid in common}
+    return {"diff": _mean([d[0] for d in diffs.values()]), "diff_ci": _bootstrap(diffs), "n_concepts": len(common)}
+
+
+def repair_summary(single: ModelRun, repair_log: str | Path | list, concept_ids: set[str]) -> dict:
+    """Single-shot vs after-repair pass@1 on the same attempts (design E5, result 4)."""
+    logs = repair_log if isinstance(repair_log, list) else [repair_log]
+    final: dict[str, dict] = {}
+    for path in logs:
+        for rec in runlog.attempts(path):
+            if rec.get("failure_class") in runlog.EXCLUDED_CLASSES:
+                continue
+            prev = final.get(rec["repair_of_attempt"])
+            if prev is None or rec["round"] > prev["round"]:
+                final[rec["repair_of_attempt"]] = rec
+    after_attempts = [{**a, "passed": final[a["attempt_id"]]["passed"]} if a["attempt_id"] in final else a
+                      for a in single.attempts]
+    after = ModelRun(single.header, after_attempts, single.excluded)
+    d = paired_diff(after, single, concept_ids)
+    return {
+        "p1_single": subset_p1(single, concept_ids)["p1"],
+        "p1_after": subset_p1(after, concept_ids)["p1"],
+        "diff": d["diff"], "diff_ci": d["diff_ci"], "n_concepts": d["n_concepts"],
+        "repaired_attempts": len(final),
+        "fixed_in_round": Counter(r["round"] for r in final.values() if r["passed"]),
+    }
+
+
 def _pct(x: float) -> str:
     return "n/a" if x != x else f"{100 * x:.1f}%"
 

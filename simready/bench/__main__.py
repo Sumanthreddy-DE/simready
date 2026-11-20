@@ -1,4 +1,4 @@
-"""CLI: python -m simready.bench {smoke,run,regrade,replay,report}.
+"""CLI: python -m simready.bench {smoke,run,regrade,replay,repair,compare,repair-summary,report}.
 
 Imports are lazy per subcommand so ``report`` runs in plain Python
 (no OCC, no openai) on the committed logs.
@@ -101,6 +101,53 @@ def _replay(args: argparse.Namespace) -> int:
     return 0 if match else 1
 
 
+def _repair(args: argparse.Namespace) -> int:
+    from simready.bench.providers import ModelClient, load_providers
+    from simready.bench.repair import repair_run
+
+    provider = load_providers()[args.model]
+    summary = repair_run(Path(args.run), Path(args.out), ModelClient(provider), model_id=provider.model,
+                         max_rounds=args.max_rounds)
+    print(f"{summary.path}: repaired {summary.repaired}, infra errors {summary.infra_errors}, "
+          f"stopped: {summary.stopped_reason or 'no'}")
+    return 0 if summary.stopped_reason is None else 2
+
+
+def _set_ids(path: str) -> set[str]:
+    return {line.strip() for line in Path(path).read_text(encoding="utf-8").splitlines() if line.strip()}
+
+
+def _label(run) -> str:
+    return f"{run.header.get('model_alias') or run.header.get('model')}/{run.header.get('arm', 'dsl-v1')}"
+
+
+def _compare(args: argparse.Namespace) -> int:
+    from simready.bench.report import _ci, _pct, load_run, paired_diff, pool_runs, subset_p1
+
+    ids = _set_ids(args.concepts)
+    a = pool_runs([load_run(p) for p in args.a])
+    b = pool_runs([load_run(p) for p in args.b])
+    d = paired_diff(a, b, ids)
+    print("| A | B | n concepts | A pass@1 | B pass@1 | diff | 95% CI |")
+    print("|---|---|---|---|---|---|---|")
+    print(f"| {_label(a)} | {_label(b)} | {d['n_concepts']} | {_pct(subset_p1(a, ids)['p1'])} | "
+          f"{_pct(subset_p1(b, ids)['p1'])} | {_pct(d['diff'])} | {_ci(d['diff_ci'])} |")
+    return 0
+
+
+def _repair_summary(args: argparse.Namespace) -> int:
+    from simready.bench.report import _ci, _pct, load_run, pool_runs, repair_summary
+
+    single = pool_runs([load_run(p) for p in args.single])
+    r = repair_summary(single, list(args.repair), _set_ids(args.concepts))
+    fixed = r["fixed_in_round"]
+    print("| model/arm | n | single | after repair | diff | 95% CI | fixed in round 1 / 2 |")
+    print("|---|---|---|---|---|---|---|")
+    print(f"| {_label(single)} | {r['n_concepts']} | {_pct(r['p1_single'])} | {_pct(r['p1_after'])} | "
+          f"{_pct(r['diff'])} | {_ci(r['diff_ci'])} | {fixed.get(1, 0)} / {fixed.get(2, 0)} |")
+    return 0
+
+
 def _report(args: argparse.Namespace) -> int:
     from simready.bench.report import load_run, render_markdown
 
@@ -136,11 +183,26 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("run")
     p.add_argument("attempt_id")
     p.add_argument("--concepts", default=None, help="concept file (default: the header's prompt_file)")
+    rr = sub.add_parser("repair", help="repair pass on a run's failed in-vocab attempts (logged apart)")
+    rr.add_argument("run")
+    rr.add_argument("--out", required=True)
+    rr.add_argument("--model", required=True)
+    rr.add_argument("--max-rounds", type=int, default=2)
+    cp = sub.add_parser("compare", help="paired pass@1 difference of two arms on a concept-id set")
+    cp.add_argument("--a", nargs="+", required=True)
+    cp.add_argument("--b", nargs="+", required=True)
+    cp.add_argument("--concepts", required=True, help="file with one concept id per line")
+    rs = sub.add_parser("repair-summary", help="single-shot vs after-repair pass@1 on a concept-id set")
+    rs.add_argument("--single", nargs="+", required=True)
+    rs.add_argument("--repair", nargs="+", required=True)
+    rs.add_argument("--concepts", required=True, help="file with one concept id per line")
     rp = sub.add_parser("report", help="bench_v1.md tables from run logs (no OCC needed)")
     rp.add_argument("runs", nargs="+")
     rp.add_argument("--out")
     args = ap.parse_args(argv)
-    handlers = {"smoke": _smoke, "run": _run, "regrade": _regrade, "replay": _replay, "report": _report}
+    handlers = {"smoke": _smoke, "run": _run, "regrade": _regrade, "replay": _replay, "report": _report,
+                "repair": _repair,
+                "compare": _compare, "repair-summary": _repair_summary}
     return handlers[args.cmd](args)
 
 
