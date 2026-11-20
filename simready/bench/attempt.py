@@ -174,9 +174,24 @@ def _tool_argument_failure(arguments: dict, dsl: str = "v1") -> tuple[str | None
     return INFRA, ["Known provider reason key in build_part arguments or PartSpec root"]
 
 
-def _grade_worker(spec_dict: dict, checks_json: list, expected_solids: int, out_queue, dsl: str = "v1") -> None:
+def _read_step(path: str):
+    from simready.occ_compat import IFSelect_RetDone, STEPControl_Reader
+    reader = STEPControl_Reader()
+    if reader.ReadFile(path) != IFSelect_RetDone:
+        raise ValueError(f"STEP read failed: {path}")
+    reader.TransferRoots()
+    return reader.OneShape()
+
+
+def _grade_worker(source: dict, checks_json: list, expected_solids: int, out_queue) -> None:
     """Spawn-child entry point. Build errors and checker errors are kept apart:
-    the first is the model's failure, the second is ours."""
+    the first is the model's failure, the second is ours.
+
+    ``source`` is ``{"kind": "spec", "spec": ..., "dsl": "v1"|"v2"}`` or
+    ``{"kind": "step", "path": ...}`` (build123d arm: a STEP file the model's
+    code wrote). The STEP read runs after the ready signal, so it counts toward
+    the model's time budget; an unreadable file is the model's build error.
+    """
     try:
         from simready.occ_compat import OCC_AVAILABLE
         from simready.gen.dsl import build as dsl_build
@@ -190,19 +205,32 @@ def _grade_worker(spec_dict: dict, checks_json: list, expected_solids: int, out_
         out_queue.put({"stage": INFRA, "error_type": "backend_setup", "error": f"{type(exc).__name__}: {exc}"})
         return
     try:
-        spec_model(dsl).model_validate(spec_dict)
+        if source["kind"] == "spec":
+            spec_model(source["dsl"]).model_validate(source["spec"])
+        elif source["kind"] != "step":
+            raise ValueError(f"unknown grade source {source['kind']!r}")
         validated_checks = CHECK_LIST.validate_python(checks_json)
     except Exception as exc:
         out_queue.put({"stage": CHECKER_ERROR, "error_type": "checker_setup", "error": f"{type(exc).__name__}: {exc}"})
         return
     out_queue.put({"stage": "ready"})
     try:
-        shape = dsl_build(dsl, spec_dict)
+        if source["kind"] == "spec":
+            shape = dsl_build(source["dsl"], source["spec"])
+        else:
+            shape = _read_step(source["path"])
         if shape is None or shape.IsNull():
             out_queue.put({"stage": "build_error", "error": "build produced a null shape"})
             return
     except (ImportError, OSError) as exc:
         out_queue.put({"stage": INFRA, "error_type": "backend_runtime", "error": f"{type(exc).__name__}: {exc}"})
+        return
+    except ValueError as exc:
+        if source["kind"] != "step":
+            out_queue.put({"stage": CHECKER_ERROR, "error_type": "builder_exception",
+                           "error": f"{type(exc).__name__}: {exc}"})
+            return
+        out_queue.put({"stage": "build_error", "error_type": "step_read", "error": f"{type(exc).__name__}: {exc}"})
         return
     except Exception as exc:
         # Native geometry exceptions are model failures; Python executor bugs
@@ -278,15 +306,23 @@ def grade_spec(
     ready signal is infrastructure, after it is the model's F8 timeout.
     """
     with tempfile.TemporaryDirectory(prefix="simready-grade-") as directory:
-        return _spawn_grade(spec_dict, checks, expected_solids, timeout_s, _GradeMailbox(directory), dsl)
+        source = {"kind": "spec", "spec": spec_dict, "dsl": dsl}
+        return _spawn_grade(source, checks, expected_solids, timeout_s, _GradeMailbox(directory))
 
 
-def _spawn_grade(spec_dict, checks, expected_solids, timeout_s, mailbox, dsl="v1") -> dict:
+def grade_step(step_path: str, checks: list, expected_solids: int = 1, timeout_s: float = GRADE_TIMEOUT_S) -> dict:
+    """Read + check a STEP file in a killable child (build123d arm); same protocol as grade_spec."""
+    with tempfile.TemporaryDirectory(prefix="simready-grade-") as directory:
+        return _spawn_grade({"kind": "step", "path": step_path}, checks, expected_solids, timeout_s,
+                            _GradeMailbox(directory))
+
+
+def _spawn_grade(source, checks, expected_solids, timeout_s, mailbox) -> dict:
     proc = None
     try:
         checks_json = [c.model_dump() if hasattr(c, "model_dump") else c for c in checks]
         ctx = mp.get_context("spawn")
-        proc = ctx.Process(target=_grade_worker, args=(spec_dict, checks_json, expected_solids, mailbox, dsl))
+        proc = ctx.Process(target=_grade_worker, args=(source, checks_json, expected_solids, mailbox))
         proc.start()
         return validate_grade_result(_wait_for_grade(proc, mailbox, timeout_s))
     except Exception as exc:
@@ -387,4 +423,62 @@ def evaluate_reply(
         passed=report["passed"],
         failure_class=report["failure_class"],
     )
+    return out
+
+
+def evaluate_code_reply(
+    content: str | None,
+    checks: list,
+    expected_solids: int,
+    run: Callable[[str], dict] | None = None,
+    grade: Callable[[str, list, int], dict] = grade_step,
+) -> dict:
+    """build123d arm: extract, gate, run in the sandbox venv, grade the STEP (design E4).
+
+    No fenced block is F1, a gate rejection F2, an exception or missing part F4,
+    a wall-clock or CPU kill F8; then the checker's F5/F6/F7.
+    """
+    from simready.bench.code_arm import extract_code, gate_code
+    if run is None:
+        from simready.bench.code_exec import run_code as run
+    out: dict[str, Any] = {
+        "via": "text", "n_tool_calls": 0, "spec": None, "code": None, "schema_errors": [], "build_error": None,
+        "fingerprint": None, "check_report": None, "partial": 0.0, "passed": False, "failure_class": None,
+        "error": None, "error_type": None,
+    }
+    code = extract_code(content)
+    if code is None:
+        out.update(failure_class=F1, schema_errors=["no fenced python block"])
+        return out
+    out["code"] = code
+    errors = gate_code(code)
+    if errors:
+        out.update(failure_class=F2, schema_errors=errors)
+        return out
+    built = run(code)
+    if built["stage"] != "built":
+        cls = {"build_error": F4, "timeout": F8}.get(built["stage"], INFRA)
+        out.update(failure_class=cls, error=built["error"], error_type=built["stage"])
+        if cls == INFRA:
+            out.update(partial=None, passed=None)
+        else:
+            out["build_error"] = built["error"]
+        return out
+    try:
+        result = validate_grade_result(grade(built["step_path"], checks, expected_solids))
+    except Exception as exc:  # same guard as evaluate_reply: a grader bug never kills the run
+        result = {"stage": CHECKER_ERROR, "error_type": "grader_exception", "error": f"{type(exc).__name__}: {exc}"}
+    finally:
+        built["workdir"].cleanup()
+    if result["stage"] != "graded":
+        cls = {"build_error": F4, "timeout": F8, CHECKER_ERROR: CHECKER_ERROR}.get(result["stage"], INFRA)
+        out.update(failure_class=cls, error=result["error"], error_type=result.get("error_type"))
+        if cls in (INFRA, CHECKER_ERROR):
+            out.update(partial=None, passed=None)
+        else:
+            out["build_error"] = result["error"]
+        return out
+    report = result["report"]
+    out.update(fingerprint=result["fingerprint"], check_report=report, partial=report["partial"],
+               passed=report["passed"], failure_class=report["failure_class"])
     return out

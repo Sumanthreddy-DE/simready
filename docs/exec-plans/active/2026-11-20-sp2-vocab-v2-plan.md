@@ -1816,7 +1816,7 @@ def evaluate_code_reply(content, checks, expected_solids, run=None, grade=grade_
 Run: `~/.venvs/simready-ocp/bin/python -m pytest tests/test_bench_code_attempt.py tests/test_bench_attempt.py tests/test_bench_code_exec.py tests/test_bench_runner.py tests/test_bench_replay.py -q`
 Expected: all pass, with `tests/test_bench_attempt.py` edited as in Step 3.1. Then rerun the Task 3 SP1 regression (both logs must print `differing 0`), because the worker changed.
 
-- [ ] **Step 5: End-to-end smoke without an API** — grade a hand-written build123d answer for `c001/explicit` through `evaluate_code_reply` with the real venv:
+- [ ] **Step 5: End-to-end smoke without an API** — grade a hand-written build123d answer for `c001/explicit` through `evaluate_code_reply` with the real venv. (Correction found during execution: a heredoc on stdin cannot run this, because the grader's `spawn` child re-imports `__main__` from a file and fails with `FileNotFoundError: .../<stdin>`. Save the body to a script with an `if __name__ == "__main__":` guard and run it with `PYTHONPATH=$PWD`.)
 
 ```bash
 ~/.venvs/simready-ocp/bin/python - <<'EOF'

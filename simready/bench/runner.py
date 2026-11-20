@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from simready.bench import CHECKER_VERSION, runlog
-from simready.bench.attempt import INFRA, evaluate_reply, grade_spec, parse_reply
+from simready.bench.attempt import INFRA, evaluate_code_reply, evaluate_reply, grade_spec, parse_reply
 from simready.bench.concepts import (
     CONCEPTS_V1, PHRASINGS, Concept, file_sha256, frozen_path, frozen_sha256, in_vocab_for, load_concepts,
     v2_reference_ids,
@@ -96,12 +96,10 @@ def run_benchmark(
 
     from simready.bench.prompting import bench_tool, build_messages, dsl_of, system_prompt_sha256
 
-    dsl = dsl_of(arm)
-    if dsl is None:
-        raise NotImplementedError("build123d arm: Task 7")
-    if grade is grade_spec:
+    dsl = dsl_of(arm)  # None for the build123d arm
+    if grade is grade_spec and dsl is not None:
         grade = partial(grade_spec, dsl=dsl)
-    tools = [bench_tool(arm)]
+    tools = [bench_tool(arm)] if dsl is not None else []
     in_vocab_v2 = v2_reference_ids()
 
     out_path = Path(out_path)
@@ -201,9 +199,12 @@ def run_benchmark(
                     f"model substituted: asked {model_id!r}, got {reply['model_returned']!r}"
                 )
             return
-        parsed = parse_reply(reply["tool_calls"], reply["content"])
-        outcome = evaluate_reply(parsed, getattr(item.concept.checks, item.phrasing), item.concept.solids,
-                                grade=grade, dsl=dsl)
+        checks = getattr(item.concept.checks, item.phrasing)
+        if dsl is None:
+            outcome = evaluate_code_reply(reply["content"], checks, item.concept.solids)
+        else:
+            parsed = parse_reply(reply["tool_calls"], reply["content"])
+            outcome = evaluate_reply(parsed, checks, item.concept.solids, grade=grade, dsl=dsl)
         record = {
             **base,
             "response": {

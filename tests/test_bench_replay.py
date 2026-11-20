@@ -196,3 +196,20 @@ def test_regrade_resolves_concepts_v2_from_the_header(tmp_path):
     runlog.append(run, {"record": "header", "model": "m", "checker_version": "0.9", "prompt_sha256": "x",
                         "arm": "dsl-v2", "prompt_file": "concepts_v2.jsonl"})
     assert regrade(run, tmp_path / "o.jsonl", grade=grade_pass) == 0  # no KeyError, no attempts
+
+
+def test_regrade_of_a_build123d_log_reruns_the_logged_code(tmp_path):
+    from simready.bench.code_exec import B123D_PYTHON
+
+    if not B123D_PYTHON.exists():
+        pytest.skip(f"build123d venv missing: {B123D_PYTHON}")
+    code = "from build123d import *\npart = Box(40, 30, 5)\n"
+    run = tmp_path / "run.jsonl"
+    runlog.append(run, {"record": "header", "model": "m", "checker_version": "0.9", "prompt_sha256": "x",
+                        "arm": "build123d", "prompt_file": "concepts.jsonl"})
+    runlog.append(run, _attempt(0, spec=None, code=code, in_vocab=False,
+                                response={"content": f"```python\n{code}```", "tool_calls": []}))
+    out = tmp_path / "o.jsonl"
+    assert regrade(run, out, concepts_path=_concepts(tmp_path), grade=grade_pass) == 1
+    rec = runlog.attempts(out)[0]
+    assert rec["passed"] is True and rec["in_vocab"] is True and rec["code"] == code
