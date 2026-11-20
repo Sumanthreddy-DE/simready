@@ -197,6 +197,7 @@ def _grade_worker(source: dict, checks_json: list, expected_solids: int, out_que
         from simready.gen.dsl import build as dsl_build
         from simready.bench.checker import grade_shape
         from simready.bench.concepts import CHECK_LIST
+        from simready.bench import geometry as geo
         from simready.bench.geometry import fingerprint
 
         if not OCC_AVAILABLE:
@@ -243,7 +244,11 @@ def _grade_worker(source: dict, checks_json: list, expected_solids: int, out_que
         return
     try:
         report = grade_shape(shape, validated_checks, expected_solids)
-        out_queue.put({"stage": "graded", "fingerprint": fingerprint(shape), "report": report})
+        # Measured cylindrical features, for repair feedback (design E5); never scored.
+        feats = [{"diameter": round(f.diameter, 3), "kind": "hole" if f.concave else "boss",
+                  "through": f.through, "length": round(f.depth, 3)}
+                 for f in geo.cylindrical_features(shape) if f.full]
+        out_queue.put({"stage": "graded", "fingerprint": fingerprint(shape), "report": report, "features": feats})
     except Exception as exc:  # noqa: BLE001 — our bug, excluded from scoring
         out_queue.put({"stage": "checker_error", "error_type": "checker_exception", "error": f"{type(exc).__name__}: {exc}"})
 
@@ -422,6 +427,7 @@ def evaluate_reply(
         partial=report["partial"],
         passed=report["passed"],
         failure_class=report["failure_class"],
+        features=result.get("features"),
     )
     return out
 
@@ -480,5 +486,5 @@ def evaluate_code_reply(
         return out
     report = result["report"]
     out.update(fingerprint=result["fingerprint"], check_report=report, partial=report["partial"],
-               passed=report["passed"], failure_class=report["failure_class"])
+               passed=report["passed"], failure_class=report["failure_class"], features=result.get("features"))
     return out
