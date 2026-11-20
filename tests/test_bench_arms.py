@@ -37,3 +37,7 @@ def test_fillet_is_out_of_vocab_in_v1_and_valid_in_v2():
 def test_messages_per_arm():
     assert build_messages("x")[0]["content"] == build_messages("x", "dsl-v2")[0]["content"]
     assert bench_tool("build123d") is None
+
+
+def test_build123d_prompt_hash_is_its_own():
+    assert system_prompt_sha256("build123d") not in (SP1_HASH, system_prompt_sha256("dsl-v2"))
