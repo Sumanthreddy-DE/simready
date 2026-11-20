@@ -75,15 +75,20 @@ regrade and replay keep their meaning; v2 lives in `simready/gen/spec_v2.py` and
 - Step cap stays **16**; with `polar`/`grid` the longest v2 concept (c056) needs 9 steps, and a
   larger cap would hide whether models use the patterns.
 - A fillet/chamfer the kernel cannot build is `F4_build_error`, like any build failure.
-- Stays out of vocab: `c045` threaded rod, `c046` involute gear.
-- **Positive control:** every concept expressible in v2 (all 65 except c045, c046 = 63) has a v2
-  reference spec. The 22 concepts that are out of vocab in v1 but in vocab in v2 get a hand-built
+- Stays out of vocab: `c045` threaded rod, `c046` involute gear, `c044` ball knob (see below).
+- **Positive control:** every concept expressible in v2 (all 65 except c044, c045, c046 = 62) has a
+  v2 reference spec. The 21 concepts that are out of vocab in v1 but in vocab in v2 get a hand-built
   spec in `simready/bench/prompts/reference_specs_v2.json`. The 41 v1 in-vocab concepts (37 from
   `concepts_v1`, 4 from `concepts_v2`) reuse their v1 `reference_spec`, which is valid v2. A test
-  builds all 63 with the v2 executor and asserts each passes all three phrasings. The v1 flags plus
+  builds all 62 with the v2 executor and asserts each passes all three phrasings. The v1 flags plus
   this file, not edits to the concept files, define v2 in-vocab, so the frozen concept files are
-  never edited. (Decided in plan review 2026-11-20: 22 + fallback instead of 63 hand-written
+  never edited. (Decided in plan review 2026-11-20: hand-written + fallback instead of all hand-written
   entries.)
+- **c044 stays out of v2 vocab** (user decision 2026-11-20, plan Task 4). Its frozen explicit and
+  engineer checks need all three bbox extents in 29.9–30.1 mm, but a 6.8 mm hole drilled along x, y
+  or z removes that pole of the ball (extent 29.61 mm). DSL v2 has only axis-aligned cylinders, so
+  no v2 spec passes; only a diagonal hole (possible in build123d) does. The check rejects the
+  natural answer, so c044 is reported apart with c045 and c046, with this note.
 - The copilot product keeps DSL v1 (`BUILD_PART_TOOL_SCHEMA`) until SP2 results are published;
   switching it is a separate decision.
 
@@ -153,10 +158,10 @@ Per model, pass@1 with 95% bootstrap CI over concepts (SP1 method), and for comp
 difference with a paired bootstrap CI over concepts:
 
 1. **Regression:** DSL v2 − DSL v1 on the 37 v1 in-vocab concepts.
-2. **Vocabulary:** DSL v2 pass@1 on the design set (11 of the 13 v1-OOV, i.e. without c045/c046)
+2. **Vocabulary:** DSL v2 pass@1 on the design set (10 of the 13 v1-OOV, i.e. without c044/c045/c046)
    and on the held-out set (`concepts_v2`, all 15); DSL v1 on the same sets for the before value.
-3. **DSL vs code:** DSL v2 − build123d on the 63 concepts in DSL v2 vocabulary; build123d alone on
-   c045/c046 reported separately.
+3. **DSL vs code:** DSL v2 − build123d on the 62 concepts in DSL v2 vocabulary; build123d alone on
+   c044/c045/c046 reported separately.
 4. **Repair:** pass@1 after repair − single-shot pass@1, per arm, on the same attempts.
 5. Failure-class tables per arm; cost table (tokens, latency, calls).
 
